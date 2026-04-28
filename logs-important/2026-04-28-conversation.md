@@ -263,3 +263,296 @@ config(process) = { callerProcessRef, callerStepId }
 - **文档总变更**：docs/08-business-process.md 从 595 行增至 **1476 行**（+881 行，+148%）
 - **阶段进度**：9/13 → **12/13 完成（92%）**
 - **剩余待设计**：仅 1 项（流程实例运行时追踪）+ 5 项阶段一外任务
+
+---
+
+# 讨论日志 — 2026-04-28（续三）
+
+> **主题**：Phase 0 收尾 + Roadmap V2 重构 + Phase 1 架构冻结 + MVP 技术方案设计
+> **承接**：Phase 0 设计规格 12/13 完成，本轮完成收尾并进入 Phase 1
+> **产出**：
+> - `docs/02-roadmap.md` — Roadmap V2 重构（Phase 0 标记 100% 完成）
+> - `docs/04-tech-design/validation-design.md` — 校验机制技术方案（新建）
+> - Phase 1 完整技术栈选型、MVP 功能清单、数据库 Schema 设计、API 设计
+
+---
+
+## 第一部分：Phase 0 收尾 — 任务重归类
+
+### 背景
+Phase 0 原有 15 个任务，其中 0.14（PM-AI 协作界面交互设计）和 0.15（LLM 集成方案与 Prompt 工程策略）尚未完成。讨论是否可以将它们归入后续 Phase，使 Phase 0 标记为 100% 完成。
+
+### 决策
+
+**PM 确认**：将 0.14 和 0.15 归入其他 Phase，Phase 0 标记 100% 完成。
+
+| 原任务 | 新归属 | 理由 |
+|--------|--------|------|
+| 0.14 PM-AI 协作界面交互设计 | → Phase 2 [2.5-pre] 前置依赖 | 自然属于核心引擎阶段的 UI 设计前置任务 |
+| 0.15 LLM 集成方案与 Prompt 工程 | → Phase 5 [5-pre] 基础设计 | 属于 AI 能力增强的前置基础 |
+
+### 执行操作
+- 更新 `docs/02-roadmap.md`：移除 Phase 0 的 0.14/0.15，在 Phase 2 和 Phase 5 分别添加 [2.5-pre] 和 [5-pre]
+- 更新 `docs/01-design-idea/01-design-idea.md`：待办列表同步调整
+- 更新 `memory/project_progress.md`：Phase 0 进度标记 100%（13/13）
+- Git commit: `050e76b`
+
+---
+
+## 第二部分：进入 Phase 1 — 架构冻结 + MVP
+
+### PM 对 Phase 规划的核心定义原话（按时间顺序）
+
+以下摘录自本次对话中 PM 关于 5 个 Phase 定义的原始表述，按对话中出现的时间顺序排列：
+
+#### 1. MVP 不含 MCP/AI（Line ~1629）
+
+> 「需要调整：在 MVP 里，我们都无需考虑系统给外部 AI 使用相关的功能设计和实现，所以所有和 MCP 相关的设计、实现都放在以后再说」
+
+**含义**：Phase 1（MVP 阶段）的边界明确——不涉及任何 MCP 接口或 AI 能力，聚焦于 PM 手动使用系统的核心链路。
+
+---
+
+#### 2. Phase 3 重新定位（Line ~1641）— PM 写的最长一段
+
+> 「Phase 3，调整为：'原型系统成熟度提升：实现与 UX 设计产物集成、从领域模型到流程、交互逻辑管理、呈现的流畅性'」
+>
+> 具体可能包括：
+> 1. 以上几大模块功能的细化和完善
+> 2. 支持高保真产物的导入、分析，和原型交互组件的绑定
+> 3. 原型的展示模式和运行模式
+> 4. 流程架构管理以及流程编辑、查看的体验功能性提升
+> 5. 领域模型的可视化，以及探索和完善领域模型内部的领域对象，与系统本身的 Role、application 等到关系
+> 6. 原型系统如何无缝集成到日常其他系统开发流程中，便于团队协作、第三方工具里展示流程、原型、保存评审记录
+> 7. 一个创新功能想法：支持项目下领域模型、流程、交互原型的数据版本管理，支持对版本间做 diff 分析和采集，形成一次产品迭代的功能清单（本质上，现实中团队开发一个系统，评审的需求实际上我认为是 PM 对系统的下个状态的规划与当前状态的 Diff）
+
+**关键洞察**：
+- Phase 3 的定位是「从能用→好用」，不是新增大功能模块
+- 第 7 点是创新点：**版本 Diff = PM 规划的下个状态 vs 当前状态的差异**
+- 这直接影响了后来 Phase 3.7（版本管理与 Diff）任务的定位
+
+---
+
+#### 3. Phase 4 和 Phase 5 核心定义 ⭐（Line ~1649）
+
+> 「Phase 4 和 5，我们当下只定大方向，里面具体的目标等后续我们再不断完善：」
+
+**Phase 4 核心定位**：
+> 「我希望核心定位是，本系统和下游 coding AI 打通，可以输出 PM 在产品和功能规划上的想法和结构化信息，最大程度保证输出给 downstream coding 人员/AI 的信息是完整的、不失真的，甚至可以用来检查代码实现的完整度」
+
+**Phase 5 核心定位**：
+> 「核心定位是：本系统已完成的各项功能本身，充分引入 AI 来增加效率，提升体验。比如 AI 帮忙画流程，AI 协助分析业务等」
+
+**关键区分**：
+- **Phase 4 = 对外输出能力**：系统→外部 Coding AI（只读接口 + 结构化输出 + 实现对照检查）
+- **Phase 5 = 对内 AI 增强**：AI→系统内部功能（AI 画流程、AI 分析业务等）
+
+---
+
+### 五个 Phase 核心定位总结表
+
+| Phase | 核心定位 | PM 原话关键词 |
+|-------|---------|-------------|
+| **0** | 设计规格冻结 | 全部核心设计落盘 |
+| **1** | 架构冻结 + MVP | 不含 MCP/AI，PM 手动使用系统的核心链路 |
+| **2** | 核心引擎 | 创建项目→定义领域模型→设计业务流程→搭建页面→添加组件 |
+| **3** | 成熟度提升 | 从能用→好用；功能细化、外部集成、展示/运行双模式、版本 Diff、团队协作 |
+| **4** | 对外输出能力 | 与下游 Coding AI 打通；输出完整结构化信息；保证不失真；可检查代码实现完整度 |
+| **5** | 对内 AI 增强 | 在已有功能上引入 AI 提升效率；AI 画流程、AI 分析业务等 |
+
+---
+
+## 第三部分：技术栈选型
+
+### 选型维度（PM 定义）
+PM 明确要求从三个维度分析：
+1. 市场上相关框架的生态完整度、框架能力、未来发展潜力
+2. 我们项目的定位、5 个阶段规划要实现的能力
+3. 最后才是个人偏好
+
+### 最终决策
+
+| 决策项 | 选择 | 理由 |
+|--------|------|------|
+| 后端框架 | **Fastify** | 生态好、性能优秀、插件体系成熟、与 TypeScript 深度集成 |
+| 数据库 | **PostgreSQL** | 关系型、JSON 支持、生态成熟、适合复杂查询 |
+| ORM | **Drizzle** | 类型安全、SQL-like API、轻量、与 TypeBox 天然配合 |
+| 项目结构 | **Monorepo (pnpm workspaces + Turborepo)** | 多包共享类型、统一构建、适合前后端分离 |
+| 前端 | **React + Vite + TypeScript** | 生态成熟、开发体验好、与后端共享类型 |
+| 校验方案 | **TypeBox + Ajv** | 一套定义三处复用（TS 类型 + 运行校验 + JSON Schema 输出） |
+
+---
+
+## 第四部分：MVP 功能清单
+
+### PM 的优先级指导
+> 「我的想法是我们优先从项目管理、领域模型管理、业务流程管理这 3 个模块开始做」
+
+### 开发顺序原则（PM 纠正）
+PM 强调正确的思考顺序应该是：
+1. 先确定 **MVP 要做什么**（概念层面：功能清单）
+2. 再确定 **优先级**（哪些先做）
+3. 最后才是 **如何做**（技术实现：技术栈、数据库 Schema 等）
+
+### MVP 功能清单（31 项，按 5 大模块组织）
+
+**模块一：项目管理（7 项）**
+- 项目 CRUD、项目列表/搜索/筛选、项目详情查看、项目删除（软删除）、项目状态管理、项目成员角色管理、项目基本信息编辑
+
+**模块二：领域模型管理（8 项）**
+- 实体 CRUD、实体列表/搜索、字段 CRUD、字段类型约束（26 种）、实体间关系定义、关系可视化（ER 图）、领域模型导入/导出、数据流向自动推导（Phase 3 前置）
+
+**模块三：业务流程管理（8 项）**
+- 流程 CRUD、全局节点池管理（CRUD）、边管理（CRUD）、流程-节点关联管理、流程图渲染（前端）、节点类型校验、循环检测与警告、子流程嵌套支持
+
+**模块四：应用与页面管理（5 项）**
+- 应用 CRUD、页面 CRUD、页面布局区域定义、页面导航配置、页面与流程关联
+
+**模块五：系统基础（3 项）**
+- 用户认证与授权、操作审计日志、系统配置管理
+
+---
+
+## 第五部分：数据库 Schema 设计
+
+### 设计规范（PM 确认）
+- `created_at` / `updated_at` 作为统一标准字段，所有数据库表都必须包含
+- `entity_relations.type` 简化为 2 个值：`has` / `belongsTo`（数量关系由独立 cardinality 字段表达）
+
+### 核心表（12+ 张）
+
+**项目管理（1 张）**
+- `projects` — 项目主表（id, name, display_name, description, status, version, config JSONB, created_at, updated_at）
+
+**领域模型（4 张）**
+- `domain_entities` — 实体表
+- `entity_fields` — 字段表（26 种字段类型）
+- `entity_relations` — 实体关系表（type: has/belongsTo, cardinality, source_config/target_config JSONB）
+- `data_flow_metadata` — 数据流向元数据表（自动推导结果存储）
+
+**业务流程（5 张）**
+- `business_processes` — 流程定义表
+- `process_nodes` — 全局原子节点池（Action/Decision/Start/End/Parallel/Fork/Join/Merge）
+- `process_edges` — 全局边池
+- `process_node_map` — 流程-节点关联映射表（含 sort_order=0 入口节点语义）
+- 注：不需要 process_edge_map，边的归属可通过两端节点是否在同一流程的节点集中推导
+
+**应用与页面（3 张）**
+- `applications` — 应用定义表
+- `pages` — 页面表
+- `page_layout_regions` — 页面布局区域表
+
+### 样例数据
+以「换电站管理系统」为例，设计了完整的样例数据用于开发和测试。
+
+---
+
+## 第六部分：RESTful API 设计
+
+### API 总览（40+ 端点）
+
+| 模块 | 端点数 | 示例 |
+|------|--------|------|
+| 项目管理 | 7 | GET/POST /api/projects, GET/PUT/DELETE /api/projects/:id |
+| 领域模型·实体 | 7 | GET/POST /api/projects/:id/domain/entities, ... |
+| 领域模型·字段 | 6 | GET/POST /api/projects/:id/domain/entities/:entityId/fields, ... |
+| 领域模型·关系 | 5 | GET/POST /api/projects/:id/domain/relations, ... |
+| 业务流程·流程 | 7 | GET/POST /api/projects/:id/processes, ... |
+| 业务流程·节点 | 6 | GET/POST /api/projects/:id/process-nodes, ... |
+| 业务流程·边 | 5 | GET/POST /api/projects/:id/process-edges, ... |
+| 流程-节点关联 | 4 | GET/PUT/DELETE /api/projects/:id/processes/:pid/nodes, ... |
+| 应用 | 5 | GET/POST /api/projects/:id/applications, ... |
+| 页面 | 6 | GET/POST /api/projects/:id/applications/:appId/pages, ... |
+
+### 关键设计决策
+- 统一前缀 `/api/projects/:projectId/...`（资源嵌套于项目下）
+- 软删除（status 字段标记，不物理删除）
+- 分页、排序、筛选标准化
+- 响应格式统一 `{ data, meta: { total, page, pageSize } }`
+
+---
+
+## 第七部分：校验机制技术方案（Task 1.5）
+
+### 产出文档
+`docs/04-tech-design/validation-design.md`（~370 行，v1.0）
+
+### 核心结论
+
+| 决策编号 | 决策 | 理由 |
+|----------|------|------|
+| VAL-1 | TypeBox + Ajv | 一套定义三处复用：TS 类型 + 运行校验 + JSON Schema 输出 |
+| VAL-2 | 四层校验模型 | L1/L2/L3 Phase 1 实现，L4 Phase 2 实现 |
+| VAL-3 | 动态 Schema 分发 | 按 component.type 从注册表查找对应 PropsSchema |
+| VAL-4 | Ajv allErrors 模式 | 一次返回全部错误，减少反复修改次数 |
+| VAL-5 | Fastify preValidation 集成 | 路由层统一拦截，业务代码无需关心校验 |
+| VAL-6 | JSON Schema 原生输出 | TypeBox.Sprint() 零成本输出，供 Phase 4 MCP 使用 |
+
+### 四层校验模型
+
+| 层级 | 名称 | 范围 | Phase |
+|------|------|------|-------|
+| L1 | 结构校验 | 必填字段、类型匹配、枚举值合法 | Phase 1 |
+| L2 | 类型约束校验 | Props 符合组件类型的 PropsSchema | Phase 1 |
+| L3 | 引用完整性校验 | Hook 事件存在性、navigate 目标存在、binding 引用有效 | Phase 1 |
+| L4 | 跨对象一致性校验 | 域模型字段引用、流程图一致性、角色权限引用 | Phase 2 |
+
+---
+
+## 第八部分：Monorepo 项目结构
+
+### 目录结构
+
+```
+ai-prototype-manager/
+├── packages/
+│   ├── api/                    # 后端服务 (Fastify)
+│   │   ├── src/
+│   │   │   ├── routes/         # 路由层
+│   │   │   ├── services/       # 业务逻辑层
+│   │   │   ├── models/         # Drizzle ORM 模型
+│   │   │   └── validation/     # TypeBox + Ajv 校验层
+│   │   └── package.json
+│   ├── web/                    # 前端应用 (React + Vite)
+│   │   ├── src/
+│   │   └── package.json
+│   ├── shared/                 # 共享类型和工具
+│   │   ├── src/
+│   │   │   ├── types/          # 共享 TypeScript 类型
+│   │   │   └── utils/          # 共享工具函数
+│   │   └── package.json
+│   └── validation-schemas/     # TypeBox Schema 定义包
+│       ├── src/
+│       └── package.json
+├── workspace/
+│   └── dev/                    # 开发环境配置（Docker Compose 等）
+│       ├── docker-compose.yml  # PostgreSQL 本地开发
+│       └── .gitignore
+├── turbo.json                  # Turborepo 配置
+├── pnpm-workspace.yaml
+├── package.json
+└── .gitignore                 # 包含 workspace/
+```
+
+### 关键约定
+- `workspace/` 目录放入 `.gitignore`，不推送远端
+- 前后端构建产物 `dist/` 也需纳入版本管理策略
+- PostgreSQL 通过 Docker Compose 在本地运行
+
+---
+
+## 会话统计（本轮）
+
+- **讨论议题数**：8 大议题（Phase 0 收尾 / 技术栈选型 / MVP 功能清单 / DB Schema / API 设计 / 校验机制 / Monorepo 结构 / 开发环境）
+- **设计决策数**：7 项（VAL-1 ~ VAL-7）+ 技术栈 6 项 + DB 设计多项
+- **新建文档**：`docs/04-tech-design/validation-design.md`（~370 行）
+- **更新文档**：`docs/02-roadmap.md`, `docs/01-design-idea/01-design-idea.md`, `CLAUDE.md`
+- **Git commits**: `050e76b`（Roadmap V2）, `3d07616`（validation-design）
+- **阶段进度**：Phase 0 ✅ 100% → **Phase 1 架构设计中（进行中）**
+
+## 全日累计统计（四轮讨论）
+
+- **总讨论议题**：Phase 0 收尾 + subProcess + 循环约束 + Phase 1 架构设计
+- **总设计决策数**：48 项（业务流程）+ 7 项（校验）+ 技术栈/架构多项
+- **核心产出**：Roadmap V2（Phase 0=100%）+ Phase 1 完整技术方案（进行中）
+- **下一步**：继续 Phase 1 设计剩余部分 → 写设计 spec 文档 → 用户审核 → 转入实施计划
