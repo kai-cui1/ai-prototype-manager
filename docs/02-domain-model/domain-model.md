@@ -278,6 +278,9 @@ ProcessStep
 │   ├── (type=humanTask) → { assigneeRole, pageRef, formFields, deadline }
 │   ├── (type=device)    → { deviceType, operation, protocol, signalDef }
 │   ├── (type=subProcess) → { processRef, inputMapping, outputMapping }
+│                                // ⚠️ 已被 v1.2 全局池模型替代
+│                                // 新模型：Process 层面父子关系（childProcessIds[]）
+│                                // 详见 docs/08-business-process.md「subProcess v1.2」章节
 │   └── (type=custom)    → { customType, configSchema }
 │
 ├── 关联关系：
