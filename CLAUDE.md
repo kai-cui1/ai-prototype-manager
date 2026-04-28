@@ -68,6 +68,10 @@ Coding AI（下游，如 Claude Code / Cursor / Devin）
 
 > 上游 MCP 接口的具体形态（CRUD vs 意图式）尚未确定，需要在系统设计阶段讨论决定。
 
+## 远程仓库
+
+- **GitHub**: https://github.com/kai-cui1/ai-prototype-manager
+
 ## 项目目录规范
 
 ```
