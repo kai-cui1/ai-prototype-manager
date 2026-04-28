@@ -77,13 +77,17 @@ Coding AI（下游，如 Claude Code / Cursor / Devin）
 ```
 ai-prototype-manager/
 ├── CLAUDE.md                  # Claude Code 项目指引（本文件）
-├── docs/                      # 设计文档（持久化存储）
-│   ├── 01-design-idea/        # 设计构想与讨论记录
-│   │   └── 01-design-idea.md  # 所有设计决策的单一来源
-│   └── 02-roadmap.md          # 建设路线图与进度追踪
-│   └── (后续按需新增: 03-xxx)
-└── logs-important/            # 重要对话记录（按日期分文件）
-    └── YYYY-MM-DD-conversation.md  # 当日完整对话原封不动保存
+├── docs/                      # 文档（持久化存储）
+│   ├── 01-design-idea/        # 产品设计构想与讨论记录
+│   │   └── 01-design-idea.md  # 所有产品设计决策的单一来源
+│   ├── 02-roadmap.md          # 建设路线图与进度追踪
+│   ├── 02-domain-model/       # 领域模型（元模型）
+│   ├── 04-tech-design/        # 技术方案设计 ⭐ Phase 1 起新增
+│   │   └── <topic>-design.md  # 按技术主题分文件（如 validation-design.md）
+│   └── (其他设计文档)
+├── logs-important/            # 重要对话记录（按日期分文件）
+│   └── YYYY-MM-DD-conversation.md
+└── (Phase 1 起的代码目录，待初始化)
 ```
 
 ### 文档规范
@@ -91,9 +95,10 @@ ai-prototype-manager/
 **所有重要设计讨论必须实时记录到 `docs/` 目录下。**
 
 规则：
-- 每次深入探讨的重要话题、决策、结论，都要追加到对应文档中
+- **产品设计决策** → `docs/01-design-idea/` 或对应编号文档
+- **技术方案设计** → `docs/04-tech-design/`（**Phase 1 起**：含选型分析、架构决策、模块设计等）
 - 不要只在对话中讨论而不落盘 —— 对话是临时的，文档是持久的
-- 新增设计主题按编号新建文档（如 `docs/03-xxx`）
+- 技术方案文档命名格式：`<topic>-design.md`（如 `validation-design.md`）
 
 ### 对话归档规范
 
@@ -106,13 +111,16 @@ ai-prototype-manager/
 
 ## 当前阶段
 
-**概念阶段（阶段一进行中）** — 项目处于需求对齐和架构设计期，代码库尚未初始化。
+**Phase 1：架构冻结 + MVP（规划中）** — Phase 0 设计规格 100% 完成，进入技术方案设计与实现规划。
 详细路线图见 `docs/02-roadmap.md`。
 
-### 下一步重点
+### 已确定的技术栈
 
-阶段一剩余的 7 项待完成任务，优先级排序：
-1. **1.6 App 级共享资源体系详细设计** — 领域模型/角色用户/业务规则/业务行为/API/定时器
-2. **1.7「对象生命周期」交互范式定义** — 钩子类型、事件类型、action 类型体系、lifeCycles 元数据规范
-3. **1.8 标准组件库规划** — 组件分类/属性 Schema/状态集/lifeCycles 定义
-4. **Layout DSL 专项设计** — 实现无关的布局描述语言（新增专项任务）
+| 决策 | 选择 |
+|------|------|
+| 后端框架 | Fastify |
+| 数据库 | PostgreSQL |
+| ORM | Drizzle |
+| 校验方案 | TypeBox + Ajv |
+| 项目结构 | Monorepo (pnpm workspaces + Turborepo) |
+| 前端 | React + Vite + TypeScript |
