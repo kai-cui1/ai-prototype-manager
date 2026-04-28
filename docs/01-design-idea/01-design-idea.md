@@ -278,7 +278,7 @@ PM 自用              研发 / Coding AI     测试系统
   - [x] 核心交互机制（完整性框架驱动问答）
   - [x] **产品原型要素清单**全部 23 项逐类深入讨论完毕
 - **待讨论**：
-  - [ ] 上游 MCP 接口形态（CRUD 操作式 vs 高层意图式 API）
+  - [x] **上游 MCP 接口设计**（✅ v1.0 完成——详见 docs/09-mcp-interface.md。含：语义层范围界定/8组实体级CRUD/~60+方法/下游延后）
   - [x] 语义层数据结构的 Schema 设计（⚠️ 已完成——详见 docs/03-semantic-layer-schema.md）
   - [ ] PM 与 AI 协作的交互界面设计
   - [ ] LLM 集成方案选择及 Prompt 工程策略
@@ -289,5 +289,5 @@ PM 自用              研发 / Coding AI     测试系统
   - [x] **标准组件库规划**（~52组件/6分类/三层继承/属性Schema/状态集/lifeCycles）—— ✅ 详见 docs/07-component-library.md
   - [x] **系统领域模型（元模型）**（5大域/~19实体/ER图/service应用类型）—— ✅ 详见 docs/02-domain-model/domain-model.md
   - [x] **完整工作流定义（A→F六阶段）**（含研发集成E + 测试集成F）—— ✅ 详见 docs/workflow.md
-  - [x] **业务流程系统完整设计**（✅ v1.1 完成——详见 docs/08-business-process.md。含：全局节点池模型/取消Graph实体/decisions[]对称/纯管道数据流/DecisionBranch.outputs/创建工作流泳道交互/ProcessArchitecture完整设计/29项设计决策。subProcess待第二阶段）
+  - [x] **业务流程系统完整设计**（✅ v1.3 完成——详见 docs/08-business-process.md。含：全局节点池模型/取消Graph实体/decisions[]对称/纯管道数据流/DecisionBranch.outputs/创建工作流泳道交互/ProcessArchitecture完整设计/subProcess嵌套(12项决策)/循环约束规则(7项决策)/共48项决策）
   - [ ] **业务规则引擎的详细设计**（公式语法、域组织方式、引用机制）
