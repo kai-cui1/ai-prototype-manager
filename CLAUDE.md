@@ -24,22 +24,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 4. **组件语义** — 元素的业务意图（是"提交"还是"取消"）
 
 ## 协作模式
+本系统要实现的工作流，参见文档：`docs/workflow.md`
 
-```
-PM（产品经理）
-  │  对话 + 决策
-  ▼
-Design AI（本系统集成 LLM 能力）
-  │  动手执行：创建页面、添加组件、定义交互
-  ▼
-原型产物（HTML + 结构化语义数据）
-  │  MCP 只读接口
-  ▼
-Coding AI（下游，如 Claude Code / Cursor / Devin）
-  │  读取结构化信息 → 理解项目逻辑 → 编码实现
-  ▼
-可用软件系统
-```
 
 ## 技术架构决策
 
@@ -59,14 +45,7 @@ Coding AI（下游，如 Claude Code / Cursor / Devin）
 - HTML 通过 `<script>` 标签引用语义层 JS 文件
 - 两者在数据库中关联存储，导出时保持引用关系
 
-### MCP 接口设计（双向）
 
-| 方向 | 角色 | 性质 |
-|---|---|---|
-| **上游**（创建时） | Design AI 通过 MCP 操作原型 | 读写接口 — CRUD 式或意图式（待设计方案时确定） |
-| **下游**（编码时） Coding AI 通过 MCP 读取原型 | **只读查询** — 获取项目的完整页面结构和交互逻辑 |
-
-> 上游 MCP 接口的具体形态（CRUD vs 意图式）尚未确定，需要在系统设计阶段讨论决定。
 
 ## 远程仓库
 
@@ -102,6 +81,8 @@ ai-prototype-manager/
 
 ### 对话归档规范
 
+**判断对话重要的依据1**：判断用户提示词里是否包含【重要】标记
+**判断对话重要的依据2**：判断用户提示词长度是否>30字，大于30字直接认为属于重要对话
 **每次重要对话会话结束时，将完整对话内容保存到 `logs-important/` 目录。**
 
 规则：
@@ -124,3 +105,6 @@ ai-prototype-manager/
 | 校验方案 | TypeBox + Ajv |
 | 项目结构 | Monorepo (pnpm workspaces + Turborepo) |
 | 前端 | React + Vite + TypeScript |
+| 路由 | React Router v6（硬编码路由，菜单驱动 Sidebar） |
+| UI 组件库 | shadcn/ui (Radix UI + Tailwind CSS) |
+| 图形/画布库 | ReactFlow |
