@@ -24,7 +24,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 4. **组件语义** — 元素的业务意图（是"提交"还是"取消"）
 
 ## 协作模式
-本系统要实现的工作流，参见文档：`docs/workflow.md`
+本系统要实现的工作流，参见文档：`docs/03-prd/workflow/workflow.md`
 
 
 ## 技术架构决策
@@ -57,13 +57,28 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ai-prototype-manager/
 ├── CLAUDE.md                  # Claude Code 项目指引（本文件）
 ├── docs/                      # 文档（持久化存储）
-│   ├── 01-design-idea/        # 产品设计构想与讨论记录
+│   ├── 00-project/             # 项目元数据（Roadmap 等）
+│   │   └── roadmap.md         # 建设路线图与进度追踪
+│   ├── 01-design-idea/        # 产品设计构想与讨论记录、未详细讨论的 idea
 │   │   └── 01-design-idea.md  # 所有产品设计决策的单一来源
-│   ├── 02-roadmap.md          # 建设路线图与进度追踪
-│   ├── 02-domain-model/       # 领域模型（元模型）
-│   ├── 04-tech-design/        # 技术方案设计 ⭐ Phase 1 起新增
-│   │   └── <topic>-design.md  # 按技术主题分文件（如 validation-design.md）
-│   └── (其他设计文档)
+│   ├── 02-domain-model/       # 领域模型设计产物（实体、属性、关系、业务流程）
+│   ├── 03-prd/                # 产品需求规格 + 交互原型
+│   │   ├── workflow/          # 业务流程 / 工作流文档
+│   │   │   └── workflow.md    # PM-AI 协作 A→F 六阶段工作流
+│   │   └── prototypes/        # HTML 高保真交互原型（Phase 1 填充）
+│   ├── 04-tech-design/        # 技术方案设计
+│   │   ├── validation-design.md
+│   │   ├── object-lifecycle.md
+│   │   ├── external-design-integration.md
+│   │   ├── mcp-interface.md
+│   │   └── phase1-design-tech.md  # Phase 1 技术方案（从 Spec 拆分）
+│   ├── 05-data-design/        # 后端 DDL + 前端数据方案
+│   │   └── phase1-database-schema.md  # Phase 1 数据库 19 张表定义（从 Spec 拆分）
+│   ├── 06-test-design/        # 测试方案 + 测试用例（Phase 1 填充）
+│   ├── 07-deploy-design/       # 部署方案 + 部署架构图（Phase 1 填充）
+│   ├── 99-archived/           # 已归档的历史文件（原样保留）
+│   │   └── 2026-04-28-phase1-design.md  # Phase 1 Design Spec 原件
+│   └── 20-analyze-report/     # 分析报告（过程性产出，不纳入 07 步流程）
 ├── logs-important/            # 重要对话记录（按日期分文件）
 │   └── YYYY-MM-DD-conversation.md
 └── (Phase 1 起的代码目录，待初始化)
@@ -75,9 +90,34 @@ ai-prototype-manager/
 
 规则：
 - **产品设计决策** → `docs/01-design-idea/` 或对应编号文档
-- **技术方案设计** → `docs/04-tech-design/`（**Phase 1 起**：含选型分析、架构决策、模块设计等）
+- **领域模型/业务流程设计** → `docs/02-domain-model/`
+- **产品 PRD / 交互原型** → `docs/03-prd/`（workflow/ 放工作流，prototypes/ 放 HTML 原型）
+- **技术方案设计** → `docs/04-tech-design/`
+- **数据设计（DDL / 前端数据）** → `docs/05-data-design/`
+- **测试设计** → `docs/06-test-design/`
+- **部署设计** → `docs/07-deploy-design/`
 - 不要只在对话中讨论而不落盘 —— 对话是临时的，文档是持久的
 - 技术方案文档命名格式：`<topic>-design.md`（如 `validation-design.md`）
+
+### 文档目录强制规范（必须遵守）
+
+**所有设计产出必须放入 `docs/` 对应编号子目录，禁止在根目录或随意位置创建文档文件。**
+
+| 工作阶段 | 产出类型 | 必须放入 | 禁止行为 |
+|---------|---------|---------|---------|
+| 产品思路/想法讨论 | 模糊方向、未详细讨论的 idea | `01-design-idea/` | ❌ 不要创建 `superpowers/`、`specs/` 等非标准目录 |
+| 领域模型/业务流程设计 | 实体关系、数据流、对象属性 | `02-domain-model/` | |
+| 产品 PRD / 交互原型 | 功能规格、页面交互逻辑、HTML 原型 | `03-prd/`（含 `workflow/` 和 `prototypes/` 子目录） | |
+| 技术方案设计 | 选型、架构图、DB 规范、API 设计、组件交互序列图 | `04-tech-design/` | |
+| 数据设计（细粒度） | 后端 DDL、前端数据方案 | `05-data-design/` | |
+| 测试设计 | 测试方案、测试用例 | `06-test-design/` | |
+| 部署设计 | 部署架构图、环境配置 | `07-deploy-design/` | |
+| 项目元数据 | Roadmap、整体规划 | `00-project/` | |
+| 归档 | 已被拆分/替代的历史版本 | `99-archived/` | |
+
+**违规示例（已发生并修正）**：
+- Phase 1 Design Spec 曾放在 `docs/superpowers/specs/` 下 → 已拆分归位到 `04-tech-design/` + `05-data-design/` + `01-design-idea/` + 原件归档到 `99-archived/`
+- Phase 0 设计文档曾散落在 `docs/` 根目录 → 已迁移到 `02-domain-model/` 和 `04-tech-design/`
 
 ### 对话归档规范
 
@@ -93,7 +133,12 @@ ai-prototype-manager/
 ## 当前阶段
 
 **Phase 1：架构冻结 + MVP（规划中）** — Phase 0 设计规格 100% 完成，进入技术方案设计与实现规划。
-详细路线图见 `docs/02-roadmap.md`。
+详细路线图见 `docs/00-project/roadmap.md`。
+Phase 1 Design Spec 已拆分为：
+- 数据库表定义 → `docs/05-data-design/phase1-database-schema.md`
+- 技术方案设计 → `docs/04-tech-design/phase1-design-tech.md`
+- 扩展想法 → `docs/01-design-idea/phase1-extension-ideas.md`
+- 原件归档 → `docs/99-archived/2026-04-28-phase1-design.md`
 
 ### 已确定的技术栈
 

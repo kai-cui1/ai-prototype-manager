@@ -328,3 +328,268 @@ menus (
 - 设计决策 PH1-25
 
 **总表数：18 → 19 张 | 总端点数：~85 → ~91 个**
+
+---
+
+## 第八部分：Spec 自检（11 个问题逐项修复）
+
+### 背景
+
+PM 要求从 MVP 可用系统角度，结合 Done Demo 场景完整走查 Spec，发现遗漏。
+
+### 发现的 11 个问题（按严重度排列）
+
+#### P0 — 严重阻塞（2 项）
+
+**问题 1：applications 表缺少 type 字段**
+- process_nodes.holder_type='service' 引用 applications(type='service').id
+- 但 applications 表没有 type 字段，数据完整性断裂
+- **修复**：新增 `type TEXT NOT NULL DEFAULT 'web'`，7 种枚举值（web/wxapp/android/ios/pc/api/service）
+
+**问题 2：L2 校验描述过时**
+- 写着"node_type 校验（8 种）"，实际只有 action/decision 两种
+- **修复**：改为 "node_type 校验（2 种：action / decision）"
+
+#### P1 — 中等问题（4 项）
+
+**问题 3：循环检测零定义**
+- Done Demo 写了"循环检测警告"但 Spec 完全没定义
+- **修复**：两端都做 + 阻断策略。后端创建边时 DFS 检测返回 422 UNPROCESSABLE_ENTITY；前端画布即时检测阻断。算法：从 target DFS 回到 source 则成环。错误码复用 UNPROCESSABLE_ENTITY
+
+**问题 4：缺 MenuManagementPage**
+- pages 列表缺菜单管理页组件
+- **修复**：补充到 Monorepo 页面列表
+
+**问题 5：validation-schemas 文件清单不同步**
+- 3 节 Monorepo 结构列 4 个文件，6.5 节列 7 个文件
+- **修复**：3 节补全为 7 个文件（+ base/organization/architecture/menu）
+
+**问题 6：entryNode 双重定义冲突**
+- business_processes.entry_node_id vs process_node_map.sort_order=0 都在定义"入口节点"
+- **修复**：明确 entry_node_id 为唯一权威入口；sort_order 仅用于排序，注释已修正
+
+#### P2 — 轻微问题（5 项）
+
+| # | 问题 | 处理 |
+|---|------|------|
+| 7 | 工作台无实现 | Phase 1 去掉工作台菜单 |
+| 8 | 项目列表搜索参数未定义 | API 补充 name 搜索 + status 筛选 |
+| 9 | 删除角色级联行为未定义 | 阻止删除策略（422 + 引用详情） |
+| 10 | ER 图 ReactFlow 映射规格缺失 | 延后到「系统模块详细设计」阶段 |
+| 11 | field_type UI 子集未枚举 | 同上 |
+
+### 产出物
+- Spec 9 处修改
+- 自检报告：`docs/20-analyze-report/phase1-spec-self-review.md`（含完整修复记录）
+- Git commit: `32e7b05`
+
+---
+
+## 第九部分：下个阶段讨论
+
+### PM 提问："下个阶段是什么？"
+
+### 回答：两层含义
+
+**A. Roadmap 层面：Phase 1 → Phase 2**
+- Phase 0 ✅ 100% → Phase 1（当前：Spec ✅，实施 ○）→ Phase 2（核心引擎）
+
+**B. Phase 1 内部层面：Spec → 实施 → 编码**
+- Phase 1 有 8 个子任务（1.1~1.8），Spec 覆盖了数据架构层
+- 下一步是**系统模块详细设计**（ER 图 ReactFlow 映射、画布交互细节、field_type 子集、前端布局框架等），然后开始编码
+
+### PM 的判断
+- 需要整理对项目阶段的理解，写成文档放在项目里
+- Spec 做完后、编码前，应该有更详细的下一级设计过程
+- 这层设计的粒度和形式待 PM 决定
+
+---
+
+## 第十部分：Roadmap 颗粒度重构讨论（V3 → V4）
+
+### 背景
+
+PM 在整理对项目阶段理解的过程中，仔细阅读了 Roadmap V3 的 Phase 1 任务定义，发现**任务颗粒度混乱**——8 个任务混了 3 种不同维度（基础设施 / 功能模块 / UI 层），且描述与已完成的 Spec 严重脱节。
+
+### PM 发起的问题
+
+> "我认为这里面写的任务很多都不在一个维度上，请你仔细分析一下，结合我们目前已经完成的 spec，和我讨论下 roadmap 要制定到什么颗粒度"
+
+### AI 分析结果：3 类问题
+
+#### 问题 1：任务描述与 Spec 实际内容严重脱节（5 处）
+
+| Roadmap 任务 | 写的内容 | Spec 实际状态 |
+|---|---|---|
+| **1.2** | "12+ 核心表"（列出了原始 12 张表名） | **已完成**：Spec 定义了 **19 张表** |
+| **1.5** | 含"成员角色管理" | Spec 明确 **不做认证**，无成员概念 |
+| **1.6** | 关系定义写 `type: has\|belongsTo` | 已改为 `relation_kind: dependency\|aggregation\|composition` |
+| **1.7** | 节点类型列了 8 种（Action/Decision/Start/End/Parallel/Fork/Join/Merge） | 已精简为 **2 种**（action/decision） |
+| **1.8** | 只提 3 个页面 | 实际有 **7 个页面**（+OrganizationPanel/ArchitectureView/MenuManagement） |
+
+#### 问题 2：Spec 新增的模块在 Roadmap 中完全缺失
+
+Spec 审核过程中新增了 **3 大功能模块**，但 roadmap 里没有对应任务：
+
+| 新增模块 | 涉及表数 | API 端点数 | Roadmap 位置？ |
+|---|---|---|---|
+| **组织架构管理**（公司/部门/角色/外部实体） | 4 张（表 13-16） | ~21 个 | ❌ 无 |
+| **业务架构管理**（架构树 + 流程映射） | 2 张（表 17-18） | ~11 个 | ❌ 无 |
+| **系统菜单管理** | 1 张（表 19） | 6 个 | ❌ 无 |
+
+这 3 个模块占 Phase 1 总量的 **37%**（7 表 / ~38 端点 / 3 页面），但在 roadmap 中不存在。
+
+#### 问题 3：Phase 内部颗粒度不统一——最根本的问题
+
+当前 8 个任务混了 **3 种不同维度**：
+
+```
+维度 A — 基础设施/横切关注点：
+  1.1 项目初始化（搭建脚手架）
+  1.3 TypeScript 类型定义
+  1.4 校验机制
+
+维度 B — 功能模块（业务领域）：
+  1.5 项目管理模块
+  1.6 领域模型管理模块
+  1.7 业务流程管理模块
+  ??? 组织架构管理      ← 缺失
+  ??? 业务架构管理      ← 缺失
+  ??? 菜单管理          ← 缺失
+
+维度 C — UI 层：
+  1.8 MVP 操作界面（"UI"作为一个独立任务，依赖所有功能模块）
+```
+
+**核心矛盾**：1.2 写的是"数据库设计"，但这其实是设计阶段的产出（已在 Spec 中完成）。如果 Phase 1 是"实施阶段"，那 1.2 应该变成"数据库初始化 + Drizzle Schema 实现"。同样，1.3/1.4 是代码层的横切基础设施，和 1.5-1.7 的"功能模块"不是同一层级的东西。
+
+---
+
+## 第十一部分：PM 提出的开发流程框架（核心决策）
+
+### PM 的完整思路
+
+PM 提出了一套完整的 **两层级 Roadmap 方法论**：
+
+#### 第一层级：Phase 内按「可独立交付验收的功能单元」拆分
+
+每个 Phase 包含若干个功能模块，如：
+- 项目管理 / 领域模型 / 业务流程 / 组织架构 / 业务架构 / 菜单管理
+
+#### 第二层级：每个功能模块内部按「软件工程职能切面」分 7 步
+
+| 步骤 | 名称 | 产出物 | 对应 docs/ 目录 |
+|------|------|--------|:---------------:|
+| 0 | 产品思路 & 想法 | 模糊方向、未被详细讨论的 idea | `01-design-idea/` |
+| 1 | 领域模型 & 业务流程设计 | 实体关系、数据流、业务对象属性 | `02-domain-model/` |
+| 2 | 产品 PRD 设计 | 功能结构、页面交互逻辑、业务规则；HTML 高保真原型 | `03-prd/` |
+| 3 | 前后端详细技术方案 | 技术选型、架构图、DB 设计规范、API 规范、组件交互序列图、重点技术方案 | `04-tech-design/` |
+| 4 | 测试用例设计 | 测试方案 + 用例集（编码前先写） | `06-test-design/` |
+| 5 | 前后端代码实现 | 具体编程任务（接口/页面级颗粒度） | `packages/` (代码) |
+| 6 | 单元测试 & 集成测试 | 测试代码 | `packages/` (代码) |
+| 7 | 部署方案设计 | 部署架构图、环境配置 | `07-deploy-design/` |
+
+另有 `05-data-design/` 存放后端 DDL 和前端数据方案细节。
+
+**关键原则：每个阶段框定功能范围 → 走完 7 步 → 再进入下一阶段**
+
+### PM 的原话记录
+
+> "我是这么考虑的，在项目开始的时候，因为我们要做基础选型，比如前后端技术栈，这些属于'切面'，但确实是一开始要做的决策，这个技术选型通常放在我们 roadmap 的第一步，但是后续会进入到系统功能的实现，这时候 roadmap 就应该按「可独立交付验收的功能单元」拆分。"
+>
+> "每个功能模块内部要按照职能切面（也就是软件工程的开发流程）来分步骤...每一个阶段，我希望我们都一起框定一些功能范围，走上面的流程去制定详细的 roadmap"
+
+---
+
+## 第十二部分：关键决策确认（AskUserQuestion 三轮）
+
+### 决策 1：推进节奏
+
+**选项**：逐模块串行 / M1 先行后并行 / 全部 Step 4 先行
+
+**PM 选择**：**逐模块串行（M1 → M2 → M3 → M4 → M5 → M6）**
+
+**理由**：首次磨合新流程，先走通一个完整周期验证可行性。
+
+### 决策 2：文档组织形式
+
+**选项**：单文件 markdown / 多文件拆分 / Roadmap 与实施计划分离
+
+**PM 选择**：**按照已有的 docs/ 目录结构来组织**
+
+PM 详细说明了目录体系：
+
+```
+docs/
+├── 01-design-idea/     产品思路、模糊方向
+├── 02-domain-model/    领域模型设计产物
+├── 03-prd/             产品需求规格说明书 + HTML 交互原型
+├── 04-tech-design/     技术方案设计（宏观架构 + 模块级细粒度）
+├── 05-data-design/     后端 DB DDL + 前端数据方案
+├── 06-test-design/     测试方案 + 测试用例
+└── 07-deploy-design/   部署方案 + 部署架构图
+```
+
+每个编号对应开发流程的一个步骤，形成清晰的文件→步骤映射。
+
+### 决策 3：Phase 1 边界
+
+**选项**：排除 4 张表 / applications 基础 CRUD 加入
+
+**PM 选择**：**applications / pages / page_layout_regions / data_flow_metadata 纳入 Phase 2，标记为「待整合」**
+
+**理由**：要按照新的思路梳理 roadmap 颗粒度，这 4 张表的 CRUD 不在 Phase 1 范围内。
+
+---
+
+## 第十三部分：执行动作
+
+### 1. 重写 Roadmap 为 V4 版本
+
+文件：`docs/02-roadmap.md`
+
+**核心变更**：
+- Phase 0 保持不变（13 项任务全部完成）
+- Phase 1 从 8 个混合任务 → **前置基础设施 INF(1~6) + 6 个功能模块 M(1~6) × 7 步矩阵**
+- 每个模块的 Step 5 细化到具体编程任务（BE 接口级 / FE 页面级）
+- Step 1&3 标记 ✅（已在 Spec 中完成），Step 2 标 ○ 待做（PRD 尚未编写）
+- Step 4 标 ○ 待做（测试用例尚未设计）
+- Phase 2 标注 applications 等 4 张表为「⚠️ 待整合」
+- 进度追踪从一维表格 → 二维矩阵（模块 × 步骤）
+- 新增「文档目录索引」章节和「V3→V4 变更说明」章节
+
+### 2. 迁移 Phase 0 散落文件到对应目录
+
+使用 `git mv` 移动 7 份文件：
+
+| 原路径 | 新路径 | 归属原因 |
+|--------|--------|---------|
+| `03-semantic-layer-schema.md` | `02-domain-model/semantic-layer-schema.md` | Schema 骨架 = 领域模型 |
+| `04-app-shared-resources.md` | `02-domain-model/app-shared-resources.md` | 共享资源 = 领域模型一部分 |
+| `07-component-library.md` | `02-domain-model/component-library.md` | 组件库定义 = 领域模型 |
+| `08-business-process.md` | `02-domain-model/business-process.md` | 流程系统 = 领域模型 |
+| `05-object-lifecycle.md` | `04-tech-design/object-lifecycle.md` | 交互范式 = 技术方案 |
+| `06-external-design-integration.md` | `04-tech-design/external-design-integration.md` | 外部集成 = 技术方案 |
+| `09-mcp-interface.md` | `04-tech-design/mcp-interface.md` | MCP 接口 = 技术方案 |
+
+原文件名中的数字前缀去掉，避免与目录编号混淆。
+
+### 3. Git 提交并推送
+
+- Commit: `b3caf52` — `docs: Roadmap V4 重构 — 功能模块 × 7 步开发流程矩阵`
+- 已 push 到 `origin/feature/phase1`
+
+---
+
+## 当前状态总结
+
+**已完成**：
+- ✅ Phase 0 设计规格冻结（13/13）
+- ✅ Phase 1 Design Spec（19 表 / 91 端点 / 25 决策）
+- ✅ Roadmap V4 重构（新框架落地）
+- ✅ 文档目录归位（7 份文件迁移）
+
+**下一步自然入口**：
+- **M1 Step 2**：项目管理模块 PRD 设计 → `03-prd/m1-project-prd.md`
+- 或 **M1 Step 4**：项目管理模块测试用例设计 → `06-test-design/m1-project-test.md`
+- 或 **INF 前置基础设施**：Monorepo 初始化等 6 项共享基础代码
