@@ -593,3 +593,106 @@ docs/
 - **M1 Step 2**：项目管理模块 PRD 设计 → `03-prd/m1-project-prd.md`
 - 或 **M1 Step 4**：项目管理模块测试用例设计 → `06-test-design/m1-project-test.md`
 - 或 **INF 前置基础设施**：Monorepo 初始化等 6 项共享基础代码
+
+---
+
+## 第十四部分：文档目录归位讨论（发现遗漏文件）
+
+### 背景
+
+PM 在查看最终 docs/ 目录时发现仍有 3 个（+1 个目录）文件不在已建立的 01~07 目录体系内：
+
+| 文件 | 性质 | 行数 |
+|------|------|:----:|
+| `02-roadmap.md` | 项目总路线图 / 进度追踪 | ~500 |
+| `workflow.md` | PM-AI 协作 A→F 六阶段工作流定义 | ~589 |
+| `superpowers/specs/phase1-design.md` | Phase 1 技术规格（Step 1+3 混合体） | ~1216 |
+| `20-analyze-report/` | 分析报告（2 份） | — |
+
+### PM 发起的问题
+
+> "我注意到还有几个文件遗漏在文档规范之外，请你分析一下并且给出建议"
+
+### AI 分析结果
+
+3 个文件分别属于不同性质：
+- **roadmap.md**：项目元文档，不归属任何单一步骤，是所有步骤的索引
+- **workflow.md**：方法论文档，描述「怎么协作」
+- **phase1-design.md**：Step 1（领域设计）+ Step 3（技术方案）混合产出，放在了非标准目录 `superpowers/specs/` 下
+
+---
+
+## 第十五部分：文档归位决策与执行（四轮 AskUserQuestion）
+
+### 决策 1：roadmap.md → 新建 `00-project/` 元数据目录
+
+PM 选择新建专门的元数据目录存放 roadmap 等项目级文件。
+
+### 决策 2：workflow.md → `03-prd/workflow/` + 新建子目录
+
+PM 决定：
+- 移入 `03-prd/workflow/`（因为 workflow 定义的是从粗到细的完整工作流程，可视为产品交互规范的一部分）
+- 在 `03-prd/` 下新建 2 个子目录：
+  - `workflow/` — 存放业务流程/工作流文档
+  - `prototypes/` — 存放 HTML 格式的高保真交互原型
+
+### 决策 3：phase1-design.md → 拆分为 3 份 + 归档
+
+PM 要求：
+1. 原件拷贝到 `99-archived/`（新建归档目录，专门存放已被替代的历史版本）
+2. 按内容所属拆分到对应目录：
+   - §4 表定义（19 张表 DDL + ER 图）→ `05-data-design/`（首次填充此目录）
+   - §1-3 + §5-12（技术方案主体）→ `04-tech-design/`
+   - §13 扩展预留（功能想法）→ `01-design-idea/`
+
+**关键修正**：AI 初版方案把 §13 归入技术方案，PM 指出"这部分应该放入 01-design-idea，因为属于一些新功能的想法"
+
+### 决策 4：20-analyze-report/ 保持根目录不动
+
+过程性分析报告，不纳入 07 步流程。
+
+### 决策 5：CLAUDE.md 必须新增强制规范
+
+PM 明确要求：**更新 CLAUDE.md 文件，强调不同工作阶段输出产物必须放在哪个目录。我们当前就出现了文档被放在了 superpowers 目录里的问题**
+
+在 CLAUDE.md 中新增了完整的「文档目录强制规范」章节，包含：
+- 7 步流程 × 目录映射表
+- ❌ 禁止行为（不要创建 superpowers/ 等）
+- 违规示例（以 superpowers/specs/ 和根目录散落文件为反面教材）
+
+### 执行动作
+
+1. 创建目录：`00-project/`、`03-prd/workflow/`、`03-prd/prototypes/`、`99-archived/`、`05-data-design/`（首次填充）、`06-test-design/`（空）、`07-deploy-design/`（空）
+2. git mv：`02-roadmap.md` → `00-project/roadmap.md`
+3. git mv：`workflow.md` → `03-prd/workflow/workflow.md`
+4. cp 归档：`superpowers/specs/phase1-design.md` → `99-archived/`
+5. Write 新建 3 个拆分文件：
+   - `05-data-design/phase1-database-schema.md`（§4 全部，19 张表）
+   - `04-tech-design/phase1-design-tech.md`（§1-3+5-12 全部）
+   - `01-design-idea/phase1-extension-ideas.md`（§13 全部）
+6. 更新 Roadmap 中 Spec 引用路径（旧路径 → 新拆分路径）
+7. 更新 CLAUDE.md（目录结构 + 强制规范 + 引用路径）
+8. 删除空目录 `superpowers/specs/`
+9. Git commit `6cafeaa` + push
+
+### 最终文档结构（执行后）
+
+```
+docs/
+├── 00-project/roadmap.md              ← Roadmap V4
+├── 01-design-idea/
+│   ├── 01-design-idea.md
+│   └── phase1-extension-ideas.md    ← 新建
+├── 02-domain-model/                  ← 5 份
+├── 03-prd/
+│   ├── workflow/workflow.md          ← 从根目录移入
+│   └── prototypes/                 ← 新建（空）
+├── 04-tech-design/                 ← 5 份 + phase1-design-tech.md（新建）
+├── 05-data-design/
+│   └── phase1-database-schema.md   ← 新建（首次填充）
+├── 06-test-design/                  ← 空（待填充）
+├── 07-deploy-design/               ← 空（待填充）
+├── 99-archived/
+│   └── 2026-04-28-phase1-design.md ← 原件归档
+└── 20-analyze-report/              ← 不动
+```
