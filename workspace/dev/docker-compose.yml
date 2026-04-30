@@ -1,0 +1,19 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: apm_dev
+      POSTGRES_PASSWORD: apm_dev_secret
+      POSTGRES_DB: apm_prototype
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U apm_dev -d apm_prototype"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:
