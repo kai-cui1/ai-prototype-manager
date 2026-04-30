@@ -21,5 +21,4 @@ export const projects = pgTable('projects', {
 // as each module is implemented (M1-M6)
 // ============================================
 
-// Re-export everything for convenience
-export { relations };
+// Relations are defined in ./relations.ts
