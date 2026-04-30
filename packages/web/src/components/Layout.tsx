@@ -1,7 +1,12 @@
-import { Outlet, Link } from 'react-router-dom';
-import { useState } from 'react';
+import { Link, Outlet } from 'react-router-dom';  // Outlet 保留备用（未来改为嵌套路由布局时使用）
+import { type ReactNode, useState } from 'react';
 import type { MenuItem } from '@apm/shared';
 import { cn } from '@/lib/utils';
+
+// Layout 组件接口定义
+interface LayoutProps {
+  children: ReactNode;
+}
 
 // Default menu data (will be replaced by API call after M6)
 const DEFAULT_MENUS: MenuItem[] = [
@@ -168,7 +173,7 @@ function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
   );
 }
 
-export default function Layout() {
+export default function Layout({ children }: LayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   return (
@@ -178,10 +183,9 @@ export default function Layout() {
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
+      {/* 主内容区：渲染子组件（当前为 <Routes>） */}
       <main className="flex-1 overflow-auto">
-        {/* TODO: remove after debugging */}
-        <div className="p-4 text-red-500 font-bold">OUTLET AREA</div>
-        <Outlet />
+        {children}
       </main>
     </div>
   );

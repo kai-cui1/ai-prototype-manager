@@ -1,7 +1,6 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import { db } from './db.js';
-
 const app: FastifyInstance = Fastify({
   logger: {
     level: process.env.LOG_LEVEL ?? 'info',

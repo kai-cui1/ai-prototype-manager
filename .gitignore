@@ -7,3 +7,7 @@ dist/
 *.tsbuildinfo
 coverage/
 workspace/dev/.env
+
+# E2E test artifacts (Playwright 生成)
+test-results/
+playwright-report/
