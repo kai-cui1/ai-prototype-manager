@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import { useState } from 'react';
 import type { MenuItem } from '@apm/shared';
 import { cn } from '@/lib/utils';
@@ -125,9 +125,9 @@ function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
                         .filter((c) => c.visible)
                         .sort((a, b) => a.sortOrder - b.sortOrder)
                         .map((child) => (
-                          <a
+                          <Link
                             key={child.id}
-                            href={child.path ?? '#'}
+                            to={child.path ?? '#'}
                             className={cn(
                               'flex items-center rounded-md px-8 py-1.5 text-sm hover:bg-accent',
                               location.pathname === child.path &&
@@ -136,15 +136,15 @@ function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
                           >
                             <MenuIcon name={child.icon} />
                             {!collapsed && <span className="ml-2">{child.displayName}</span>}
-                          </a>
+                          </Link>
                         ))}
                     </div>
                   )}
                 </div>
               ) : (
                 /* Leaf menu item */
-                <a
-                  href={menu.path ?? '#'}
+                <Link
+                  to={menu.path ?? '#'}
                   className={cn(
                     'flex items-center rounded-md px-3 py-2 text-sm hover:bg-accent',
                     collapsed && 'justify-center px-2',
@@ -154,7 +154,7 @@ function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
                 >
                   <MenuIcon name={menu.icon} />
                   {!collapsed && <span className="ml-2">{menu.displayName}</span>}
-                </a>
+                </Link>
               )}
             </div>
           ))}

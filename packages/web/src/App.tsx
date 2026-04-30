@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import Layout from './components/Layout.js';
+import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { lazy, Suspense } from 'react';
 
 // Lazy load pages (will be implemented in M1-M6)
@@ -18,7 +19,8 @@ function LoadingFallback() {
 export default function App() {
   return (
     <Layout>
-      <Suspense fallback={<LoadingFallback />}>
+      <ErrorBoundary>
+        <Suspense fallback={<LoadingFallback />}>
         <Routes>
           <Route path="/" element={<Navigate to="/projects" replace />} />
           <Route path="/projects" element={<ProjectList />} />
@@ -26,6 +28,7 @@ export default function App() {
           <Route path="/menus" element={<MenuManagement />} />
         </Routes>
       </Suspense>
+      </ErrorBoundary>
     </Layout>
   );
 }
