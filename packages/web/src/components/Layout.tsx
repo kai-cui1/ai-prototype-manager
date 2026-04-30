@@ -179,6 +179,8 @@ export default function Layout() {
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
       <main className="flex-1 overflow-auto">
+        {/* TODO: remove after debugging */}
+        <div className="p-4 text-red-500 font-bold">OUTLET AREA</div>
         <Outlet />
       </main>
     </div>
