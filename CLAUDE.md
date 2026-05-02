@@ -45,6 +45,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 另有 `05-data-design/` 存放后端 DDL 和前端数据方案细节（归入 Step 1 或 Step 3 的子产出）。
 
+### 步骤完成状态核查规则 **（必须遵守）**
+
+**判断"某步骤是否已完成"时，必须用 Glob/ls 检查对应 `docs/` 子目录的实际文件，禁止仅凭记忆或推断下结论。**
+
+不同步骤的产出物本质不同，不可混同：
+- Step 2 PRD ≠ Step 3 技术方案 ≠ Step 1 领域模型
+- "有技术文档"不代表"产品设计文档齐全"
+- memory 中记录的是历史快照，不是实时状态——**永远以磁盘上的实际文件为准**
+
 
 ## 技术架构决策
 
@@ -77,11 +86,24 @@ ai-prototype-manager/
 ├── CLAUDE.md                  # Claude Code 项目指引（本文件）
 ├── docs/                      # 文档（持久化存储）
 │   ├── 00-project/             # 项目元数据（Roadmap 等）
-│   │   └── roadmap.md         # 建设路线图与进度追踪
+│   │   └── roadmap/           # 建设路线图（文件夹，主文件+各阶段明细）
+│   │       ├── README.md      # 主路线图（整体视图、进度总览、版本历史）
+│   │       ├── phase0.md      # Phase 0 设计规格冻结明细
+│   │       ├── phase1.md      # Phase 1 数据模型中心 + MVP 明细
+│   │       ├── phase2.md      # Phase 2 核心引擎 + 交互原型
+│   │       ├── phase3.md      # Phase 3 成熟度提升
+│   │       ├── phase4.md      # Phase 4 下游 Coding AI 集成
+│   │       └── phase5.md      # Phase 5 AI 能力增强
 │   ├── 01-design-idea/        # 产品设计构想与讨论记录、未详细讨论的 idea
 │   │   └── 01-design-idea.md  # 所有产品设计决策的单一来源
 │   ├── 02-domain-model/       # 领域模型设计产物（实体、属性、关系、业务流程）
 │   ├── 03-prd/                # 产品需求规格 + 交互原型
+│   │   ├── prd-convention.md  # **PRD 编写规范（模板 & 格式，写 PRD 前必读）**
+│   │   ├── modules/           # 各模块 PRD（按模块分文件夹）
+│   │   │   ├── project-management/
+│   │   │   │   └── project-management-prd.md
+│   │   │   └── [模块名]/
+│   │   │       └── [模块名]-prd.md
 │   │   ├── workflow/          # 业务流程 / 工作流文档
 │   │   │   └── workflow.md    # PM-AI 协作 A→F 六阶段工作流
 │   │   └── prototypes/        # HTML 高保真交互原型（Phase 1 填充）
@@ -110,7 +132,7 @@ ai-prototype-manager/
 规则：
 - **产品设计决策** → `docs/01-design-idea/` 或对应编号文档
 - **领域模型/业务流程设计** → `docs/02-domain-model/`
-- **产品 PRD / 交互原型** → `docs/03-prd/`（workflow/ 放工作流，prototypes/ 放 HTML 原型）
+- **产品 PRD / 交互原型** → `docs/03-prd/modules/[模块名]/`（按模块分文件夹，命名规则见下方）
 - **技术方案设计** → `docs/04-tech-design/`
 - **数据设计（DDL / 前端数据）** → `docs/05-data-design/`
 - **测试设计** → `docs/06-test-design/`
@@ -128,17 +150,31 @@ ai-prototype-manager/
 |---------|---------|---------|
 | 产品思路/想法讨论 | 模糊方向、未详细讨论的 idea | `01-design-idea/` | 
 | 领域模型/业务流程设计 | 实体关系、数据流、对象属性 | `02-domain-model/` | 
-| 产品 PRD / 交互原型 | 功能规格、页面交互逻辑、HTML 原型 | `03-prd/`（含 `workflow/` 和 `prototypes/` 子目录） | 
+| 产品 PRD / 交互原型 | 功能规格、页面交互逻辑、HTML 原型 | `03-prd/`（`modules/` 放各模块 PRD，`workflow/` 放工作流，`prototypes/` 放 HTML 原型） |
 | 技术方案设计 | 选型、架构图、DB 规范、API 设计、组件交互序列图 | `04-tech-design/` | 
 | 数据设计（细粒度） | 后端 DDL、前端数据方案 | `05-data-design/` | 
 | 测试设计 | 测试方案、测试用例 | `06-test-design/` | 
 | 部署设计 | 部署架构图、环境配置 | `07-deploy-design/` | 
-| 项目元数据 | Roadmap、整体规划 | `00-project/` | 
+| 项目元数据 | Roadmap、整体规划 | `00-project/roadmap/`（主 README + phase0~5 明细文件） |
 | 归档 | 已被拆分/替代的历史版本 | `99-archived/` | 
 
 **违规示例（已发生并修正）**：
 - Phase 1 Design Spec 曾放在 `docs/superpowers/specs/` 下 → 已拆分归位到 `04-tech-design/` + `05-data-design/` + `01-design-idea/` + 原件归档到 `99-archived/`
 - Phase 0 设计文档曾散落在 `docs/` 根目录 → 已迁移到 `02-domain-model/` 和 `04-tech-design/`
+
+### PRD 文件组织规则
+
+PRD 文档按模块存放在 `docs/03-prd/modules/` 下，每个模块一个独立文件夹：
+
+| 层级 | 命名规则 | 示例 |
+|------|---------|------|
+| 模块文件夹 | kebab-case（英文小写+连字符） | `project-management/` |
+| PRD 文件 | `[模块名]-prd.md` | `project-management-prd.md` |
+
+存放原则：
+- **prd-convention.md**（格式规范）始终放在 `03-prd/` 根目录
+- **modules/** 放各模块的完整 PRD 文档
+- **prototypes/** 和 **workflow/** 有独立定位，不放 PRD 文档
 
 ### 对话归档规范
 
@@ -153,8 +189,8 @@ ai-prototype-manager/
 
 ## 当前阶段
 
-**Phase 1：架构冻结 + MVP（规划中）** — Phase 0 设计规格 100% 完成，进入技术方案设计与实现规划。
-详细路线图见 `docs/00-project/roadmap.md`。
+**Phase 1：数据模型中心 + MVP（进行中）** — Phase 0 设计规格 100% 完成，M1 PRD 编写中（§1~§4.4 已审核，§4.5~§6 待审核）。
+详细路线图见 `docs/00-project/roadmap/README.md`。
 Phase 1 Design Spec 已拆分为：
 - 数据库表定义 → `docs/05-data-design/phase1-database-schema.md`
 - 技术方案设计 → `docs/04-tech-design/phase1-design-tech.md`

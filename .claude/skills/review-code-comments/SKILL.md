@@ -1,3 +1,8 @@
+---
+name: review-code-comments
+description: 审查代码注释的完整性、准确性、质量并输出结构化报告。用于 commit 前、code review 时或用户显式调用
+---
+
 # review-code-comments — 注释质量审查
 
 > **触发时机**：commit 前 / code review 时 / 用户显式调用

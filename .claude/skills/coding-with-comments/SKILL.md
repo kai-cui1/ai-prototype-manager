@@ -1,3 +1,8 @@
+---
+name: coding-with-comments
+description: 写码时强制注释规范。每次写代码、改代码、实现功能或创建函数/类前自动加载，确保 AI 编写的每行代码都配有恰当的中文注释（文件头、docstring、分支注释、段落注释、why型注释）
+---
+
 # coding-with-comments — 写码时强制注释规范
 
 > **触发时机**：每次写代码/改代码任务前自动加载
