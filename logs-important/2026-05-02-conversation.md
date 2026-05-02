@@ -202,6 +202,133 @@ AI 仅凭 memory 中"Phase 1 Design Spec 审核通过"就推断"设计类文档�
 
 ---
 
-## 五、下一步
+## 五、F-M1-04 修复 + prd-2.md 完成（续）
 
-继续审核 project-management-prd-2.md（已创建 Task #1 待办）
+### F-M1-04 文档结构修复
+
+**问题**: 上次会话中 F-M1-04 被错误插入到 §4.3.2 和 §4.3.3 之间, 导致 4.3.3~4.3.6 出现在整个 4.4 块之后。
+
+**修复**: 删除错位块 → 在 §4.3.6 之后重新插入完整 F-M1-04 内容（131 行, 含 6 子节）→ 用户确认通过。
+
+### prd-2.md 创建
+
+用户要求: "都放在一个文件太大了, 新开 project-management-prd-2.md 继续写"
+
+写入内容:
+- **§4.5** F-M1-05 归档/恢复项目（~120 行）— 标记操作 / AlertDialog / 级联行为
+- **§4.6** F-M1-06 公司管理（~200 行）— CRUD / 三级导航第一级 / 级联删除
+- **§4.7** F-M1-07 部门管理（~170 行）— CRUD / 第二级 / company_id 范围唯一性
+- **§4.8** F-M1-08 角色管理（~180 行）— CRUD / 第三级叶子节点 / dept_id 范围唯一性
+- **§4.9** F-M1-09 外部实体管理 P1（~130 行）— CRUD / type 枚举 / 直接隶属项目
+- **§4.10** F-M1-10 项目摘要统计 P1（~80 行）— 列表内嵌 / 详情 API / 缓存策略
+- **§5** 跨功能规则（~120 行）— 状态机 / 全局校验 G-M1-04~10 / 交互约定 UI-M1-01~07 / 权限矩阵
+- **§6** 验收标准（~100 行）— 功能 AC-M1-01~24 / 异常 E01~06 / UI-UX U01~08
+
+**结果**: prd-2.md 共 1258 行。用户决定"记录待办, 明天继续审核"。
+
+---
+
+## 六、Roadmap V3 重写
+
+### 背景
+
+用户要求检查 roadmap 是否与实际规划有出入。
+
+### 核查发现（V2 vs 实际状态）
+
+| 维度 | V2 记录 | 实际状态 |
+|------|---------|---------|
+| Phase 1 完成率 | **0%**（8 任务全部"待开始"）| **~25-30%** |
+| PRD 工作 | **完全未跟踪** | prd-convention v1.0 + M1 PRD 2220 行 |
+| 技术方案 | 隐含在 1.2 中 | **已提前完成**（636+568 行, 双双审核） |
+| 基础设施 | 全部"待开始" | **Monorepo 5 包就绪, Layout 193行, E2E 3 用例** |
+| 任务模型 | 8 个线性任务 1.1→1.8 | **按模块 × SDLC 7 步**实际执行 |
+
+### 结构性问题
+
+V2 的线性任务模型与实际执行的「模块化 × SDLC」模式不匹配:
+- V2 把组件库/HTML引擎/预览界面归入 Phase 1 → 实际应属 Phase 2
+- V2 缺少 M4 业务架构和菜单管理模块（tech design 有 6 组路由, V2 只隐含 3）
+
+### V3 重写决策
+
+用户选择: **重写为 V3（推荐）**
+
+核心变更:
+1. Phase 1 = 1-A 基础设施(9项✅) + M1~M4(×SDLC 7步) + 菜单管理
+2. Phase 2 吸收原 Phase 1 的非数据管理能力（应用页面/组件库/HTML/校验/预览 = 新增 2.7~2.11）
+3. PRD Step 2 作为一等公民独立追踪
+4. 进度从 0% 修正为 ~52%（后补入 M4+菜单后 ~49%）
+
+### 遗漏模块发现与补全
+
+对照 `phase1-design-tech.md` 的 6 组路由核查, 发现 V3 v1 遗漏:
+
+| 遗漏模块 | API 端点数 | 处理方式 |
+|---------|:----------:|---------|
+| **M4 业务架构**（architecture.ts） | 11 | 衜入 Phase 1 为 1-E |
+| **系统菜单管理**（menu.ts） | ~6 | 补入 Phase 1 为 1-F（轻量级, 可并入 M1 实施） |
+
+最终 Phase 1 = **6 个模块**, 与 tech design 6 组路由完全对齐（84 个 API 端点）。
+
+---
+
+## 七、Roadmap 文件夹化重构
+
+### 用户需求
+
+"把 roadmap 分为主 map 和详细每个阶段的明细 map 2 层结构, 路径转移到文件夹: docs/00-project/roadmap/"
+
+### 执行
+
+**旧**: `docs/00-project/roadmap.md`（单文件 389 行）
+
+**新**: `docs/00-project/roadmap/` （7 个文件, 451 行）
+
+| 文件 | 行数 | 内容 |
+|------|:----:|------|
+| README.md | 106 | 主路线图: SDLC 模型 + 整体视图 ASCII + 进度总览 + 版本历史 + 文件索引 |
+| phase0.md | 46 | Phase 0 设计规格冻结（15 任务 + 10 项文档产出） |
+| phase1.md | 204 | Phase 1 数据模型中心（基础设施 + M1~M4 + 菜单 + PRD 进度 + API 端点） |
+| phase2.md | 32 | Phase 2 核心引擎 + 交互原型（11 任务） |
+| phase3.md | 26 | Phase 3 成熟度提升（12 任务） |
+| phase4.md | 18 | Phase 4 下游 Coding AI（方向性任务） |
+| phase5.md | 19 | Phase 5 AI 能力增强（方向性任务） |
+
+### 同步更新
+
+| 文件 | 变更 |
+|------|------|
+| CLAUDE.md | 目录树 `roadmap.md` → `roadmap/` 文件夹; 规范表路径; 当前阶段描述 |
+| README.md | 目录结构同步; 技术栈补充; 当前状态描述 |
+| docs/00-project/roadmap.md | 已删除（拆分到文件夹） |
+
+---
+
+## 八、Commit & Push
+
+### Commit: `b59d90c`
+
+```
+docs: restructure roadmap to V3 folder + M1 PRD + write-prd skill
+
+20 files changed, 3995 insertions(+), 223 deletions(-)
+```
+
+关键文件:
+- Roadmap V3: `docs/00-project/roadmap/` (7 files, 451 lines)
+- M1 PRD: `project-management-prd.md` (962) + `prd-2.md` (1258)
+- write-prd skill: `.claude/skills/write-prd/` (SKILL.md + template + checklist)
+- Skills restructure: coding-with-comments/ + review-code-comments/ → folder format
+- CLAUDE.md + README.md: directory tree and status updates
+- Conversation log: `logs-important/2026-05-02-conversation.md`
+
+Push: `feature/phase1` → `origin/feature/phase1` ✅
+
+---
+
+## 九、待办
+
+1. **[Task #1]** 审核 project-management-prd-2.md（F-M1-05 ~ F-M1-10 + §5 + §6）
+2. M1 PRD 审核通过后 → Step 4 测试设计 → Step 5 编码实现
+3. M2/M3/M4 PRD 编写（按依赖顺序: M1 → M2 → M3 → M4）
