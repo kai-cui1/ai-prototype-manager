@@ -187,18 +187,25 @@ Project (1) ──< (N) Company
 graph TD
     subgraph ProjectDetail["项目详情页"]
         direction TB
-        Tabs["Tab 导航栏: 概要 / 组织架构 / ..."]
+        Tabs["Tab 导航栏: 概要 / 组织架构 / 角色 / ..."]
         subgraph OrgTab["组织架构 Tab 内容区"]
             direction TB
-            Toolbar["工具栏: 新建公司按钮 + 搜索框"]
-            List["公司卡片列表 / 表格视图"]
-            subgraph Card["单个公司卡片"]
-                CName["公司名称（display_name）"]
-                CDesc["描述文字（截断）"]
-                CStats["统计: X 个部门 / Y 个角色"]
-                CActions["操作: 编辑 / 删除"]
+            SubAreas["子区域: 公司部门 / 外部实体"]
+            subgraph CompanyArea["公司部门区域"]
+                direction TB
+                CToolbar["工具栏: 新建公司 + 搜索"]
+                CList["公司卡片列表"]
+                subgraph Card["单个公司卡片"]
+                    CName["公司名称（display_name）"]
+                    CDesc["描述文字（截断）"]
+                    CStats["统计: X 个部门 / Y 个已挂载角色（点击切换到角色Tab）"]
+                    CActions["操作: 编辑 / 删除"]
+                end
             end
-            Pagination["分页控件"]
+            subgraph EEArea["外部实体区域"]
+                EEToolbar["工具栏: 新建 + 搜索"]
+                EEList["外部实体卡片列表"]
+            end
         end
     end
 ```
@@ -207,13 +214,13 @@ graph TD
 
 | # | 元素 | 类型 | 交互说明 |
 |---|------|------|---------|
-| 1 | 「组织架构」Tab | Tab 项 | 切换到组织架构视图, URL 可能含 `#org` 或子路由 |
+| 1 | 「组织架构」Tab | Tab 项（与"概要""角色"平级） | 切换到组织架构视图, 内含「公司部门」和「外部实体」两个子区域; URL 可能含 `#org` 或子路由 |
 | 2 | 「新建公司」按钮 | 主按钮 | 打开新建公司对话框 |
 | 3 | 搜索框 | 输入框 | 按 `display_name` 或 `name` 模糊搜索, 实时过滤 |
 | 4 | 公司卡片 | 卡片组件 | 展示公司名称/描述/统计, 点击进入公司详情或展开编辑 |
 | 5 | 公司名称 | 文本 | `display_name`, 可点击 |
 | 6 | 公司描述 | 文本（截断） | `description`, 超过 2 行省略号 |
-| 7 | 统计信息 | 徽章文本 | "N 个部门 / M 个角色", 从关联表 COUNT 获得 |
+| 7 | 统计信息 | 徽章文本 | "N 个部门 / M 个已挂载角色", 点击角色数可**切换到「角色」Tab**并筛选 |
 | 8 | 「编辑」按钮 | 图标按钮 | 打开编辑公司对话框（行内或弹窗） |
 | 9 | 「删除」按钮 | 危险图标按钮 | 弹出删除确认弹窗 |
 | 10 | 分页控件 | 分页器 | 默认每页 20 条, 支持切换 10/20/50 |
@@ -256,9 +263,9 @@ graph TD
 
 | 步骤 | 操作 | 系统/页面响应 | 数据变化 |
 |------|------|-------------|---------|
-| 1 | 用户点击「删除」按钮 | 弹出删除确认弹窗, 提示"删除后关联的部门和角色将一并移除" | 无 |
+| 1 | 用户点击「删除」按钮 | 弹出删除确认弹窗, 提示"删除后关联的部门将被删除, 关联的角色将变为独立角色" | 无 |
 | 2 | 用户点击「确认删除」 | 调用 `DELETE /api/v1/companies/:companyId` | 无 |
-| 3 | 后端执行级联删除：先删关联的 roles 和 departments, 再删 company 本身 | 返回 204 No Content | `companies` -1 行, 关联 `departments` N 行, `roles` M 行 |
+| 3 | 后端执行：级联删除 departments（触发关联 roles 的 department_id SET NULL）, 再删 company 本身 | 返回 204 No Content | `companies` -1 行, 关联 `departments` N 行, 关联 `roles` M 行的 department_id 被清空（role 本身保留） |
 | 4 | （异常分支）公司下存在引用该公司的领域实体或业务流程 | 返回 409 ENTITY_IN_USE | 弹窗提示"该公司被 N 个领域实体引用, 无法删除", 展示引用清单 |
 
 **快捷操作：**
@@ -300,7 +307,7 @@ graph TD
 | 规则编号 | 规则内容 | 违规后果 |
 |---------|---------|---------|
 | B-M1-38 | 删除公司前检查是否存在引用该 company_id 的 `domain_entity` 或 `business_process` | 存在则返回 409 ENTITY_IN_USE, 附引用清单 |
-| B-M1-39 | 删除公司时**级联删除**其下属的所有 `departments`（部门）和 `roles`（角色） | 先删 roles → 再删 departments → 最后删 company（顺序因外键依赖） |
+| B-M1-39 | 删除公司时**级联删除**其下属的所有 `departments`（部门）, 并**软解绑**关联的 `roles`（department_id SET NULL） | 先 CASCADE 删 departments（触发 roles.department_id SET NULL）→ 最后删 company |
 | B-M1-40 | 归档项目不允许删除公司 | 400 PROJECT_ARCHIVED |
 
 ##### 4.6.4.6 校验汇总
@@ -355,7 +362,7 @@ graph TD
 | display_name | string | companies.display_name | 显示名称 |
 | description | string \| null | companies.description | 描述 |
 | department_count | integer | COUNT(departments WHERE company_id) | 关联部门数（虚拟字段） |
-| role_count | integer | COUNT(roles WHERE company_id) | 关联角色数（虚拟字段） |
+| role_count | integer | COUNT(roles WHERE department_id IN 该公司下所有 departments.id) | 挂载到该公司下属部门的角色数（虚拟字段） |
 | status | string | companies.status | active / archived |
 | version | integer | companies.version | 版本号 |
 | created_at | string | companies.created_at | 创建时间 |
@@ -373,7 +380,7 @@ graph TD
 #### 4.6.6 AI 编码提示
 
 - **name 的唯一性范围是 project_id 级别, 不是全局级别**: 公司的 `name` 只需在同一项目内唯一, 不同项目可以有同名公司. SQL 为 `WHERE name = ? AND project_id = ? AND id != ?`.
-- **级联删除顺序很重要**: 由于外键约束（roles → companies, departments → companies）, 删除公司时建议按以下顺序: 先 DELETE roles WHERE company_id = ?, 再 DELETE departments WHERE company_id = ?, 最后 DELETE companies WHERE id = ?. 或者使用 `ON DELETE CASCADE` 外键配置简化.
+- **级联删除顺序**: 删除公司时, 外键链路为: `companies ON DELETE CASCADE → departments ON DELETE SET NULL → roles.department_id`. 即删公司自动删部门, 删部门自动清空挂载角色的 department_id（角色本身保留为独立角色）. 不需要手动写多步 DELETE.
 - **统计字段的性能**: `department_count` 和 `role_count` 是虚拟字段, 每次列表查询都需要 COUNT 子查询. Phase 1 数据量小没问题, 但如果未来公司数量增长, 考虑用物化视图或缓存层优化.
 - **归档项目的只读态**: 归档项目的组织架构 Tab 应该渲染完整内容（列表可见）, 但工具栏的新建按钮隐藏, 每张卡片的编辑/删除按钮也隐藏. 用一个 `isReadOnly` prop 从顶层传入控制.
 
@@ -387,9 +394,11 @@ graph TD
 
 | 实体 | 表名 | 关系 | 说明 |
 |------|------|------|------|
-| Department | `departments` | 属于 Company（N:1）, 间接属于 Project | 公司下的组织单元, 如"研发部"、"市场部" |
+| Department | `departments` | 属于 Company（N:1）, 支持自引用多级（parent_id）, 间接属于 Project | 公司下的组织单元, 如"研发部"、"市场部", 支持"研发部→前端组→React 小组" |
 | Company | `companies` | 被 Department 引用（1:N） | 部门所属的公司 |
 | Project | `projects` | 通过 Company 间接关联 | 顶级容器 |
+
+> **领域模型对照**: 领域模型文档（`docs/02-domain-model/domain-model.md` §2.4）已定义 Department 完整实体, 含 parentId 自引用多级嵌套、companyId FK、可选挂载 Role 等字段. 它是 M1 项目管理模块的**组织架构建模对象**, 用于描述被建模产品的业务参与方结构, 非系统组织. 与 Role 类似, 2C 项目可能不需要 Department.
 
 **ER 关系：**
 
@@ -397,17 +406,21 @@ graph TD
 Project (1) ──< (N) Company (1) ──< (N) Department
    │                │                     │
    │ id              │ id (PK)             │ id (PK)
-   │                 │ project_id (FK)     │ company_id (FK)
-   │                 │                     │ name (唯一性范围: 同一 company_id 内)
-   │                 │                     │ display_name
+   │                 │ project_id (FK)     │ project_id (FK)
+   │                 │                     │ company_id (FK → companies.id)
+   │                 │ name（唯一性范围: 同一 company_id 内）│ parent_id (FK → departments.id, nullable, 自引用)
+   │                 │ display_name        │   ← 支持多级部门
+   │                 │ description         │ display_name
    │                 │                     │ description
 ```
 
-> **注意**: 部门目前不支持嵌套层级（没有 parent_id 字段）, 是扁平结构. 未来如需支持多级部门, 需要 schema 变更.
+> **多级部门**: DB Schema 已定义 `parent_id TEXT REFERENCES departments(id) ON DELETE SET NULL` + 索引 + 注释"支持多级部门". UI 应使用树形或缩进列表展示层级关系, 而非纯扁平卡片列表.
 
 #### 4.7.2 页面设计
 
-部门管理的入口在公司卡片内部或公司详情视图中。采用**两级导航**：项目详情 → 组织架构 Tab → 选择公司 → 部门列表。
+部门管理的入口在公司卡片内部或公司详情视图中。采用**两级导航**：项目详情 → 组织架构 Tab → 选择公司 → 部门树形列表。
+
+> **多级部门**: DB Schema 已定义 `parent_id` 自引用字段, 支持部门嵌套层级. UI 使用**树形组件**展示层级关系, 而非扁平卡片列表.
 
 ```mermaid
 graph TD
@@ -419,13 +432,13 @@ graph TD
             CompanyList["公司列表（横向卡片或左侧边栏）"]
             subgraph DeptView["部门视图（选中公司后显示）"]
                 direction TB
-                DeptToolbar["工具栏: 新建部门 + 搜索"]
-                DeptList["部门卡片列表 / 表格"]
-                subgraph DCard["单个部门卡片"]
-                    DName["部门名称（display_name）"]
+                DeptToolbar["工具栏: 新建部门 + 搜索 + 展开全部/折叠全部"]
+                DeptTree["树形部门列表"]
+                subgraph DNode["树节点（可展开/折叠）"]
+                    DName["部门名称（display_name）+ 缩进表示层级】"]
                     DDesc["描述文字"]
-                    DStats["统计: N 个角色"]
-                    DActions["操作: 编辑 / 删除"]
+                    DStats["统计: N 个已挂载角色 / M 个子部门"]
+                    DActions["操作: 编辑 / 删除 / 新建子部门"]
                 end
             end
         end
@@ -439,16 +452,18 @@ graph TD
 | # | 元素 | 类型 | 交互说明 |
 |---|------|------|---------|
 | 1 | 公司选择器 | 卡片列表 / 下拉选择 | 选择要管理部门的公司, 选中高亮 |
-| 2 | 「新建部门」按钮 | 主按钮 | 打开新建部门对话框 |
+| 2 | 「新建部门」按钮 | 主按钮 | 打开新建部门对话框（可选父部门） |
 | 3 | 搜索框 | 输入框 | 按 `display_name` 或 `name` 模糊搜索部门 |
-| 4 | 部门卡片 | 卡片组件 | 展示部门名称/描述/角色数 |
-| 5 | 部门名称 | 文本 | `display_name` |
-| 6 | 部门描述 | 文本（截断） | `description` |
-| 7 | 角色统计 | 徽章文本 | "N 个角色" |
-| 8 | 「编辑」按钮 | 图标按钮 | 打开编辑对话框 |
-| 9 | 「删除」按钮 | 危险图标按钮 | 弹出删除确认 |
-| 10 | 空状态 | 占位提示 | "该公司暂无部门, 点击新建开始添加" |
-| 11 | 公司无部门时的引导 | 提示文本 | 当选中的公司没有任何部门时显示 |
+| 4 | 展开/折叠全部 | 按钮 | 一键展开或折叠所有树节点 |
+| 5 | 部门树节点 | 树形组件 | 可展开/折叠, 缩进表示层级深度 |
+| 6 | 部门名称 | 文本 | `display_name`, 根据层级缩进 |
+| 7 | 部门描述 | 文本（截断） | `description` |
+| 8 | 角色统计 | 徽章文本 | "N 个已挂载角色"（点击**切换到「角色」Tab**并筛选） |
+| 9 | 子部门数 | 徽章文本 | "M 个子部门" |
+| 10 | 「编辑」按钮 | 图标按钮 | 打开编辑对话框 |
+| 11 | 「新建子部门」按钮 | 图标按钮 | 在当前部门下新建子部门, parent_id 预填充 |
+| 12 | 「删除」按钮 | 危险图标按钮 | 弹出删除确认（有子部门时警告更强烈） |
+| 13 | 空状态 | 占位提示 | "该公司暂无部门, 点击新建开始添加" |
 
 #### 4.7.3 交互行为
 
@@ -456,37 +471,39 @@ graph TD
 
 | 步骤 | 操作 | 系统/页面响应 | 数据变化 |
 |------|------|-------------|---------|
-| 1 | 用户进入组织架构 Tab, 点击某个公司卡片 | 公司高亮, 右侧/下方加载该公司的部门列表 | 无 |
-| 2 | 前端调用 `GET /api/v1/companies/:companyId/departments?page=1&pageSize=20` | 加载部门数据 | 无 |
-| 3 | 页面渲染部门卡片列表 | 用户浏览 | 无 |
+| 1 | 用户进入组织架构 Tab, 点击某个公司卡片 | 公司高亮, 右侧/下方加载该公司的部门**树形**列表 | 无 |
+| 2 | 前端调用 `GET /api/v1/companies/:companyId/departments?tree=true` | 加载部门树形数据（含层级关系） | 无 |
+| 3 | 页面渲染树形部门列表, 根据 parent_id 构建缩进/展开关系 | 用户浏览, 可展开/折叠节点 | 无 |
 
-**新建部门主流程（5 步）：**
+**新建部门主流程（6 步）：**
 
 | 步骤 | 操作 | 系统/页面响应 | 数据变化 |
 |------|------|-------------|---------|
-| 1 | 用户选中某公司后点击「新建部门」 | 弹出新建对话框, company_id 预填充且不可修改 | 无 |
-| 2 | 用户填写 name / display_name / description, 点击「提交」 | 前端校验 → 调用 `POST /api/v1/companies/:companyId/departments` | 无 |
+| 1 | 用户选中某公司后点击「新建部门」（或点击某部门的「新建子部门」） | 弹出新建对话框, company_id 预填充且不可修改; 若从子部门入口进入则 parent_id 预填充 | 无 |
+| 2 | 用户填写 name / display_name / description, 选择父部门（可选下拉, 含"无（顶级部门）"选项）, 点击「提交」 | 前端校验 → `POST /api/v1/companies/:companyId/departments` | 无 |
 | 3 | 后端校验 name 唯一性（同一 company_id 范围）, 创建记录 | 返回新部门数据 | `departments` +1 行 |
-| 4 | 前端关闭对话框, 列表新增卡片 | 用户可见 | 无 |
+| 4 | 前端关闭对话框, 树形列表新增节点 | 用户可见 | 无 |
 | 5 | （异常分支 A）name 同公司内已存在 | 409 NAME_CONFLICT | 红字提示 |
 | 6 | （异常分支 B）所属公司所在项目已归档 | 400 PROJECT_ARCHIVED | Toast 提示 |
+
+> **parent_id 字段**: 新建对话框中"父部门"为可选字段. 不选 = 顶级部门（parent_id=null）; 选择某部门 = 其子部门.
 
 **编辑部门主流程（4 步）：**
 
 | 步骤 | 操作 | 系统/页面响应 | 数据变化 |
 |------|------|-------------|---------|
-| 1 | 用户点击部门卡片的「编辑」 | 弹出编辑对话框, 预填充当前值 | 无 |
-| 2 | 用户修改后点「保存」 | 调用 `PUT /api/v1/departments/:deptId`（携带 version） | 无 |
-| 3 | 后端更新成功 | 对话框关闭, 卡片刷新 | `departments` 记录更新 |
+| 1 | 用户点击部门节点的「编辑」 | 弹出编辑对话框, 预填充当前值（含 parent_id） | 无 |
+| 2 | 用户修改后点「保存**（可更改 parent_id, 但不能选自身或后代节点为父, 防止循环引用）** | 调用 `PUT /api/v1/departments/:deptId`（携带 version） | 无 |
+| 3 | 后端更新成功（含循环检测） | 对话框关闭, 树形刷新 | `departments` 记录更新 |
 | 4 | （异常分支）同新建的异常分支 | — | — |
 
 **删除部门主流程（4 步）：**
 
 | 步骤 | 操作 | 系统/页面响应 | 数据变化 |
 |------|------|-------------|---------|
-| 1 | 用户点击「删除」 | 弹出确认弹窗, 提示"删除后关联的角色将一并移除" | 无 |
+| 1 | 用户点击「删除」 | 弹出确认弹窗; **若该部门有子部门或关联角色, 显示增强警告**: "该部门下有 N 个子部门和 M 个关联角色（将变为独立角色）. 删除后子部门将一并删除, 角色将失去挂载目标." | 无 |
 | 2 | 用户确认 | 调用 `DELETE /api/v1/departments/:deptId` | 无 |
-| 3 | 后端级联删除关联 roles, 再删 department | 返回 204 | `departments` -1, `roles` -N |
+| 3 | 后端执行: CASCADE 删子部门（递归）→ SET NULL 解绑关联 roles → 删该部门本身 | 返回 204 | `departments` -1-N（含子部门）, 关联 roles 的 department_id 被清空 |
 | 4 | （异常分支）部门被领域实体/流程引用 | 409 ENTITY_IN_USE | 展示引用清单 |
 
 #### 4.7.4 业务规则
@@ -508,6 +525,7 @@ graph TD
 | B-M1-46 | `display_name` 必填, 1~100 字符 | 400 REQUIRED |
 | B-M1-47 | `description` 可选, 0~2000 字符 | — |
 | B-M1-48 | 所属公司所在项目必须活跃 | 400 PROJECT_ARCHIVED |
+| B-M1-48b | `parent_id` 可选, 若提供必须引用**同公司下已存在的** department id; 不允许引用自身（新建时不可能但防御性校验） | 400 INVALID_PARENT |
 
 ##### 4.7.4.3 更新（Update）
 
@@ -517,14 +535,17 @@ graph TD
 | B-M1-50 | `display_name` 必填 1~100 | 400 |
 | B-M1-51 | 项目必须活跃 | 400 PROJECT_ARCHIVED |
 | B-M1-52 | 乐观锁 version 校验 | 409 VERSION_CONFLICT |
+| B-M1-52b | `parent_id` 变更时禁止循环引用（不能选自身或自身后代节点为父） | 400 CIRCULAR_REFERENCE |
 
 ##### 4.7.4.4 删除（Delete）
 
 | 规则编号 | 规则内容 | 违规后果 |
 |---------|---------|---------|
 | B-M1-53 | 删除前检查是否被 `domain_entity` / `business_process` 引用 | 409 ENTITY_IN_USE |
-| B-M1-54 | 级联删除关联的 `roles`（角色归属于部门） | 先删 roles → 再删 department |
+| B-M1-54 | 删除部门时**软解绑**关联的 `roles`（department_id SET NULL）, **级联删除**子部门（ON DELETE CASCADE） | roles 变为独立角色, 子部门递归删除 |
 | B-M1-55 | 归档项目不允许删除 | 400 PROJECT_ARCHIVED |
+
+> **B-M1-54 变更说明**: 原设计为"级联删除 roles", 变更为"SET NULL 解绑". 原因：Role 已改为可独立存在（见 `role-independence-design.md`）, 删除组织不应销毁角色本身. 子部门仍使用 CASCADE 删除（部门间的父子是强拥有关系）.
 
 ##### 4.7.4.6 校验汇总
 
@@ -534,6 +555,7 @@ graph TD
 | 唯一性校验 | B-M1-45/49: company_id 范围内唯一 | 创建/更新前 |
 | 必填校验 | B-M1-46/50: display_name 必填 | 创建/更新 |
 | 状态校验 | B-M1-48/51/55: 项目活跃 | 创建/更新/删除 |
+| 层级校验 | B-M1-48b/52b: parent_id 合法性 + 无循环引用 | 创建/更新时 |
 | 引用完整性 | B-M1-53: 被引用时禁止删除 | 删除前 |
 | 乐观锁 | B-M1-52: version 匹配 | 更新时 |
 
@@ -544,6 +566,8 @@ graph TD
 | name 格式非法 | 400 | `INVALID_NAME_FORMAT` | 输入框红字 |
 | name 已存在（同公司） | 409 | `NAME_CONFLICT` | 输入框红字 |
 | display_name 为空 | 400 | `DISPLAY_NAME_REQUIRED` | 输入框红字 |
+| parent_id 无效（不存在/跨公司） | 400 | `INVALID_PARENT` | 下拉选择器红字提示 |
+| parent_id 循环引用 | 400 | `CIRCULAR_REFERENCE` | Toast 提示, 不允许保存 |
 | 项目已归档 | 400 | `PROJECT_ARCHIVED` | Toast |
 | 部门被引用无法删除 | 409 | `ENTITY_IN_USE` | 弹窗展示引用清单 |
 | 乐观锁冲突 | 409 | `VERSION_CONFLICT` | Toast + 刷新 |
@@ -557,6 +581,7 @@ graph TD
 | name | string | ✅ | — | 编程标识符, 正则 `/^[a-zA-Z0-9_-]+$/`, 2~50 |
 | display_name | string | ✅ | — | 显示名称, 1~100 字符 |
 | description | string | ❌ | null | 描述, 0~2000 字符 |
+| parent_id | string | ❌ | null | 父部门 ID; 为 null 或不传 = 顶级部门 |
 
 **输入数据（PUT /api/v1/departments/:id Request Body）：**
 
@@ -565,6 +590,7 @@ graph TD
 | name | string | ✅ | 同创建 |
 | display_name | string | ✅ | 同创建 |
 | description | string | ❌ | 同创建 |
+| parent_id | string | ❌ | 可更改父部门（需通过循环引用检测） |
 | version | integer | ✅ | 乐观锁版本号 |
 
 **输出数据（Department Response Body）：**
@@ -572,136 +598,162 @@ graph TD
 | 字段 | 类型 | 来源 | 说明 |
 |------|------|------|------|
 | id | string | departments.id | 部门 UUID |
+| project_id | string | departments.project_id | 所属项目 ID |
 | company_id | string | departments.company_id | 所属公司 ID |
+| parent_id | string \| null | departments.parent_id | 父部门 ID（null = 顶级部门） |
+| parent_name | string \| null | 父部门 display_name | 父部门显示名（虚拟字段） |
 | name | string | departments.name | 编程标识符 |
 | display_name | string | departments.display_name | 显示名称 |
 | description | string \| null | departments.description | 描述 |
-| role_count | integer | COUNT(roles WHERE dept_id) | 关联角色数（虚拟字段） |
+| role_count | integer | COUNT(roles WHERE department_id) | 已挂载角色数（虚拟字段） |
+| children_count | integer | COUNT(departments WHERE parent_id) | 子部门数（虚拟字段） |
+| level | integer | 递归计算层级深度 | 根级别=1, 每层+1（虚拟字段, 用于 UI 缩进） |
 | status | string | departments.status | active / archived |
 | version | integer | departments.version | 版本号 |
 | created_at | string | departments.created_at | 创建时间 |
 | updated_at | string | departments.updated_at | 更新时间 |
 
+> **列表查询返回树形结构**: GET 接口应支持 `?tree=true` 参数, 返回时将 flat 数据构建为嵌套的树形 JSON（children 数组）, 前端直接用于树形组件渲染. 不带此参数时返回 flat 列表 + parent_id 字段, 前端自行构建树.
+
 #### 4.7.6 AI 编码提示
 
-- **部门与公司的父子关系在 URL 中体现**: 部门的 CRUD API 路径嵌套在公司之下（`/companies/:companyId/departments`）, 这意味着前端在选择公司之前不应该暴露部门操作入口. 可以用"选中公司后才显示部门工具栏"的方式实现.
-- **name 唯一性范围是 company_id**: 和公司类似, 部门的 `name` 只在同一公司内唯一. SQL: `WHERE name = ? AND company_id = ? AND id != ?`.
-- **扁平结构 vs 嵌套结构**: 当前 schema 是扁平的（无 parent_id）, UI 也应该反映这一点——不要做树形组件或缩进列表. 如果未来需要多级部门, 那是 schema 变更 + UI 重构的工作.
-- **级联删除 roles**: 删除部门时, 该部门下的所有角色（roles.dept_id = ?）必须一并删除. 注意外键约束顺序: 如果 roles 表有 `dept_id FK → departments.id`, 配置 `ON DELETE CASCADE` 可以自动化此过程.
+- **部门与公司的父子关系在 URL 中体现**: 部门的 CRUD API 路径嵌套在公司之下（`/companies/:companyId/departments`）, 前端在选择公司之前不暴露部门操作入口.
+- **name 唯一性范围是 company_id**: 部门的 `name` 只在同一公司内唯一. SQL: `WHERE name = ? AND company_id = ? AND id != ?`.
+- **多级部门是已确定的功能**: DB Schema 已定义 `parent_id` 自引用 + 索引 + ON DELETE SET NULL. **不是"未来可能"**, 是当前就需要支持的. UI 必须使用树形组件（如 shadcn/ui 的 Collapsible + 递归渲染, 或 react-arborist 等库）.
+- **循环引用检测**: 更新部门的 parent_id 时, 后端必须检测是否形成环（A→B→C→A）. 算法: 从目标 parent_id 开始 DFS, 若能回到当前 department.id 则存在环路, 返回 400 CIRCULAR_REFERENCE.
+- **软解绑 roles**: 删除部门时, 外键配置为 `ON DELETE SET NULL`（roles.department_id → departments.id）, 角色**不会**被删除, 只是失去挂载目标变为独立角色. 这是与旧设计的核心差异.
+- **树形数据的两种模式**: 列表 API 支持 `?tree=true` 返回嵌套 JSON 和 `?tree=false`（默认）返回 flat 列表. Phase 1 建议前端用 tree=true 减少客户端构建树的复杂度.
 
 ---
 
 ### 4.8 F-M1-08 角色管理
 
-**优先级**: P0 | **前置依赖**: F-M1-07（部门管理 — 角色隶属于部门）
+**优先级**: P0 | **前置依赖**: F-M1-02（创建项目 — 角色直接隶属于项目）
+
+> **设计决策依据**: 见 `docs/01-design-idea/role-independence-design.md`
+> **核心变更**: Role 从「部门的叶子节点」变为「Project 级别的参与者」，department_id 改为可选挂载（nullable）。
+> 原因：2C 项目（如社交 App、电商 C 端）没有公司/部门概念，但业务流程中仍需角色定义。
 
 #### 4.8.1 涉及领域模型
 
 | 实体 | 表名 | 关系 | 说明 |
 |------|------|------|------|
-| Role | `roles` | 属于 Department（N:1）, 间接属于 Company → Project | 业务参与者角色, 如"产品经理"、"后端开发" |
-| Department | `departments` | 被 Role 引用（1:N） | 角色所属的部门 |
-| Company | `companies` | 通过 Department 间接关联 | 间接父实体 |
-| Project | `projects` | 顶级容器 | — |
+| Role | `roles` | 直接属于 Project（N:1），**可选**挂载到 Department | 业务流程参与者，如"产品经理"、"注册用户"、"VIP 客户" |
+| Department | `departments` | 可被 Role 引用（0:N） | 可选的组织归属点 |
+| Company | `companies` | 通过 Department 间接关联 | 间接父实体（仅对已挂载的角色有意义） |
+| Project | `projects` | 直接父实体（所有角色的顶级容器） | — |
+
+> **领域模型对照**: 在 `docs/02-domain-model/domain-model.md` **§2.6** 中，Role 定义为直接关联 N:1 → Project（`roles[]` 在 Project 根级），`departmentId` 为可选字段。本 PRD 的 DB 层 `department_id` 是**可选的组织挂载点**，不是强制归属。详见 `role-independence-design.md`。
 
 **ER 关系：**
 
 ```
-Project → Company → Department → Role
-   (1:N)       (1:N)          (1:N)
+Project (1) ──< (N) Role [全部角色]
+                  │
+                  ├── department_id IS NULL ──→ 独立角色（2C 场景等）
+                  │
+                  └── department_id IS NOT NULL ──→ 组织角色（挂载到部门）
 
 roles 表关键字段:
 ├── id (PK)
-├── dept_id (FK → departments.id)
-├── name（唯一性范围: 同一 dept_id 内）
+├── project_id (FK → projects.id)
+├── department_id (FK → departments.id, nullable)  ← 可选挂载
+├── name（唯一性范围: 同一 project_id 内全局唯一）
 ├── display_name
 └── description
 ```
 
 #### 4.8.2 页面设计
 
-角色管理的入口在部门卡片内部或部门详情视图中。**三级导航**：项目详情 → 组织架构 Tab → 选择公司 → 选择部门 → 角色列表。
+角色管理作为**项目详情页的独立 Tab**，与「概要」「组织架构」等 Tab 平级并列。
+
+> **设计决策依据**: Role 是业务流程的核心参与者（`process_nodes.holder` 引用 Role）, 属于 project 级别的核心对象, 不应嵌套在组织架构下. 组织架构（公司/部门）仅是对角色的可选修饰/分组手段 — 2C 项目可能完全没有组织架构但仍有丰富的角色定义.
 
 ```mermaid
 graph TD
     subgraph ProjectDetail["项目详情页"]
         direction TB
-        Tabs["Tab 导航栏: 概要 / 组织架构 / ..."]
-        subgraph OrgTab["组织架构 Tab"]
-            direction LR
-            CompanyPanel["公司面板"]
-            DeptPanel["部门面板"]
-            RolePanel["角色面板"]
+        Tabs["Tab 导航栏: 概要 / 组织架构 / 角色 / ..."]
+        subgraph RoleTab["角色 Tab 内容区"]
+            direction TB
+            RToolbar["工具栏: 新建角色 + 搜索 + 部门筛选器"]
+            RList["角色卡片列表"]
+            subgraph RCard["单个角色卡片"]
+                RName["角色名称（display_name）"]
+                RTypeBadge["归属标记: '研发部' or '独立'"]
+                RDesc["描述文字（截断）"]
+                RActions["操作: 编辑 / 删除"]
+            end
+            RPagination["分页控件"]
         end
     end
 
-    subgraph CompanyPanel["公司面板"]
-        CList["公司卡片列表"]
+    subgraph OrgTab["组织架构 Tab（相邻 Tab）"]
+        OrgContent["公司列表 + 部门树形列表"]
+        OrgContent -->|"公司/部门卡片显示挂载数"| RoleTab
     end
-
-    subgraph DeptPanel["部门面板（选中公司后）"]
-        DToolbar["新建部门 + 搜索"]
-        DList["部门列表"]
-    end
-
-    subgraph RolePanel["角色面板（选中部门后）"]
-        RToolbar["新建角色 + 搜索"]
-        RList["角色卡片列表"]
-        subgraph RCard["单个角色卡片"]
-            RName["角色名称（display_name）"]
-            RDesc["描述文字"]
-            RActions["操作: 编辑 / 删除"]
-        end
-    end
-
-    CList -->|"选中"| DeptPanel
-    DList -->|"选中"| RolePanel
 ```
 
 **页面元素清单：**
 
 | # | 元素 | 类型 | 交互说明 |
 |---|------|------|---------|
-| 1 | 公司选择 | 卡片/下拉 | 一级选择 |
-| 2 | 部门选择 | 卡片/列表 | 二级选择（依赖公司选中） |
-| 3 | 「新建角色」按钮 | 主按钮 | 打开新建角色对话框 |
-| 4 | 搜索框 | 输入框 | 按名称模糊搜索角色 |
-| 5 | 角色卡片 | 卡片组件 | 名称 + 描述 + 操作按钮 |
-| 6 | 角色名称 | 文本 | `display_name` |
-| 7 | 角色描述 | 文本（截断） | `description` |
-| 8 | 「编辑」按钮 | 图标按钮 | 编辑对话框 |
-| 9 | 「删除」按钮 | 危险图标按钮 | 删除确认弹窗 |
-| 10 | 空状态 | 占位 | "该部门暂无角色" |
+| 1 | 「角色」Tab | Tab 项（与"概要""组织架构"平级） | 切换到角色视图, 加载该项目全部角色 |
+| 2 | 「新建角色」按钮 | 主按钮 | 打开新建角色对话框 |
+| 3 | 搜索框 | 输入框 | 按 `name` / `display_name` ILIKE 模糊搜索 |
+| 4 | 部门筛选器 | 下拉选择 | 按 department_id 筛选, 选项含"全部"/"独立"(null)/各部门名称 |
+| 5 | 角色卡片 | 卡片组件 | 名称 + 归属标记 + 描述 + 操作按钮 |
+| 6 | 归属标记 | Badge 标签 | 显示所属部门名或"独立"标签, 不同样式区分 |
+| 7 | 角色名称 | 文本 | `display_name` |
+| 8 | 角色描述 | 文本（截断） | `description` |
+| 9 | 「编辑」按钮 | 图标按钮 | 打开编辑对话框 |
+| 10 | 「删除」按钮 | 危险图标按钮 | 弹出删除确认 |
+| 11 | 分页控件 | 分页器 | 默认每页 20 条, 支持 10/20/50 |
+| 12 | 空状态 | 占位提示 | "暂无角色, 点击新建开始添加" |
+
+> **与组织架构的联动**: 在相邻的「组织架构」Tab 中, 公司卡片显示"Y 个已挂载角色", 部门卡片显示"N 个已挂载角色". 点击该数字可**切换到「角色」Tab**并自动应用对应部门筛选.
 
 #### 4.8.3 交互行为
 
-**查看角色列表主流程（3 步）：**
+**查看角色列表主流程（2 步）：**
 
 | 步骤 | 操作 | 系统/页面响应 | 数据变化 |
 |------|------|-------------|---------|
-| 1 | 用户依次选中公司 → 选中部门 | 面板逐级加载 | 无 |
-| 2 | 前端调用 `GET /api/v1/departments/:deptId/roles?page=1&pageSize=20` | 加载角色数据 | 无 |
-| 3 | 渲染角色卡片列表 | 用户浏览 | 无 |
+| 1 | 用户进入项目详情页, 点击「角色」Tab（与"概要""组织架构"平级） | Tab 切换, 加载该项目全部角色 | 无 |
+| 2 | 前端调用 `GET /api/v1/projects/:projectId/roles?page=1&pageSize=20` | 加载角色数据（含归属信息） | 无 |
+| 3 | 渲染角色卡片列表, 每张卡片显示名称/归属标记(部门名或"独立")/描述 | 用户浏览 | 无 |
 
-**新建角色主流程（5 步）：**
-
-| 步骤 | 操作 | 系统/页面响应 | 数据变化 |
-|------|------|-------------|---------|
-| 1 | 用户选中部门后点击「新建角色」 | 弹出对话框, dept_id 预填充不可改 | 无 |
-| 2 | 填写 name / display_name / description, 点「提交」 | 校验 → `POST /api/v1/departments/:deptId/roles` | 无 |
-| 3 | 后端校验唯一性（同一 dept_id 范围）, 创建 | 返回新角色 | `roles` +1 行 |
-| 4 | 前端关闭对话框, 列表新增 | 用户可见 | 无 |
-| 5 | （异常分支 A）name 同部门内已存在 | 409 NAME_CONFLICT | 红字提示 |
-| 6 | （异常分支 B）项目已归档 | 400 PROJECT_ARCHIVED | Toast |
-
-**编辑角色主流程（4 步）：**
+**筛选角色流程：**
 
 | 步骤 | 操作 | 系统/页面响应 | 数据变化 |
 |------|------|-------------|---------|
-| 1 | 点击「编辑」 | 弹出编辑对话框, 预填充 | 无 |
-| 2 | 修改后点「保存」 | `PUT /api/v1/roles/:roleId`（+version） | 无 |
-| 3 | 后端更新成功 | 关闭对话框, 刷新卡片 | `roles` 记录更新 |
-| 4 | （异常分支）同新建异常 | — | — |
+| 1 | 用户在部门筛选器中选择某部门或"独立" | URL 追加 `?departmentId=xxx` 或 `?departmentId=__none__` | 无 |
+| 2 | 前端调用 API 携带筛选参数 | 返回筛选后的角色列表 | 无 |
+| 3 | 从公司/部门卡片点击挂载数字跳转时 | 自动设置对应筛选值并加载 | 无 |
+
+**新建角色主流程（6 步）：**
+
+| 步骤 | 操作 | 系统/页面响应 | 数据变化 |
+|------|------|-------------|---------|
+| 1 | 用户点击「新建角色」按钮 | 弹出新建对话框, 含 name / display_name / description / **部门（可选）** 字段 | 无 |
+| 2 | 用户填写表单, "部门"字段为下拉选择（含"不挂载（独立角色）"选项）, 可留空 | 实时校验格式和必填项 | 无 |
+| 3 | 用户点「提交」, 前端完整校验通过 | 按钮 loading, 调用 `POST /api/v1/projects/:projectId/roles` | 无 |
+| 4 | 后端校验 name 唯一性（同一 project_id 范围）, 创建记录 | 返回 `{ data: newRole }` | `roles` +1 行 |
+| 5 | 前端关闭对话框, 列表顶部插入新卡片 | 用户可见新角色 | 无 |
+| 6 | （异常分支 A）name 在同一项目内已存在 | 409 NAME_CONFLICT | 输入框红字提示 |
+| 7 | （异常分支 B）项目已归档 | 400 PROJECT_ARCHIVED | Toast 提示 |
+
+> **API 路径变更**: 角色创建从 `/departments/:deptId/roles` 改为 `/projects/:projectId/roles`, 因为角色不再强制属于部门。
+
+**编辑角色主流程（5 步）：**
+
+| 步骤 | 操作 | 系统/页面响应 | 数据变化 |
+|------|------|-------------|---------|
+| 1 | 用户点击角色卡片的「编辑」按钮 | 弹出编辑对话框, 预填充当前值（含当前 department_id 或空） | 无 |
+| 2 | 用户修改字段（可更改 department_id, 包括清空变为独立角色）, 点「保存」 | 调用 `PUT /api/v1/roles/:roleId`（携带 version） | 无 |
+| 3 | 后端校验 + 更新（乐观锁）, 返回成功 | 对话框关闭, 卡片刷新（归属标记可能变化） | `roles` 记录更新 |
+| 4 | （异常分支 A）name 冲突（排除自身） | 409 NAME_CONFLICT | 输入框红字提示 |
+| 5 | （异常分支 B）项目已归档 | 400 PROJECT_ARCHIVED | Toast 提示 |
 
 **删除角色主流程（3 步）：**
 
@@ -709,7 +761,7 @@ graph TD
 |------|------|-------------|---------|
 | 1 | 点击「删除」 | 确认弹窗: "确定删除该角色？" | 无 |
 | 2 | 确认 | `DELETE /api/v1/roles/:roleId` | 无 |
-| 3 | 后端直接删除（角色无子实体, 无级联） | 返回 204 | `roles` -1 行 |
+| 3 | 后端直接删除（角色无子实体, 无级联; department_id 是外键指向 role, 不影响其他表） | 返回 204 | `roles` -1 行 |
 | 4 | （异常分支）角色被领域实体/流程引用 | 409 ENTITY_IN_USE | 展示引用清单 |
 
 #### 4.8.4 业务规则
@@ -720,26 +772,31 @@ graph TD
 |---------|---------|------|
 | B-M1-56 | 角色列表按 `created_at DESC` 排序 | 默认排序 |
 | B-M1-57 | 搜索支持 `name` / `display_name` ILIKE | 双字段模糊匹配 |
-| B-M1-58 | 归档项目下角色只读 | 隐藏写操作按钮 |
+| B-M1-58 | 支持按 `department_id` 筛选（含 null 值筛选"独立角色"） | 额外筛选维度 |
+| B-M1-58b | 归档项目下角色只读, 隐藏写操作按钮 | 通过 project.status 判断 |
 
 ##### 4.8.4.2 创建（Create）
 
 | 规则编号 | 规则内容 | 违规后果 |
 |---------|---------|---------|
 | B-M1-59 | `name` 格式: `/^[a-zA-Z0-9_-]+$/`, 2~50 字符 | 400 INVALID_FORMAT |
-| B-M1-60 | `name` 在**同一 dept_id 范围内**唯一 | 409 NAME_CONFLICT |
+| B-M1-60 | `name` 在**同一 project_id 范围内全局唯一**（不区分是否挂载部门） | 409 NAME_CONFLICT |
 | B-M1-61 | `display_name` 必填, 1~100 字符 | 400 REQUIRED |
-| B-M1-62 | `description` 可选, 0~2000 | — |
-| B-M1-63 | 所属部门→公司→项目链路必须活跃 | 400 PROJECT_ARCHIVED |
+| B-M1-62 | `description` 可选, 0~2000 字符 | — |
+| B-M1-63 | `department_id` 可选, 若提供必须引用**本项目内存在的、活跃项目下的** department id | 400 INVALID_DEPARTMENT |
+| B-M1-63b | 所属项目必须为 `status='active'` | 400 PROJECT_ARCHIVED |
+
+> **唯一性变更说明**: 原 design 为"同 dept_id 内唯一", 变更为"同 project_id 内全局唯一". 原因：独立角色(department_id=null)和挂载角色共享同一个命名空间, 避免同名混淆.
 
 ##### 4.8.4.3 更新（Update）
 
 | 规则编号 | 规则内容 | 违规后果 |
 |---------|---------|---------|
-| B-M1-64 | `name` 格式/唯一性（同 dept_id, 排除自身） | 400 / 409 |
+| B-M1-64 | `name` 格式/唯一性（同 project_id, 排除自身） | 400 / 409 |
 | B-M1-65 | `display_name` 必填 1~100 | 400 |
-| B-M1-66 | 项目链路必须活跃 | 400 PROJECT_ARCHIVED |
+| B-M1-66 | 项目必须活跃 | 400 PROJECT_ARCHIVED |
 | B-M1-67 | 乐观锁 version 校验 | 409 VERSION_CONFLICT |
+| B-M1-67b | `department_id` 变更规则同创建（B-M1-63）, 允许从有值改为 null（取消挂载）或从 null 改为有值（新增挂载） | 400 INVALID_DEPARTMENT |
 
 ##### 4.8.4.4 删除（Delete）
 
@@ -749,14 +806,17 @@ graph TD
 | B-M1-69 | 角色无子实体, 直接 DELETE, 无级联 | — |
 | B-M1-70 | 归档项目不允许删除 | 400 PROJECT_ARCHIVED |
 
+> **注意**: 删除角色不影响任何 Company 或 Department（与旧设计不同）. role.department_id 是外键指向 departments, 删除 role 时只是删除外键来源端.
+
 ##### 4.8.4.6 校验汇总
 
 | 维度 | 规则 | 触发时机 |
 |------|------|---------|
 | 格式校验 | B-M1-59: name 正则 | 创建/更新 |
-| 唯一性校验 | B-M1-60/64: dept_id 范围内唯一 | 创建/更新前 |
+| 唯一性校验 | B-M1-60/64: project_id 范围内全局唯一 | 创建/更新前 |
 | 必填校验 | B-M1-61/65: display_name 必填 | 创建/更新 |
-| 状态校验 | B-M1-63/66/70: 项目活跃 | 创建/更新/删除 |
+| 挂载校验 | B-M1-63/67b: department_id 合法性（可选但需有效） | 创建/更新 |
+| 状态校验 | B-M1-63b/66/70: 项目活跃 | 创建/更新/删除 |
 | 引用完整性 | B-M1-68: 被引用时禁止删除 | 删除前 |
 | 乐观锁 | B-M1-67: version 匹配 | 更新时 |
 
@@ -765,21 +825,23 @@ graph TD
 | 场景 | HTTP 状态码 | 错误码 | 前端处理 |
 |------|-----------|--------|---------|
 | name 格式非法 | 400 | `INVALID_NAME_FORMAT` | 输入框红字 |
-| name 已存在（同部门） | 409 | `NAME_CONFLICT` | 输入框红字 |
+| name 已存在（同项目） | 409 | `NAME_CONFLICT` | 输入框红字 |
 | display_name 为空 | 400 | `DISPLAY_NAME_REQUIRED` | 输入框红字 |
+| department_id 无效 | 400 | `INVALID_DEPARTMENT` | 下拉选择器红字提示 |
 | 项目已归档 | 400 | `PROJECT_ARCHIVED` | Toast |
 | 角色被引用无法删除 | 409 | `ENTITY_IN_USE` | 弹窗展示引用清单 |
 | 乐观锁冲突 | 409 | `VERSION_CONFLICT` | Toast + 刷新 |
 
 #### 4.8.5 数据规格
 
-**输入数据（POST /api/v1/departments/:id/roles Request Body）：**
+**输入数据（POST /api/v1/projects/:projectId/roles Request Body）：**
 
 | 字段 | 类型 | 必填 | 默认值 | 说明 |
 |------|------|:----:|:------:|------|
-| name | string | ✅ | — | 编程标识符, 正则 `/^[a-zA-Z0-9_-]+$/`, 2~50 |
+| name | string | ✅ | — | 编程标识符, 正则 `/^[a-zA-Z0-9_-]+$/`, 2~50 字符 |
 | display_name | string | ✅ | — | 显示名称, 1~100 字符 |
 | description | string | ❌ | null | 描述, 0~2000 字符 |
+| department_id | string | ❌ | null | 可选挂载目标部门 ID, 为 null 或不传 = 独立角色 |
 
 **输入数据（PUT /api/v1/roles/:id Request Body）：**
 
@@ -788,6 +850,7 @@ graph TD
 | name | string | ✅ | 同创建 |
 | display_name | string | ✅ | 同创建 |
 | description | string | ❌ | 同创建 |
+| department_id | string | ❌ | 可选挂载, 允许修改（可从有值改为 null 或反向） |
 | version | integer | ✅ | 乐观锁版本号 |
 
 **输出数据（Role Response Body）：**
@@ -795,21 +858,48 @@ graph TD
 | 字段 | 类型 | 来源 | 说明 |
 |------|------|------|------|
 | id | string | roles.id | 角色 UUID |
-| dept_id | string | roles.dept_id | 所属部门 ID |
+| project_id | string | roles.project_id | 所属项目 ID |
+| department_id | string \| null | roles.department_id | 所属部门 ID（null = 独立角色） |
+| department_name | string \| null | departments.display_name | 所属部门显示名（虚拟字段, null 时为空串） |
 | name | string | roles.name | 编程标识符 |
 | display_name | string | roles.display_name | 显示名称 |
 | description | string \| null | roles.description | 描述 |
+| category | string \| null | roles.category | 角色分类标签 |
+| contact_info | object | roles.contact_info | 联系方式 JSON |
 | status | string | roles.status | active / archived |
 | version | integer | roles.version | 版本号 |
 | created_at | string | roles.created_at | 创建时间 |
 | updated_at | string | roles.updated_at | 更新时间 |
 
+**输出数据（列表 Response）：**
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| data | Role[] | 角色列表数组 |
+| meta.total | integer | 总数（用于分页） |
+| meta.page | integer | 当前页码 |
+| meta.pageSize | integer | 每页条数 |
+
+**列表查询参数（GET /api/v1/projects/:projectId/roles）：**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|:----:|------|
+| page | integer | ❌ | 页码, 默认 1 |
+| pageSize | integer | ❌ | 每页条数, 默认 20 |
+| search | string | ❌ | 搜索关键词（name/display_name ILIKE） |
+| departmentId | string \| `__none__` | ❌ | 部门筛选; 不传=全部, `__none__`=独立角色, 传 id=某部门 |
+
 #### 4.8.6 AI 编码提示
 
-- **三级级联选择器的实现**: 公司→部门→角色的三级选择是本模块最深的导航层级. 建议使用"面包屑 + 面板"的组合模式: 顶部面包屑显示 `组织架构 > 国家电网 > 研发部 > 角色列表`, 下方三个面板左右或上下排列, 选中上级时下级面板加载对应数据. 避免使用三级嵌套下拉（移动端体验差）.
-- **角色是叶子节点**: 在组织架构树中, 角色是最底层（叶子节点）, 没有 entity 再引用它作为父实体（除了 domain_entity/business_process 的引用关系）. 所以删除角色时只需检查引用完整性, 不需要级联删除子数据.
-- **dept_id 的传递链路**: 创建角色时, dept_id 来自 URL 路径参数（`/departments/:deptId/roles`）, 不是用户手动填写. 前端必须在选中部门后将 deptId 传入 API 调用.
-- **归档状态的级联判断**: 判断项目是否归档需要查三级: role → department → company → project. 后端可以用一次 JOIN 查询完成（`roles JOIN departments JOIN companies JOIN projects`）, 前端可以从项目详情页的 context 中直接取 project.status.
+- **独立 Tab 入口**: 角色是项目详情页的一级 Tab（与"概要""组织架构"平级）, 不是组织架构的子 Tab. 因为 Role 是业务流程的核心参与者（process_nodes.holder）, 组织架构只是对角色的可选修饰.
+- **API 路径**: 角色的 CRUD API 直接挂在 projects 下 (`/projects/:projectId/roles`). 不嵌套在 departments 下, 因为角色不再强制属于某个部门.
+- **department_id 可空处理**: 后端创建/更新 role 时, department_id 为可选字段. 前端新建对话框中"部门"下拉应有"不挂载（独立角色）"选项, 对应传 null 或不传该字段.
+- **唯一性范围是 project_id**: 角色的 `name` 在同一 project 内全局唯一, SQL 为 `WHERE name = ? AND project_id = ? AND id != ?`. 不管是否挂载到部门, 都不能同名.
+- **归属标记的 UI 表现**: 列表中每个角色卡片应显示归属 Badge — 有 department_id 的显示部门名（如"研发部"）, 无的显示"独立"标签（不同颜色区分）. 这让用户一眼区分两类角色.
+- **编辑时可更改挂载**: 编辑角色对话框中允许用户修改 department_id, 包括清空（变为独立角色）或重新选择部门. 这是一个 UPDATE 操作, 不是重建.
+- **归档状态判断简化**: 判断项目是否归档只需查一级: role.project_id → projects.status.不再需要通过 department → company 三级 JOIN（除非 role 挂载了部门, 但归档判断仍以 project.status 为准）.
+- **部门筛选器的实现**: 列表页的部门筛选项需要动态加载——调用 `GET /api/v1/projects/:projectId/departments?flat=true` 获取该项目下**所有公司**的部门 flat 列表（跨公司的）, 加上"全部"和"独立"两个固定选项. 因为角色是 project 级别的, 筛选器需要展示该项目所有部门的完整列表, 不限于某个公司.
+- **与组织架构的联动**: 组织架构 Tab 中的公司/部门卡片显示已挂载角色数, 点击数字可切换到「角色」Tab 并自动应用对应部门筛选. 两个 Tab 相邻放置方便用户快速跳转.
 
 ---
 
@@ -847,7 +937,7 @@ Project (1) ──< (N) ExternalEntity
 graph TD
     subgraph OrgTab["组织架构 Tab"]
         direction TB
-        SubTabs["子 Tab: 公司部门 / 外部实体"]
+        SubTabs["子区域: 公司部门 / 外部实体"]
         subgraph EEArea["外部实体区域"]
             direction TB
             EEToolbar["工具栏: 新建 + 搜索"]
@@ -934,9 +1024,31 @@ graph TD
 | B-M1-86 | 外部实体无子实体, 直接 DELETE | — |
 | B-M1-87 | 归档项目不允许删除 | 400 PROJECT_ARCHIVED |
 
-##### 4.9.4.6 校验汇总 & 4.9.4.7 异常场景汇总
+##### 4.9.4.6 校验汇总
 
-（格式与 F-M1-06/F-M1-07/F-M1-08 一致, 规则编号 B-M1-71~B-M1-87, 错误码体系相同.）
+| 维度 | 规则 | 触发时机 |
+|------|------|---------|
+| 格式校验 | B-M1-74: name 正则 | 创建/更新 |
+| 唯一性校验 | B-M1-75/80: project_id 茇围内唯一 | 创建/更新前 |
+| 必填校验 | B-M1-76/81: display_name 必填 | 创建/更新 |
+| 枚举校验 | B-M1-77/82: type 必须是合法枚举值 | 创建/更新 |
+| 状态校验 | B-M1-79/83/87: 项目活跃 | 创建/更新/删除 |
+| 引用完整性 | B-M1-85: 被引用时禁止删除 | 删除前 |
+| 乐观锁 | B-M1-84: version 匹配 | 更新时 |
+
+##### 4.9.4.7 异常场景汇总
+
+| 场景 | HTTP 状态码 | 错误码 | 前端处理 |
+|------|-----------|--------|---------|
+| name 格式非法 | 400 | `INVALID_NAME_FORMAT` | 输入框红字 |
+| name 已存在（同项目） | 409 | `NAME_CONFLICT` | 输入框红字 |
+| display_name 为空 | 400 | `DISPLAY_NAME_REQUIRED` | 输入框红字 |
+| type 枚举值非法 | 400 | `INVALID_ENUM` | 下拉选择器红字提示（其他模块无此错误码） |
+| 项目已归档 | 400 | `PROJECT_ARCHIVED` | Toast |
+| 外部实体被引用无法删除 | 409 | `ENTITY_IN_USE` | 弹窗展示引用清单 |
+| 乐观锁冲突 | 409 | `VERSION_CONFLICT` | Toast + 刷新 |
+
+> **与其他模块的差异**: 外部实体比公司/部门/角色多一个 `type` 枚举字段, 因此多出 `INVALID_ENUM` 错误码和对应异常场景. 其余错误码体系一致.
 
 #### 4.9.5 数据规格
 
@@ -978,7 +1090,8 @@ graph TD
 #### 4.9.6 AI 编码提示
 
 - **type 枚举的前后端同步**: `type` 字段的允许值是枚举, 前端下拉选项和后端校验名单必须保持一致. 建议在后端定义一个常量/enum, 前端通过 API 获取或硬编码同一份值. Phase 1 可以硬编码, 但加注释标注"需与后端 enum 保持同步".
-- **外部实体与公司并列**: 在组织架构 Tab 下, 外部实体和公司部门是两个独立的子区域（或子 Tab）, 它们之间没有关系. 不要把外部实体放在公司下面.
+- **外部实体与公司并列**: 在组织架构 Tab 下, 外部实体和公司部门是两个独立的子区域, 它们之间没有关系. 不要把外部实体放在公司下面.
+- **角色已独立**: 角色不再是组织架构的子 Tab, 而是与组织架构平级的一级 Tab. 外部实体、公司、角色三者在 UI 上的层级关系: 角色(一级 Tab) / 组织架构(一级 Tab, 含公司+外部实体).
 - **无父实体选择器**: 与公司/部门不同, 外部实体直接隶属于项目, 新建时不需要选择父实体（project_id 来自 URL 路径）. 对话框比公司/部门的简单一些.
 
 ---
@@ -1139,7 +1252,7 @@ Company / Department / Role / ExternalEntity 自身也有 `status` 字段, 但�
 | 规则编号 | 规则内容 | 适用范围 |
 |---------|---------|---------|
 | G-M1-04 | **name 字段全局格式约定**: 所有实体（Project/Company/Department/Role/ExternalEntity）的 `name` 字段统一遵循正则 `/^[a-zA-Z0-9_-]+$/`, 长度 2~50 | 全模块所有实体的创建和更新 |
-| G-M1-05 | **name 唯一性范围的统一模式**: 每种实体的 `name` 在其**直接父实体的范围内**唯一（Project 全局唯一, Company/ExternalEntity 按 project_id, Department 按 company_id, Role 按 dept_id） | 全模块所有实体的创建和更新 |
+| G-M1-05 | **name 唯一性范围的统一模式**: 每种实体的 `name` 在其**直接父实体的范围内**唯一（Project 全局唯一, Company/ExternalEntity 按 project_id, Department 按 company_id, **Role 按 project_id（全局唯一, 因 department_id 为可选挂载）**） | 全模块所有实体的创建和更新 |
 | G-M1-06 | **display_name 全局约定**: 所有实体的 `display_name` 必填, 长度 1~100, 支持中英文字符 | 全模块所有实体 |
 | G-M1-07 | **乐观锁全局约定**: 所有更新操作（PUT）必须携带 `version` 字段, 后端 SQL 必须 `WHERE version = :currentVersion`, 冲突返回 409 `VERSION_CONFLICT` | 全模块所有 PUT 操作 |
 | G-M1-08 | **归档项目全局只读**: 归档项目的所有子实体 API（POST/PUT/DELETE）统一返回 400 `PROJECT_ARCHIVED`, 由中间件或统一拦截器处理 | 全模块所有写操作 API |
@@ -1223,11 +1336,14 @@ Company / Department / Role / ExternalEntity 自身也有 `status` 字段, 但�
 | AC-M1-13 | **Given** 归档确认弹窗, **When** 点击「确认」, **Then** 项目状态变为 archived, 页面显示「已归档」Badge, 所有编辑入口隐藏 | F-M1-05 |
 | AC-M1-14 | **Given** 归档项目详情页, **When** 点击「恢复项目」按钮, **Then** 弹出确认框, 确认后项目恢复为活跃态, 编辑入口恢复 | F-M1-05 |
 | AC-M1-15 | **Given** 归档项目, **When** 尝试通过 API 直接编辑, **Then** 返回 400 PROJECT_ARCHIVED | F-M1-05, B-M1-22, G-M1-08 |
-| AC-M1-16 | **Given** 项目详情页 → 组织架构 Tab, **When** Tab 加载完成, **Then** 展示公司列表（含名称/描述/部门数/角色数统计）, 顶部有新建按钮和搜索框 | F-M1-06 |
+| AC-M1-16 | **Given** 项目详情页 → 组织架构 Tab, **When** Tab 加载完成, **Then** 展示公司列表（含名称/描述/部门数/已挂载角色数统计）, 顶部有新建按钮和搜索框 | F-M1-06 |
 | AC-M1-17 | **Given** 组织架构 Tab, **When** 点击「新建公司」, **Then** 弹出对话框, 提交后在列表中出现新公司 | F-M1-06 |
-| AC-M1-18 | **Given** 公司列表, **When** 选中某公司, **Then** 加载该公司的部门列表, 面板切换到部门视图 | F-M1-07 |
-| AC-M1-19 | **Given** 部门视图, **When** 选中某部门, **Then** 加载该部门的角色列表, 面板切换到角色视图 | F-M1-08 |
-| AC-M1-20 | **Given** 任意层级（公司/部门/角色）, **When** 点击删除并确认, **Then** 实体被删除, 级联子实体一并删除, 列表更新 | F-M1-06/07/08 |
+| AC-M1-18 | **Given** 公司列表, **When** 选中某公司, **Then** 加载该公司的部门**树形列表**（支持展开/折叠多级层级）, 面板切换到部门视图 | F-M1-07 |
+| AC-M1-19 | **Given** 组织架构 Tab → 「角色」子 Tab, **When** 加载完成, **Then** 展示该项目全部角色列表（含归属标记: 部门名或"独立"）, 有新建/搜索/部门筛选/编辑/删除能力 | F-M1-08 |
+| AC-M1-19b | **Given** 角色列表, **When** 点击「新建角色」, **Then** 弹出对话框含 name/display_name/description/部门（可选下拉, 含"不挂载"选项）, 不选部门提交后创建独立角色 | F-M1-08, B-M1-63 |
+| AC-M1-19c | **Given** 角色列表, **When** 使用部门筛选器选择某部门或"独立", **Then** 列表过滤为匹配角色; 从公司/部门卡片点击挂载数字可自动跳转并应用对应筛选 | F-M1-08, B-M1-58 |
+| AC-M1-20 | **Given** 删除公司并确认, **When** 后端执行完毕, **Then** 公司及其下属部门被删除, 原挂载到该公司部门下的角色变为独立角色（department_id=null）, 角色本身保留 | F-M1-06, B-M1-39 |
+| AC-M1-20b | **Given** 删除部门并确认（该部门有子部门和已挂载角色）, **When** 后端执行完毕, **Then** 该部门及子部门被递归删除, 原挂载角色变为独立角色, 删除确认弹窗事先展示了增强警告信息 | F-M1-07, B-M1-54 |
 | AC-M1-21 | **Given** 被领域实体引用的公司, **When** 尝试删除, **Then** 返回 409 ENTITY_IN_USE, 弹窗展示引用清单 | F-M1-06, B-M1-38 |
 | AC-M1-22 | **Given** 组织架构 Tab → 外部实体子 Tab, **When** 加载完成, **Then** 展示外部实体列表（含类型 Badge）, 有新建/搜索/编辑/删除能力 | F-M1-09 |
 | AC-M1-23 | **Given** 项目列表页, **When** 每行项目数据, **Then** 内嵌 summary 统计字段（实体数/流程数/组织数）, 无需额外请求 | F-M1-10, B-M1-88 |
@@ -1253,6 +1369,6 @@ Company / Department / Role / ExternalEntity 自身也有 `status` 字段, 但�
 | AC-M1-U03 | 所有列表的空状态包含「新建」入口按钮 + 友好提示文案（"暂无 XX, 点击新建开始添加"）, 非空白页 | UI-M1-04 |
 | AC-M1-U04 | 所有对话框支持 Esc 键关闭, 效果等同于点击「取消」 | UI-M1-06 |
 | AC-M1-U05 | 归档项目在列表页有灰色「已归档」Badge, 在详情页顶部有灰色 Badge + 降低透明度, 所有编辑/归档按钮隐藏 | UI-M1-07 |
-| AC-M1-U06 | 组织架构三级导航（公司→部门→角色）使用「面包屑 + 面板」组合模式, 非三级嵌套下拉 | F-M1-08, 4.8.6 |
+| AC-M1-U06 | 项目详情页 Tab 导航栏包含"概要""组织架构""角色"等一级 Tab（角色与组织架构平级）, 角色 Tab 为独立列表（含部门筛选器+归属 Badge）; 组织架构 Tab 内含公司部门子区（树形部门 + 外部实体子 Tab）, 公司/部门卡片显示已挂载角色数可点击跳转到角色 Tab 并自动筛选 | F-M1-06, F-M1-07, F-M1-08, 4.7.2, 4.8.2 |
 | AC-M1-U07 | 公司/部门/角色/外部实体的新建对话框中, name 输入框有 placeholder 示例（如 `state-grid`）, display_name 有 placeholder（如 `国家电网`） | 全局 UX 一致性 |
 | AC-M1-U08 | 项目列表每行的摘要统计数字使用 Badge/Micro-charts 样式展示（非纯文本）, 0 值显示为灰色 "0" 而非隐藏 | F-M1-10, 4.10.6 |
