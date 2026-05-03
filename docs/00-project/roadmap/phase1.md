@@ -28,7 +28,7 @@
 
 ---
 
-## 1-B：M1 项目管理模块 🔄 进行中
+## 1-B：M1 项目管理模块 ✅ Step0~3 完成（4/8）
 
 > 模块定位：系统的顶级容器和基础组织架构管理（项目 CRUD + 公司/部门/角色/外部实体）
 >
@@ -40,7 +40,7 @@
 |-----------|------|:----:|--------|:----:|
 | Step 0 | 产品思路 & 想法 | ✅ 完成 | docs/01-design-idea/ | — |
 | Step 1 | 领域模型设计 | ✅ 完成 | docs/02-domain-model/ (5 文件) | — |
-| Step 2 | PRD 设计 | 🔄 **进行中** | project-management-prd.md + prd-2.md | 2220 |
+| Step 2 | PRD 设计 | ✅ **审核通过** | project-management-prd.md (962) + prd-2.md (~1380) | ~2342 |
 | Step 3 | 技术方案 | ✅ 提前完成 | phase1-design-tech.md + database-schema.md | 1204 |
 | Step 4 | 测试用例设计 | ⏳ 待开始 | docs/06-test-design/ | — |
 | Step 5 | 代码实现 | ⏳ 待开始 | packages/api/routes/ + packages/web/pages/ | — |
@@ -58,14 +58,14 @@
 | §4.2 F-M1-02 创建项目 | ~80 行 | ✅ 审核 |
 | §4.3 F-M1-03 查看项目详情 | ~130 行 | ✅ 审核 |
 | §4.4 F-M1-04 编辑项目基本信息 | ~130 行 | ✅ 审核 |
-| §4.5 F-M1-05 归档/恢复项目 | ~120 行 | ⏳ 待审核 |
-| §4.6 F-M1-06 公司管理 | ~200 行 | ⏳ 待审核 |
-| §4.7 F-M1-07 部门管理 | ~170 行 | ⏳ 待审核 |
-| §4.8 F-M1-08 角色管理 | ~180 行 | ⏳ 待审核 |
-| §4.9 F-M1-09 外部实体管理（P1） | ~130 行 | ⏳ 待审核 |
-| §4.10 F-M1-10 项目摘要统计（P1） | ~80 行 | ⏳ 待审核 |
-| §5 跨功能规则（状态机/校验/交互/权限） | ~120 行 | ⏳ 待审核 |
-| §6 验收标准（功能 24 项 + 异常 6 项 + UI/UX 8 项） | ~100 行 | ⏳ 待审核 |
+| §4.5 F-M1-05 归档/恢复项目 | ~120 行 | ✅ 审核 |
+| §4.6 F-M1-06 公司管理 | ~200 行 | ✅ 审核 |
+| §4.7 F-M1-07 部门管理（多级树形, parent_id 自引用） | ~200 行 | ✅ 审核 |
+| §4.8 F-M1-08 角色管理（独立 Tab 入口, department_id 可选挂载） | ~250 行 | ✅ 审核 |
+| §4.9 F-M1-09 外部实体管理（P1） | ~140 行 | ✅ 审核 |
+| §4.10 F-M1-10 项目摘要统计（P1） | ~80 行 | ✅ 审核 |
+| §5 跨功能规则（状态机/校验/交互/权限） | ~130 行 | ✅ 审核 |
+| §6 验收标准（功能 24+ 项 + 异常 6 项 + UI/UX 8 项） | ~110 行 | ✅ 审核 |
 
 ### 功能点清单（10 项）
 
@@ -75,12 +75,12 @@
 | F-M1-02 | 创建项目（对话框表单 / name 校验 / 唯一性） | P0 | Step 2 ✅ → Step 5~7 ⏳ |
 | F-M1-03 | 查看项目详情（并行请求 / 模块卡片 / 归档 UI 差异） | P0 | Step 2 ✅ → Step 5~7 ⏳ |
 | F-M1-04 | 编辑项目基本信息（行内编辑 / 乐观锁 / 快照还原） | P0 | Step 2 ✅ → Step 5~7 ⏳ |
-| F-M1-05 | 归档 / 恢复项目（标记操作 / AlertDialog / 列表联动） | P0 | Step 2 🔄 → Step 5~7 ⏳ |
-| F-M1-06 | 公司管理（CRUD / 三级导航第一级 / 级联删除） | P0 | Step 2 🔄 → Step 5~7 ⏳ |
-| F-M1-07 | 部门管理（CRUD / 第二级 / company_id 范围唯一性） | P0 | Step 2 🔄 → Step 5~7 ⏳ |
-| F-M1-08 | 角色管理（CRUD / 第三级叶子节点 / dept_id 范围唯一性） | P0 | Step 2 🔄 → Step 5~7 ⏳ |
-| F-M1-09 | 外部实体管理（CRUD / type 枚举 / 直接隶属项目） | P1 | Step 2 🔄 → Step 5~7 ⏳ |
-| F-M1-10 | 项目摘要统计（列表内嵌 / 详情 API / 缓存策略） | P1 | Step 2 🔄 → Step 5~7 ⏳ |
+| F-M1-05 | 归档 / 恢复项目（标记操作 / AlertDialog / 列表联动） | P0 | Step 2 ✅ → Step 4~7 ⏳ |
+| F-M1-06 | 公司管理（CRUD / 第一级 / 级联删除+解绑角色） | P0 | Step 2 ✅ → Step 4~7 ⏳ |
+| F-M1-07 | 部门管理（CRUD / 多级树形 / company_id 唯一性 / 循环检测） | P0 | Step 2 ✅ → Step 4~7 ⏳ |
+| F-M1-08 | 角色管理（独立 Tab / 可选挂载部门 / project 级全局唯一） | P0 | Step 2 ✅ → Step 4~7 ⏳ |
+| F-M1-09 | 外部实体管理（CRUD / type 枚举 / 直接隶属项目） | P1 | Step 2 ✅ → Step 4~7 ⏳ |
+| F-M1-10 | 项目摘要统计（列表内嵌 / 详情 API / 缓存策略） | P1 | Step 2 ✅ → Step 4~7 ⏳ |
 
 ---
 
@@ -186,15 +186,17 @@ M1 项目管理（容器, 无前置模块依赖）
 
 ---
 
-## Phase 1 文档产出总览（截至 2026-05-02）
+## Phase 1 文档产出总览（截至 2026-05-03）
 
 | 文件 | 行数 | 状态 | 内容摘要 |
 |------|------|:----:|---------|
 | `docs/04-tech-design/phase1-design-tech.md` | 636 | ✅ 已审核 | API 规范 / 校验 / 错误处理 / 测试策略 / 91 端点 |
 | `docs/05-data-design/phase1-database-schema.md` | 568 | ✅ 已审核 | 19 张表完整 DDL + 设计规范 |
 | `docs/03-prd/prd-convention.md` | 544 | ✅ v1.0 | PRD 编写规范（6 章模板 + 逐节确认流程） |
-| `docs/03-prd/modules/project-management/project-management-prd.md` | 962 | 🔄 部分审核 | M1 PRD §1~§4.4（F-M1-01~04） |
-| `docs/03-prd/modules/project-management/project-management-prd-2.md` | 1258 | ⏳ 待审核 | M1 PRD §4.5~§6（F-M1-05~10 + 跨功能规则 + 验收标准） |
+| `docs/01-design-idea/role-independence-design.md` | 146 | ✅ 已审核 | Role 独立性 4 项设计决策（department_id nullable / SET NULL / 独立 Tab / 全局唯一） |
+| `docs/02-domain-model/domain-model.md` | ~550 | ✅ v1.1 | 领域模型（新增 Company/Department/ExternalEntity + Role 迁移增强） |
+| `docs/03-prd/modules/project-management/project-management-prd.md` | 962 | ✅ 全部审核 | M1 PRD §1~§4.4（F-M1-01~04） |
+| `docs/03-prd/modules/project-management/project-management-prd-2.md` | ~1380 | ✅ 全部审核 | M1 PRD §4.5~§6（F-M1-05~10 + 跨功能规则 + 验收标准） |
 | `packages/api/src/` | ~240 | ✅ 骨架 | Fastify app / db / models (4 表 schema + relations) |
 | `packages/web/src/` | ~280 | ✅ 骨架 | App routing / Layout (193行) / pages (stubs) / api client |
 | `packages/shared/src/types/` | ~242 | ✅ 初版 | 7 个领域类型文件 (project/domain/process/org/architecture/menu) |
