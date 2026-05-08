@@ -25,10 +25,13 @@
 | 1.A.7 | 数据库 Schema 设计文档（19 张表 DDL） | ✅ 已审核 | docs/05-data-design/phase1-database-schema.md (568 行) |
 | 1.A.8 | 技术方案设计文档（API 规范 / 校验 / 错误处理 / 测试策略） | ✅ 已审核 | docs/04-tech-design/phase1-design-tech.md (636 行) |
 | 1.A.9 | PRD 编写规范（v1.0, 6 章模板 + 逐节确认流程） | ✅ 定稿 | docs/03-prd/prd-convention.md (544 行) |
+| 1.A.10 | 编码实施规范 v1.1（总纲 + 五维 Review 模型 + R1-R5 强制注释） | ✅ 定稿 | docs/04-tech-design/coding-convention.md (~420 行) |
+| 1.A.11 | 后端编码细则 v1.1 | ✅ 定稿 | docs/04-tech-design/coding-convention-backend.md (~1127 行) |
+| 1.A.12 | 前端编码细则 v1.1 | ✅ 定稿 | docs/04-tech-design/coding-convention-frontend.md (~1200 行) |
 
 ---
 
-## 1-B：M1 项目管理模块 ✅ Step0~3 完成（4/8）
+## 1-B：M1 项目管理模块 ✅ Step0~4 完成，Step 5 准备中（编码规范 ✅，P1 Schema ✅ 19表，P2 TypeBox ✅ M1全量Schema+Ajv）（5/8）
 
 > 模块定位：系统的顶级容器和基础组织架构管理（项目 CRUD + 公司/部门/角色/外部实体）
 >
@@ -42,8 +45,8 @@
 | Step 1 | 领域模型设计 | ✅ 完成 | docs/02-domain-model/ (5 文件) | — |
 | Step 2 | PRD 设计 | ✅ **审核通过** | project-management-prd.md (962) + prd-2.md (~1380) | ~2342 |
 | Step 3 | 技术方案 | ✅ 提前完成 | phase1-design-tech.md + database-schema.md | 1204 |
-| Step 4 | 测试用例设计 | ⏳ 待开始 | docs/06-test-design/ | — |
-| Step 5 | 代码实现 | ⏳ 待开始 | packages/api/routes/ + packages/web/pages/ | — |
+| **Step 4** | **测试用例设计** | **✅ 完成** | **docs/06-test-design/ (20 文件, 315 用例)** | ~11070 |
+| Step 5 | 代码实现 | 🔄 准备中（编码规范 ✅，P1 Schema ✅ 19表，P2 TypeBox ✅ M1全量+Ajv） | packages/api/routes/ + packages/web/pages/ | — |
 | Step 6 | 测试代码 | ⏳ 待开始 | packages/**/*.test.ts | — |
 | Step 7 | 部署方案 | ⏳ 待开始 | docs/07-deploy-design/ | — |
 
@@ -71,16 +74,16 @@
 
 | # | 功能点 | 优先级 | SDLC 进度 |
 |---|--------|:------:|:---------:|
-| F-M1-01 | 项目列表（搜索/分页/排序/摘要内嵌） | P0 | Step 2 ✅ → Step 5~7 ⏳ |
-| F-M1-02 | 创建项目（对话框表单 / name 校验 / 唯一性） | P0 | Step 2 ✅ → Step 5~7 ⏳ |
-| F-M1-03 | 查看项目详情（并行请求 / 模块卡片 / 归档 UI 差异） | P0 | Step 2 ✅ → Step 5~7 ⏳ |
-| F-M1-04 | 编辑项目基本信息（行内编辑 / 乐观锁 / 快照还原） | P0 | Step 2 ✅ → Step 5~7 ⏳ |
-| F-M1-05 | 归档 / 恢复项目（标记操作 / AlertDialog / 列表联动） | P0 | Step 2 ✅ → Step 4~7 ⏳ |
-| F-M1-06 | 公司管理（CRUD / 第一级 / 级联删除+解绑角色） | P0 | Step 2 ✅ → Step 4~7 ⏳ |
-| F-M1-07 | 部门管理（CRUD / 多级树形 / company_id 唯一性 / 循环检测） | P0 | Step 2 ✅ → Step 4~7 ⏳ |
-| F-M1-08 | 角色管理（独立 Tab / 可选挂载部门 / project 级全局唯一） | P0 | Step 2 ✅ → Step 4~7 ⏳ |
-| F-M1-09 | 外部实体管理（CRUD / type 枚举 / 直接隶属项目） | P1 | Step 2 ✅ → Step 4~7 ⏳ |
-| F-M1-10 | 项目摘要统计（列表内嵌 / 详情 API / 缓存策略） | P1 | Step 2 ✅ → Step 4~7 ⏳ |
+| F-M1-01 | 项目列表（搜索/分页/排序/摘要内嵌） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
+| F-M1-02 | 创建项目（对话框表单 / name 校验 / 唯一性） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
+| F-M1-03 | 查看项目详情（并行请求 / 模块卡片 / 归档 UI 差异） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
+| F-M1-04 | 编辑项目基本信息（行内编辑 / 乐观锁 / 快照还原） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
+| F-M1-05 | 归档 / 恢复项目（标记操作 / AlertDialog / 列表联动） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
+| F-M1-06 | 公司管理（CRUD / 第一级 / 级联删除+解绑角色） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
+| F-M1-07 | 部门管理（CRUD / 多级树形 / company_id 唯一性 / 循环检测） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
+| F-M1-08 | 角色管理（独立 Tab / 可选挂载部门 / project 级全局唯一） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
+| F-M1-09 | 外部实体管理（CRUD / type 枚举 / 直接隶属项目） | P1 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
+| F-M1-10 | 项目摘要统计（列表内嵌 / 详情 API / 缓存策略） | P1 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏸ |
 
 ---
 

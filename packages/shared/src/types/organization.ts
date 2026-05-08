@@ -36,7 +36,7 @@ export interface Department {
 export interface Role {
   id: string;
   projectId: string;
-  departmentId: string;
+  departmentId: string | null;
   name: string;
   displayName: string;
   description: string | null;

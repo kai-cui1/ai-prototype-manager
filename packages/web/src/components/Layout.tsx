@@ -2,6 +2,7 @@ import { Link, Outlet } from 'react-router-dom';  // Outlet 保留备用（未�
 import { type ReactNode, useState } from 'react';
 import type { MenuItem } from '@apm/shared';
 import { cn } from '@/lib/utils';
+import { Toaster } from '@/components/ui/sonner';
 
 // Layout 组件接口定义
 interface LayoutProps {
@@ -22,6 +23,8 @@ const DEFAULT_MENUS: MenuItem[] = [
     visible: true,
     roles: [],
     permissions: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
   },
   {
     id: 'menu-2',
@@ -35,6 +38,8 @@ const DEFAULT_MENUS: MenuItem[] = [
     visible: true,
     roles: [],
     permissions: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
     children: [
       {
         id: 'menu-2-1',
@@ -48,6 +53,8 @@ const DEFAULT_MENUS: MenuItem[] = [
         visible: true,
         roles: [],
         permissions: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     ],
   },
@@ -187,6 +194,7 @@ export default function Layout({ children }: LayoutProps) {
       <main className="flex-1 overflow-auto">
         {children}
       </main>
+      <Toaster position="top-right" richColors />
     </div>
   );
 }

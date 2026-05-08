@@ -45,6 +45,16 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 另有 `05-data-design/` 存放后端 DDL 和前端数据方案细节（归入 Step 1 或 Step 3 的子产出）。
 
+### Step 5~6 编码规范 **（必须遵守）**
+
+**Step 5（代码实现）和 Step 6（测试）开始前，必须先阅读并遵循** `docs/04-tech-design/coding-convention.md`（总纲）+ 对应的**后端/前端编码细则子文件**。
+
+核心要求：
+- 以**功能点（F-Mx-NN）**为最小交付单元，每个功能点独立完成 Service → Route → 前端 → 测试 → Review 全流程
+- **TDD 模式**：功能点代码写完后立即编写测试，测试全通过才算完成
+- 代码必须源自已审核的 PRD + 技术方案 + 测试用例，禁止凭空编写
+- 每个 F-Mx-NN 完成后触发 AI Code Review，Critical/Important 问题必须修复后才可继续
+
 ### 步骤完成状态核查规则 **（必须遵守）**
 
 **判断"某步骤是否已完成"时，必须用 Glob/ls 检查对应 `docs/` 子目录的实际文件，禁止仅凭记忆或推断下结论。**
@@ -98,7 +108,7 @@ ai-prototype-manager/
 │   │   └── 01-design-idea.md  # 所有产品设计决策的单一来源
 │   ├── 02-domain-model/       # 领域模型设计产物（实体、属性、关系、业务流程）
 │   ├── 03-prd/                # 产品需求规格 + 交互原型
-│   │   ├── prd-convention.md  # **PRD 编写规范（模板 & 格式，写 PRD 前必读）**
+│   │   └── prd-convention.md  # **PRD 编写规范（模板 & 格式，写 PRD 前必读）**
 │   │   ├── modules/           # 各模块 PRD（按模块分文件夹）
 │   │   │   ├── project-management/
 │   │   │   │   └── project-management-prd.md
@@ -107,7 +117,10 @@ ai-prototype-manager/
 │   │   ├── workflow/          # 业务流程 / 工作流文档
 │   │   │   └── workflow.md    # PM-AI 协作 A→F 六阶段工作流
 │   │   └── prototypes/        # HTML 高保真交互原型（Phase 1 填充）
-│   ├── 04-tech-design/        # 技术方案设计
+│   ├── 04-tech-design/        # 技术方案设计 + 编码规范
+│   │   ├── coding-convention.md    # **编码实施规范总纲（Step 5~6 工作流，写代码前必读）**
+│   │   ├── coding-convention-backend.md  # **后端编码细则（待编写）**
+│   │   ├── coding-convention-frontend.md # **前端编码细则（待编写）**
 │   │   ├── validation-design.md
 │   │   ├── object-lifecycle.md
 │   │   ├── external-design-integration.md
@@ -189,7 +202,7 @@ PRD 文档按模块存放在 `docs/03-prd/modules/` 下，每个模块一个独�
 
 ## 当前阶段
 
-**Phase 1：数据模型中心 + MVP（进行中）** — Phase 0 设计规格 100% 完成，M1 PRD 编写中（§1~§4.4 已审核，§4.5~§6 待审核）。
+**Phase 1：数据模型中心 + MVP（进行中）** — M1 模块 Step 0~4 完成（PRD ✅ + 技术方案 ✅ + 测试用例 315 个 ✅），准备进入 Step 5 编码实施。
 详细路线图见 `docs/00-project/roadmap/README.md`。
 Phase 1 Design Spec 已拆分为：
 - 数据库表定义 → `docs/05-data-design/phase1-database-schema.md`

@@ -409,7 +409,7 @@ CREATE INDEX idx_departments_parent ON departments(parent_id);
 CREATE TABLE roles (
   id              TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
   project_id      TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-  department_id   TEXT NOT NULL REFERENCES departments(id) ON DELETE CASCADE,
+  department_id   TEXT REFERENCES departments(id) ON DELETE SET NULL,  -- 可选：角色可独立于部门存在（domain model v1.1 Role 独立性设计）
   name            TEXT NOT NULL,
   display_name    TEXT NOT NULL,
   description     TEXT,

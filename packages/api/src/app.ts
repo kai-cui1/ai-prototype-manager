@@ -21,15 +21,16 @@ await app.register(cors, {
 // 全局错误处理中间件
 // ============================================
 
-app.setErrorHandler((error, request, reply) => {
+app.setErrorHandler((error: unknown, request, reply) => {
   const requestId = request.id;
+  const err = error as Error & { statusCode?: number; code?: string };
 
   // 已知业务错误（带 HTTP status）
-  if (error.statusCode && error.statusCode >= 400 && error.statusCode < 500) {
-    reply.code(error.statusCode).send({
+  if (err.statusCode && err.statusCode >= 400 && err.statusCode < 500) {
+    reply.code(err.statusCode).send({
       error: {
-        code: (error as Error & { code?: string }).code ?? 'UNKNOWN_ERROR',
-        message: error.message,
+        code: err.code ?? 'UNKNOWN_ERROR',
+        message: err.message,
         requestId,
       },
     });
@@ -52,11 +53,11 @@ app.setErrorHandler((error, request, reply) => {
 // ============================================
 
 app.addHook('onRequest', async (request) => {
-  (request as Record<string, unknown>)._startTime = Date.now();
+  (request as unknown as Record<string, unknown>)._startTime = Date.now();
 });
 
 app.addHook('onResponse', async (request, reply) => {
-  const duration = Date.now() - ((request as Record<string, unknown>)._startTime as number);
+  const duration = Date.now() - ((request as unknown as Record<string, unknown>)._startTime as number);
   app.log.debug(
     `${request.method} ${request.url} → ${reply.statusCode} (${duration}ms)`
   );
@@ -83,10 +84,14 @@ app.get('/api/v1/health', async () => {
 // 模块路由注册点（M1~M6 逐步添加）
 // ============================================
 
-// TODO(M1): app.register(projectRoutes, { prefix: '/api/v1/projects' })
+// M1: 项目管理（F-M1-01 列表 / F-M1-02 创建 / F-M1-03 详情 / F-M1-04 编辑 / F-M1-05 归档）
+import projectRoutes from './routes/projects.js';
+await app.register(projectRoutes, { prefix: '/api/v1/projects' });
 // TODO(M2): app.register(domainRoutes, { prefix: '/api/v1/projects/:projectId/domain' })
 // TODO(M3): app.register(processRoutes, { prefix: '/api/v1/projects/:projectId/processes' })
-// TODO(M4): app.register(organizationRoutes, { prefix: '/api/v1/projects/:projectId' })
+// M4: 组织管理（F-M1-06 公司 / F-M1-07 部门 / F-M1-08 角色 / F-M1-09 外部实体）
+import organizationRoutes from './routes/organization.js';
+await app.register(organizationRoutes, { prefix: '/api/v1/projects/:projectId' });
 // TODO(M5): app.register(architectureRoutes, { prefix: '/api/v1/projects/:projectId/business-architectures' })
 // TODO(M6): app.register(menuRoutes, { prefix: '/api/v1/menus' })
 
