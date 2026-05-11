@@ -5,7 +5,10 @@
 
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3000';
+// VITE_API_BASE_URL 从 .env 读取（由 Vite 自动注入）
+// 开发环境为空 → 使用相对路径 /api/v1，经 Vite proxy 转发到后端
+// 生产环境设置实际地址（如 https://api.example.com）
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export const apiClient = axios.create({
   baseURL: `${API_BASE_URL}/api/v1`,

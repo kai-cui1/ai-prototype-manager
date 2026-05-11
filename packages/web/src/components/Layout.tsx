@@ -1,10 +1,12 @@
-import { Link, Outlet } from 'react-router-dom';  // Outlet 保留备用（未来改为嵌套路由布局时使用）
-import { type ReactNode, useState } from 'react';
+import { useLocation } from 'react-router-dom';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
 import type { MenuItem } from '@apm/shared';
-import { cn } from '@/lib/utils';
+import Sidebar from './layout/Sidebar';
+import HeaderBar from './layout/HeaderBar';
 import { Toaster } from '@/components/ui/sonner';
 
-// Layout 组件接口定义
+// Layout component interface
 interface LayoutProps {
   children: ReactNode;
 }
@@ -60,128 +62,29 @@ const DEFAULT_MENUS: MenuItem[] = [
   },
 ];
 
-function MenuIcon({ name }: { name: string | null }) {
-  if (!name) return null;
-  return <span className="mr-2 inline-block w-4 h-4 text-center text-xs">&#9679;</span>;
-}
+// Breadcrumb route configuration
+const ROUTE_BREADCRUMBS: Array<{
+  pattern: RegExp;
+  labels: string[];
+}> = [
+  { pattern: /^\/projects$/, labels: ['\u9996\u9875', '\u9879\u76EE\u7BA1\u7406'] },
+  { pattern: /^\/projects\/.+$/, labels: ['\u9996\u9875', '\u9879\u76EE\u7BA1\u7406'] },
+  { pattern: /^\/menus$/, labels: ['\u9996\u9875', '\u7CFB\u7EDF\u8BBE\u7F6E', '\u83DC\u5355\u7BA1\u7406'] },
+];
 
-interface SidebarProps {
-  menus: MenuItem[];
-  collapsed: boolean;
-  onToggle: () => void;
-}
-
-function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
-  const [openMenus, setOpenMenus] = useState<Set<string>>(new Set());
-
-  const toggleSubmenu = (menuId: string) => {
-    setOpenMenus((prev) => {
-      const next = new Set(prev);
-      if (next.has(menuId)) next.delete(menuId);
-      else next.add(menuId);
-      return next;
-    });
-  };
-
-  return (
-    <aside
-      className={cn(
-        'flex flex-col border-r bg-card transition-all duration-200',
-        collapsed ? 'w-16' : 'w-64'
-      )}
-    >
-      {/* Header */}
-      <div className="flex h-14 items-center justify-between border-b px-4">
-        {!collapsed && <span className="text-lg font-semibold">APM</span>}
-        <button
-          onClick={onToggle}
-          className="rounded-md p-1.5 hover:bg-accent"
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-        >
-          {collapsed ? '\u2192' : '\u2190'}
-        </button>
-      </div>
-
-      {/* Menu items */}
-      <nav className="flex-1 overflow-y-auto py-2">
-        {menus
-          .filter((m) => m.visible)
-          .sort((a, b) => a.sortOrder - b.sortOrder)
-          .map((menu) => (
-            <div key={menu.id}>
-              {menu.menuType === 'separator' ? (
-                <hr className="my-2 mx-3 border-border" />
-              ) : menu.children && menu.children.length > 0 ? (
-                /* Directory with children */
-                <div>
-                  <button
-                    onClick={() => toggleSubmenu(menu.id)}
-                    className={cn(
-                      'flex w-full items-center rounded-md px-3 py-2 text-sm hover:bg-accent',
-                      collapsed && 'justify-center px-2'
-                    )}
-                  >
-                    <MenuIcon name={menu.icon} />
-                    {!collapsed && (
-                      <>
-                        <span className="ml-2 flex-1 text-left">{menu.displayName}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {openMenus.has(menu.id) ? '\u25BC' : '\u25B6'}
-                        </span>
-                      </>
-                    )}
-                  </button>
-                  {(!collapsed || openMenus.has(menu.id)) && (
-                    <div className={cn(collapsed && 'hidden')}>
-                      {menu.children
-                        .filter((c) => c.visible)
-                        .sort((a, b) => a.sortOrder - b.sortOrder)
-                        .map((child) => (
-                          <Link
-                            key={child.id}
-                            to={child.path ?? '#'}
-                            className={cn(
-                              'flex items-center rounded-md px-8 py-1.5 text-sm hover:bg-accent',
-                              location.pathname === child.path &&
-                                'bg-accent text-accent-foreground font-medium'
-                            )}
-                          >
-                            <MenuIcon name={child.icon} />
-                            {!collapsed && <span className="ml-2">{child.displayName}</span>}
-                          </Link>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              ) : (
-                /* Leaf menu item */
-                <Link
-                  to={menu.path ?? '#'}
-                  className={cn(
-                    'flex items-center rounded-md px-3 py-2 text-sm hover:bg-accent',
-                    collapsed && 'justify-center px-2',
-                    location.pathname === menu.path &&
-                      'bg-accent text-accent-foreground font-medium'
-                  )}
-                >
-                  <MenuIcon name={menu.icon} />
-                  {!collapsed && <span className="ml-2">{menu.displayName}</span>}
-                </Link>
-              )}
-            </div>
-          ))}
-      </nav>
-
-      {/* Footer */}
-      <div className="border-t px-4 py-2 text-xs text-muted-foreground">
-        {!collapsed && 'APM v0.1'}
-      </div>
-    </aside>
-  );
+function useBreadcrumbs() {
+  const location = useLocation();
+  const entry = ROUTE_BREADCRUMBS.find((r) => r.pattern.test(location.pathname));
+  if (!entry) return [];
+  return entry.labels.map((label, idx) => ({
+    label,
+    isCurrent: idx === entry.labels.length - 1,
+  }));
 }
 
 export default function Layout({ children }: LayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const breadcrumbs = useBreadcrumbs();
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -190,10 +93,12 @@ export default function Layout({ children }: LayoutProps) {
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
-      {/* 主内容区：渲染子组件（当前为 <Routes>） */}
-      <main className="flex-1 overflow-auto">
-        {children}
-      </main>
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <HeaderBar breadcrumbs={breadcrumbs} />
+        <main className="flex-1 overflow-auto">
+          {children}
+        </main>
+      </div>
       <Toaster position="top-right" richColors />
     </div>
   );

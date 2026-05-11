@@ -24,7 +24,7 @@
 | 1.A.6 | E2E 测试框架（Playwright + 3 个冒烟用例） | ✅ 就绪 | packages/e2e/ (config + smoke.spec.ts) |
 | 1.A.7 | 数据库 Schema 设计文档（19 张表 DDL） | ✅ 已审核 | docs/05-data-design/phase1-database-schema.md (568 行) |
 | 1.A.8 | 技术方案设计文档（API 规范 / 校验 / 错误处理 / 测试策略） | ✅ 已审核 | docs/04-tech-design/phase1-design-tech.md (636 行) |
-| 1.A.9 | PRD 编写规范（v1.0, 6 章模板 + 逐节确认流程） | ✅ 定稿 | docs/03-prd/prd-convention.md (544 行) |
+| 1.A.9 | PRD 编写规范（v1.0, 6 章模板 + 逐节确认流程） | ✅ 定稿 | docs/03-prd-ux/prd-convention.md (544 行) |
 | 1.A.10 | 编码实施规范 v1.1（总纲 + 五维 Review 模型 + R1-R5 强制注释） | ✅ 定稿 | docs/04-tech-design/coding-convention.md (~420 行) |
 | 1.A.11 | 后端编码细则 v1.1 | ✅ 定稿 | docs/04-tech-design/coding-convention-backend.md (~1127 行) |
 | 1.A.12 | 前端编码细则 v1.1 | ✅ 定稿 | docs/04-tech-design/coding-convention-frontend.md (~1200 行) |
@@ -46,9 +46,45 @@
 | Step 2 | PRD 设计 | ✅ **审核通过** | project-management-prd.md (962) + prd-2.md (~1380) | ~2342 |
 | Step 3 | 技术方案 | ✅ 提前完成 | phase1-design-tech.md + database-schema.md | 1204 |
 | **Step 4** | **测试用例设计** | **✅ 完成** | **docs/06-test-design/ (20 文件, 315 用例)** | ~11070 |
-| Step 5 | 代码实现 | 🔄 准备中（编码规范 ✅，P1 Schema ✅ 19表，P2 TypeBox ✅ M1全量+Ajv） | packages/api/routes/ + packages/web/pages/ | — |
+| Step 5 | 代码实现 | 🔄 **UI 差异修复中**（见下方 1-B.UI） | packages/api/routes/ + packages/web/pages/ | — |
+| Step 5.5 | **M1 UI 对齐高保真原型修复** | 🔴 **进行中**（2026-05-11 Playwright 实测发现 P0×6 + P1×11 差异） | docs/20-analyze-report/m1-ui-gap-analysis-2026-05-11.md | — |
 | Step 6 | 测试代码 | ⏳ 待开始 | packages/**/*.test.ts | — |
 | Step 7 | 部署方案 | ⏳ 待开始 | docs/07-deploy-design/ | — |
+
+### Step 5.5: M1 UI 对齐高保真原型修复
+
+> **触发**: 2026-05-11 Playwright 实际运行检测 → 发现前端实现与高保真原型/E2E 设计存在显著差距
+>
+> **分析报告**: `docs/20-analyze-report/m1-ui-gap-analysis-2026-05-11.md`
+>
+> **修复范围**: 按 P0 → P1 → P2 优先级逐项对齐
+
+#### P0 阻塞性问题（6 项）
+
+| # | 问题 | 涉及文件(预估) |
+|---|------|:--|
+| P0-1 | 新增 Header Bar 组件（面包屑 + 主题切换 + 用户信息） | Layout.tsx (新建 Header) |
+| P0-2 | Sidebar 样式重构（深色背景 #001529 / 分组标签 / lucide 图标） | Layout.tsx Sidebar 部分 |
+| P0-3 | 详情页新增归档按钮 | ProjectDetail.tsx |
+| P0-4 | 公司列表改为表格展示（含部门数/角色数列） | OrganizationPanel.tsx |
+| P0-5 | 部门列表改为树形组件 | OrganizationPanel.tsx (新建 DeptTree) |
+| P0-6 | OrganizationPanel 去掉内部嵌套 Tab，改为单一区域内上下布局 | OrganizationPanel.tsx 重构 |
+
+#### P1 功能缺失（11 项）
+
+| # | 问题 | 涉及文件(预估) |
+|---|------|:--|
+| P1-1 | 基本信息 Card 补充 version 字段 | ProjectInfoCard.tsx |
+| P1-2 | 详情页 Tab 补充"领域模型"+"业务流程"占位 Tab | ProjectDetail.tsx |
+| P1-3 | Summary 卡片从 6→3（高层概览粒度） | SummaryCards.tsx |
+| P1-4 | 公司/部门/角色/外部实体补充编辑入口 | OrganizationPanel.tsx 各子区域 |
+| P1-5 | 部门创建对话框补充 parent_id 选择器 | CreateDialog 复用组件 |
+| P1-6 | 角色创建对话框补充 department_id + 列表补充过滤器 | 同上 |
+| P1-7 | 公司创建对话框补充 type 选择器 | 同上 |
+| P1-8 | 列表页表格补充排序 UI + 完整分页 | ProjectTable.tsx + PaginationComponent.tsx |
+| P1-9 | 操作列从图标改为文字链接 | ProjectTable.tsx |
+| P1-10 | 组织架构各列表补充搜索+分页 | OrganizationPanel.tsx |
+| P1-11 | Filter Bar 和 Table 补白底卡片包裹 | ProjectList.tsx |
 
 ### PRD 详细进度
 
@@ -195,11 +231,11 @@ M1 项目管理（容器, 无前置模块依赖）
 |------|------|:----:|---------|
 | `docs/04-tech-design/phase1-design-tech.md` | 636 | ✅ 已审核 | API 规范 / 校验 / 错误处理 / 测试策略 / 91 端点 |
 | `docs/05-data-design/phase1-database-schema.md` | 568 | ✅ 已审核 | 19 张表完整 DDL + 设计规范 |
-| `docs/03-prd/prd-convention.md` | 544 | ✅ v1.0 | PRD 编写规范（6 章模板 + 逐节确认流程） |
+| `docs/03-prd-ux/prd-convention.md` | 544 | ✅ v1.0 | PRD 编写规范（6 章模板 + 逐节确认流程） |
 | `docs/01-design-idea/role-independence-design.md` | 146 | ✅ 已审核 | Role 独立性 4 项设计决策（department_id nullable / SET NULL / 独立 Tab / 全局唯一） |
 | `docs/02-domain-model/domain-model.md` | ~550 | ✅ v1.1 | 领域模型（新增 Company/Department/ExternalEntity + Role 迁移增强） |
-| `docs/03-prd/modules/project-management/project-management-prd.md` | 962 | ✅ 全部审核 | M1 PRD §1~§4.4（F-M1-01~04） |
-| `docs/03-prd/modules/project-management/project-management-prd-2.md` | ~1380 | ✅ 全部审核 | M1 PRD §4.5~§6（F-M1-05~10 + 跨功能规则 + 验收标准） |
+| `docs/03-prd-ux/modules/project-management/project-management-prd.md` | 962 | ✅ 全部审核 | M1 PRD §1~§4.4（F-M1-01~04） |
+| `docs/03-prd-ux/modules/project-management/project-management-prd-2.md` | ~1380 | ✅ 全部审核 | M1 PRD §4.5~§6（F-M1-05~10 + 跨功能规则 + 验收标准） |
 | `packages/api/src/` | ~240 | ✅ 骨架 | Fastify app / db / models (4 表 schema + relations) |
 | `packages/web/src/` | ~280 | ✅ 骨架 | App routing / Layout (193行) / pages (stubs) / api client |
 | `packages/shared/src/types/` | ~242 | ✅ 初版 | 7 个领域类型文件 (project/domain/process/org/architecture/menu) |

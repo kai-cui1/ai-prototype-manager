@@ -40,6 +40,15 @@
     --sidebar-accent-foreground: oklch(0.205 0 0);
     --sidebar-border: oklch(0.922 0 0);
     --sidebar-ring: oklch(0.708 0 0);
+    /* Sidebar-specific (dark-fixed, Ant Design Pro style) */
+    --sidebar-bg: #001529;
+    --sidebar-text: rgba(255, 255, 255, 0.65);
+    --sidebar-text-active: #fff;
+    --sidebar-hover: rgba(255, 255, 255, 0.08);
+    --sidebar-active-bg: #08979c;
+    --sidebar-border: rgba(255, 255, 255, 0.08);
+    --sidebar-group-label: rgba(255, 255, 255, 0.35);
+    --sidebar-footer-text: rgba(255, 255, 255, 0.3);
   }
 
   .dark {
@@ -75,6 +84,7 @@
     --sidebar-accent-foreground: oklch(0.985 0 0);
     --sidebar-border: oklch(1 0 0 / 10%);
     --sidebar-ring: oklch(0.556 0 0);
+    --sidebar-bg: #000000;
   }
   .theme {
     --font-heading: var(--font-sans);
