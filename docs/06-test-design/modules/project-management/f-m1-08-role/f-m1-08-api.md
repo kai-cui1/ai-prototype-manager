@@ -1,7 +1,7 @@
 # 角色管理 — API 测试用例
 
 > 功能点: **F-M1-08** | 优先级: **P0**
-> 对应 PRD: `docs/03-prd/modules/project-management/project-management-prd-2.md` §4.8
+> 对应 PRD: `docs/03-prd-ux/modules/project-management/project-management-prd-2.md` §4.8
 
 ---
 

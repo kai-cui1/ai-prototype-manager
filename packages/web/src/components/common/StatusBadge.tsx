@@ -1,25 +1,40 @@
 /**
  * @module StatusBadge
- * @description 项目状态标签组件：active=绿色默认 / archived=灰色次要。
+ * @description 项目状态标签组件：active=teal活跃 / archived=橙色已归档。
+ *
+ * 使用 §6.5 Badge 状态变体（active / archived），直接渲染 <span> 确保 CSS 变量颜色正确应用。
  */
-import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 import type { ProjectStatus } from '@apm/shared';
 
-const STATUS_MAP: Record<ProjectStatus, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  active: { label: '活跃', variant: 'default' },
-  archived: { label: '已归档', variant: 'secondary' },
+const STATUS_MAP: Record<ProjectStatus, { label: string; className: string }> = {
+  active: {
+    label: '活跃',
+    className: 'bg-status-active-bg text-status-active-text border border-status-active-border',
+  },
+  archived: {
+    label: '已归档',
+    className: 'bg-status-archived-bg text-status-archived-text border border-status-archived-border',
+  },
 };
 
 interface StatusBadgeProps {
   status: ProjectStatus;
 }
 
-/**
- * 渲染项目状态为彩色 Badge。
- *
- * @param status - 项目状态值（'active' | 'archived'）
- */
 export function StatusBadge({ status }: StatusBadgeProps) {
-  const config = STATUS_MAP[status] ?? { label: status, variant: 'outline' as const };
-  return <Badge variant={config.variant}>{config.label}</Badge>;
+  const config = STATUS_MAP[status] ?? {
+    label: status,
+    className: 'bg-status-draft-bg text-status-draft-text border border-status-draft-border',
+  };
+  return (
+    <span
+      className={cn(
+        'inline-flex shrink-0 items-center justify-center rounded-tag border px-1.5 py-0.5 text-xs font-medium whitespace-nowrap',
+        config.className,
+      )}
+    >
+      {config.label}
+    </span>
+  );
 }

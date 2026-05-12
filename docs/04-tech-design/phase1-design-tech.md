@@ -548,7 +548,7 @@ MVP 包含一套完整的种子数据用于开发和演示，覆盖：
 ### 11.1 可用场景（Done Demo）
 
 ```
-PM 打开浏览器 → http://localhost:5173
+PM 打开浏览器 → http://localhost:13181
   → 左侧 Sidebar 显示系统菜单（从 menus 表读取）：
       ├── 项目管理
       │   └── 项目列表（支持 name 搜索 + status 筛选）

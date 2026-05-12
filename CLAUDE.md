@@ -24,7 +24,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 4. **组件语义** — 元素的业务意图（是"提交"还是"取消"）
 
 ## 产品目标
-本系统要实现完整支持软件开发的工作流，参见文档：`docs/03-prd/workflow/workflow.md`
+本系统要实现完整支持软件开发的工作流，参见文档：`docs/03-prd-ux/workflow/workflow.md`
 
 ## 本项目工作规范 **必须遵守**
 
@@ -36,7 +36,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 |------|------|--------|:-----------------:|
 | **0** | 产品思路 & 想法 | 模糊方向、未被详细讨论的 idea | `01-design-idea/` |
 | **1** | 领域模型 & 业务流程设计 | 实体关系、数据流、业务对象属性 | `02-domain-model/` |
-| **2** | 产品 PRD 设计 | 功能结构、页面交互逻辑、业务规则；HTML 高保真原型 | `03-prd/` |
+| **2** | 产品 PRD 设计 | 功能结构、页面交互逻辑、业务规则；HTML 高保真原型 | `03-prd-ux/` |
 | **3** | 前后端详细技术方案 | 技术选型、架构图、DB 设计规范、API 规范、组件交互序列图、重点技术方案 | `04-tech-design/` |
 | **4** | 测试用例设计 | 测试方案 + 用例集（编码前先写） | `06-test-design/` |
 | **5** | 前后端代码实现 | 具体编程任务（接口/页面级颗粒度） | `packages/` (代码) |
@@ -64,6 +64,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - "有技术文档"不代表"产品设计文档齐全"
 - memory 中记录的是历史快照，不是实时状态——**永远以磁盘上的实际文件为准**
 
+
+## 全局端口约定
+
+**所有代码、配置、测试、文档中的端口引用必须使用以下约定值，禁止硬编码框架默认端口。**
+
+| 服务 | 端口 | 配置来源 | 环境变量 |
+|------|------|---------|---------|
+| **API 后端** (Fastify) | **13180** | `packages/api/src/app.ts` | `API_PORT` |
+| **Web 前端** (Vite) | **13181** | `packages/web/vite.config.ts` | — |
+| **数据库** (PostgreSQL) | **5432** | `packages/api/src/db.ts` / `packages/api/drizzle/config.ts` | `DATABASE_URL` |
+
+**规则**：
+- 新增配置文件或测试脚本引用端口时，必须查阅本表，不得使用默认值（如 Vite 默认 5173、Fastify 默认 3000）
+- E2E 测试的 `playwright.config.ts`（baseURL / webServer.port）和 `db-setup.ts` 等辅助文件中的端口必须与上表一致
+- 如需修改端口，同步更新本表 + 对应配置源文件
 
 ## 技术架构决策
 
@@ -107,7 +122,7 @@ ai-prototype-manager/
 │   ├── 01-design-idea/        # 产品设计构想与讨论记录、未详细讨论的 idea
 │   │   └── 01-design-idea.md  # 所有产品设计决策的单一来源
 │   ├── 02-domain-model/       # 领域模型设计产物（实体、属性、关系、业务流程）
-│   ├── 03-prd/                # 产品需求规格 + 交互原型
+│   ├── 03-prd-ux/                # 产品需求规格 + 交互原型
 │   │   └── prd-convention.md  # **PRD 编写规范（模板 & 格式，写 PRD 前必读）**
 │   │   ├── modules/           # 各模块 PRD（按模块分文件夹）
 │   │   │   ├── project-management/
@@ -145,7 +160,7 @@ ai-prototype-manager/
 规则：
 - **产品设计决策** → `docs/01-design-idea/` 或对应编号文档
 - **领域模型/业务流程设计** → `docs/02-domain-model/`
-- **产品 PRD / 交互原型** → `docs/03-prd/modules/[模块名]/`（按模块分文件夹，命名规则见下方）
+- **产品 PRD / 交互原型** → `docs/03-prd-ux/modules/[模块名]/`（按模块分文件夹，命名规则见下方）
 - **技术方案设计** → `docs/04-tech-design/`
 - **数据设计（DDL / 前端数据）** → `docs/05-data-design/`
 - **测试设计** → `docs/06-test-design/`
@@ -163,7 +178,7 @@ ai-prototype-manager/
 |---------|---------|---------|
 | 产品思路/想法讨论 | 模糊方向、未详细讨论的 idea | `01-design-idea/` | 
 | 领域模型/业务流程设计 | 实体关系、数据流、对象属性 | `02-domain-model/` | 
-| 产品 PRD / 交互原型 | 功能规格、页面交互逻辑、HTML 原型 | `03-prd/`（`modules/` 放各模块 PRD，`workflow/` 放工作流，`prototypes/` 放 HTML 原型） |
+| 产品 PRD / 交互原型 | 功能规格、页面交互逻辑、HTML 原型 | `03-prd-ux/`（`modules/` 放各模块 PRD，`workflow/` 放工作流，`prototypes/` 放 HTML 原型） |
 | 技术方案设计 | 选型、架构图、DB 规范、API 设计、组件交互序列图 | `04-tech-design/` | 
 | 数据设计（细粒度） | 后端 DDL、前端数据方案 | `05-data-design/` | 
 | 测试设计 | 测试方案、测试用例 | `06-test-design/` | 
@@ -177,7 +192,7 @@ ai-prototype-manager/
 
 ### PRD 文件组织规则
 
-PRD 文档按模块存放在 `docs/03-prd/modules/` 下，每个模块一个独立文件夹：
+PRD 文档按模块存放在 `docs/03-prd-ux/modules/` 下，每个模块一个独立文件夹：
 
 | 层级 | 命名规则 | 示例 |
 |------|---------|------|
@@ -185,7 +200,7 @@ PRD 文档按模块存放在 `docs/03-prd/modules/` 下，每个模块一个独�
 | PRD 文件 | `[模块名]-prd.md` | `project-management-prd.md` |
 
 存放原则：
-- **prd-convention.md**（格式规范）始终放在 `03-prd/` 根目录
+- **prd-convention.md**（格式规范）始终放在 `03-prd-ux/` 根目录
 - **modules/** 放各模块的完整 PRD 文档
 - **prototypes/** 和 **workflow/** 有独立定位，不放 PRD 文档
 

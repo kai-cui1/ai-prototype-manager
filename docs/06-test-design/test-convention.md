@@ -138,7 +138,7 @@ docs/06-test-design/modules/project-management/
 # {功能点名称} — API 测试用例
 
 > 功能点: F-Mx-NN | 优先级: P0/P1/P2
-> 对应 PRD: `docs/03-prd/modules/{module}/{module}-prd.md` §4.x
+> 对应 PRD: `docs/03-prd-ux/modules/{module}/{module}-prd.md` §4.x
 
 ## 公共上下文
 
@@ -267,7 +267,7 @@ Body: { "name": "test-proj", "display_name": "测试项目" }
 # {功能点名称} — E2E 测试用例
 
 > 功能点: F-Mx-NN | 优先级: P0/P1/P2
-> 对应 PRD: `docs/03-prd/modules/{module}/{module}-prd.md` §4.x
+> 对应 PRD: `docs/03-prd-ux/modules/{module}/{module}-prd.md` §4.x
 
 ## 公共上下文
 
@@ -508,8 +508,216 @@ Body: { "name": "test-proj", "display_name": "测试项目" }
 
 ---
 
+## 10. 视觉还原测试（Visual Regression Testing）
+
+> **新增于 v1.1** | **强制要求**：所有 E2E 用例必须包含视觉还原验证
+> **定位**：填补「功能正确」与「视觉一致」之间的空白——确保前端实现与高保真原型在像素级对齐
+
+### 10.1 为什么需要视觉还原测试
+
+| 验证类型 | 能发现的问题 | 不能发现的问题 |
+|---------|------------|--------------|
+| 功能断言（DOM/数据） | 元素存在、文字正确、交互正常 | ❌ 颜色偏差、❌ 圆角错误、❌ 间距偏移、❌ 字号不对 |
+| 视觉还原（样式/CSS） | ✅ 颜色值、✅ 圆角半径、✅ 间距尺寸、✅ 字体大小、✅ 边框粗细 | ❌ 业务逻辑错误 |
+
+**核心原则**：`coding-convention-frontend.md` §12.1 已规定**"视觉还原以原型为准"**，本节将其从编码参考原则升级为**可执行的自动化验证标准**。
+
+### 10.2 基准来源：高保真 HTML 原型
+
+每个功能点的高保真原型是视觉还原的**唯一基准**：
+
+| 基准 | 文件位置 | 用途 |
+|------|---------|------|
+| **HTML 原型** | `docs/03-prd-ux/prototypes/{module}-{feature}.html` | 视觉还原的**金标准**（实际渲染效果） |
+| **设计规范** | `docs/03-prd-ux/ui-design-spec.md` | Token 定义（颜色值/圆角/字号/间距） |
+| **编码细则** | `docs/04-tech-design/coding-convention-frontend.md` §12 | 参考优先级规则 |
+
+> **冲突解决**：当原型渲染效果与 `ui-design-spec.md` 的数值不一致时，**以原型实际渲染效果为准**（原型是 spec 的实例化）。
+
+### 10.3 视觉还原的三层验证
+
+E2E 测试必须包含以下三层中的至少一层（P0 用例要求 Layer 1 + Layer 2，P1/P2 至少 Layer 1）：
+
+#### Layer 1: CSS 属性断言（必选，轻量）
+
+通过 Playwright 的 `elementHandle.evaluate()` 获取 computed style，精确比对 CSS 属性值。
+
+**适用场景**：所有可见 UI 元素的颜色、圆角、字号、间距、边框。
+
+**断言方法**：
+
+```typescript
+// 示例：验证状态 Badge 的颜色
+const badge = page.locator('.badge:has-text("活跃")');
+await expect(badge).toBeVisible();
+const styles = await badge.evaluate((el) => {
+  const cs = getComputedStyle(el);
+  return {
+    bgColor: cs.backgroundColor,
+    color: cs.color,
+    borderColor: cs.borderColor,
+    borderRadius: cs.borderRadius,
+    fontSize: cs.fontSize,
+  };
+});
+// 断言背景色接近 #e6fffb（允许 ±5% HSL 容差）
+assertColorClose(styles.bgColor, '178, 100%, 95%'); // --status-active-bg
+```
+
+**常用检查项清单**：
+
+| 检查项 | CSS 属性 | 典型值（来自 ui-design-spec） |
+|--------|---------|--------------------------|
+| 主色按钮背景 | `background-color` | `#08979c` (→ `--primary`) |
+| 状态 Badge 背景 | `background-color` | active=`#e6fffb`, archived=`#fff7e6`, draft=`#f0f0f0` |
+| 状态 Badge 文字 | `color` | active=`#13c2c2`, archived=`#fa8c16` |
+| 按钮/输入框圆角 | `border-radius` | `6px` (→ `--radius-btn`) |
+| 卡片圆角 | `border-radius` | `8px` (→ `--radius-card`) |
+| Badge/Tag 圆角 | `border-radius` | `4px` (→ `--radius-tag`) |
+| 表格行高 | `height` | `44px` (含 padding) |
+| 页面标题字号 | `font-size` | `20px` (→ `--font-size-h1)` |
+| 正文/表格字号 | `font-size` | `14px` (→ `--font-size-body`) |
+| 边框颜色 | `border-color` / `border-top-color` | 默认 `#e8e8e8`, 强调 `#d9d9d9` |
+| 分割线颜色 | `border-top-color` | `#f0f0f0` |
+| 操作链接颜色 | `color` | 编辑=`#08979c`, 归档=`#ff4d4f`, 恢复=`#52c41a` |
+| Sidebar 背景（亮色） | `background-color` | `#ffffff` |
+| Sidebar 背景（暗色） | `background-color` | `#000000` |
+
+#### Layer 2: 截图快照对比（推荐，中等成本）
+
+通过 Playwright 的 `expect(page).toHaveScreenshot()` 进行整页或组件级截图对比。
+
+**适用场景**：布局结构、整体排版、多元素组合的相对位置。
+
+**使用方式**：
+
+```typescript
+// 首次运行：生成基准截图（存入 test-results/screenshots/baseline/）
+// 后续运行：自动对比 diff
+await expect(page.locator('main')).toHaveScreenshot({
+  maxDiffPixelRatio: 0.01,      // 允许 1% 像素差异
+  threshold: 0.2,              // 每像素 RGB 差异阈值 0~255
+  animations: 'disabled',     // 禁用动画确保一致性
+  mask: [page.locator('.timestamp')], // 遮罩动态内容（时间戳等）
+});
+```
+
+**通过标准**：
+- `maxDiffPixelRatio ≤ 0.01`（不超过 1% 像素不同）
+- 关键 UI 区域（按钮/Badge/表格头）零 diff
+- 仅动态内容区域（时间戳/随机 ID）允许被 mask
+
+#### Layer 3: 像素级精确对比（可选，重成本）
+
+仅用于关键页面（如项目列表页）的首屏验收。结合 Playwright Visual Comparison 插件做全页 pixel diff。
+
+**触发条件**：
+- P0 功能点的首个 TC 用例（TC-E2E-Mx-NN-001）
+- 设计系统重大变更后（如主题切换、Token 重定义）
+
+### 10.4 E2E 用例模板扩展
+
+在现有 E2E 用例模板的基础上，**每个用例必须增加以下字段**：
+
+#### 10.4.1 新增字段：视觉基准引用
+
+| 字段 | 必填 | 说明 |
+|------|:----:|------|
+| **视觉基准原型** | ✅ P0/P1 必填 | 对应的 HTML 高保真原型文件路径，如 `prototypes/m1-project-list.html` |
+| **视觉断言维度** | ✅ P0 必填，P1/P2 推荐 | 本用例需要验证的视觉属性列表（从 Layer 1 清单中选取） |
+| **容差策略** | ❌ 可选 | 特殊情况下的容差说明（如暗色模式下颜色允许 ±10% 亮度偏差） |
+
+#### 10.4.2 扩展后的「最终断言」表
+
+在原有断言维度基础上，**新增一行**：
+
+| 断言维度 | 常见断言项 |
+|---------|-----------|
+| 导航 | URL / 页面标题 / Tab 选中 |
+| 数据 | 列表数量 / 排序 / 特定项 |
+| 弹窗 | 开关状态 / 标题 / 内容 |
+| **🆕 视觉还原** | **CSS 属性值 / 截图快照 / 颜色一致性 / 尺寸一致性 / 与原型对照** |
+
+#### 10.4.3 用例书写示例（含视觉断言）
+
+```
+### TC-E2E-M1-01-001 进入系统查看项目列表
+
+| 字段 | 内容 |
+|------|------|
+| **视觉基准原型** | `docs/03-prd-ux/prototypes/m1-project-list.html` |
+| **视觉断言维度** | 搜索框宽度(240px)、筛选Badge选中态(主色填充)、状态Badge有背景色(活跃=teal/归档=橙)、操作列链接色(primary+danger)、分页器圆角(6px)、Sidebar亮色模式(白底深灰字) |
+
+**最终断言**:
+
+| 断言项 | 预期 |
+|--------|------|
+| URL | `/projects` |
+| 搜索框宽度 | computed width ≈ 240px (±2px) |
+| "全部"筛选 Badge | background = primary 色 (#08979c), text = white |
+| 活跃项目状态 Badge | background ≈ #e6fffb, text ≈ #13c2c2, border ≈ #b5f5ec |
+| 归档项目状态 Badge | background ≈ #fff7e6, text ≈ #fa8c16, border ≈ #ffe7ba |
+| "编辑"链接颜色 | color = #08979c (primary) |
+| "归档"链接颜色 | color = #ff4d4f (danger) |
+| 分页按钮圆角 | border-radius = 6px |
+| 新建按钮圆角 | border-radius = 6px |
+| 整页截图 | 与 m1-project-list.html 原型截图像素 diff < 1% |
+```
+
+### 10.5 各功能点的视觉还原重点
+
+不同功能点有不同的视觉关注区域，编写时优先覆盖：
+
+| 功能点 | 视觉重点（必须验证） | 对应原型文件 |
+|--------|---------------------|-------------|
+| F-M1-01 项目列表 | 筛选栏布局+Badge颜色+表格样式+分页器+操作链接+Sidebar主题切换 | `m1-project-list.html` |
+| F-M1-02 创建项目 | Dialog 圆角(10px)+Header/Footer边框+表单字段间距+按钮主色+错误提示红色 | `m1-project-detail.html`（内嵌弹窗） |
+| F-M1-03 项目详情 | Detail Header 布局+InfoCard 圆角+SummaryCards 图标色+Tab 切换态+StatusBadge | `m1-project-detail.html` |
+| F-M1-04 编辑项目 | 只读/编辑态切换+字段预填+版本号显示+保存按钮 loading | 同上 |
+| F-M1-05 归档/恢复 | AlertDialog 样式(红确认)+Badge 状态切换+Toast 样式 | 同上 |
+| F-M1-06~10 组织架构 | Tab 面板+实体类型 Badge 颜色(domain蓝/process绿/company橙/department紫/role红/external青)+卡片阴影 | 同上 |
+
+### 10.6 暗色模式视觉还原
+
+暗色模式是独立的视觉基线，必须在以下时机验证：
+
+| 触发条件 | 验证范围 |
+|---------|---------|
+| 首次实现暗色切换 | 全局：Header/Sidebar/Content Area/Card/Table/Badge/Button/Input |
+| 修改任何 `--xxx` CSS 变量 | 受影响的组件 |
+| 修改 `.dark` 选择器内的变量 | 暗色模式下的所有组件 |
+
+**暗色模式特殊容差**：
+- 背景色允许 ±8% 亮度偏差（人眼在深色区敏感度降低）
+- 文字对比度必须 ≥ WCAG AA 标准（4.5:1）
+- Sidebar 在两种模式下均应保持可读性
+
+### 10.7 通过/失败判定标准
+
+| 结果 | 判定标准 | 处理方式 |
+|------|---------|---------|
+| **PASS** | 所有 Layer 1 CSS 属性值在容差范围内；Layer 2 截图 diff < 1% | 用例通过 |
+| **WARN** | CSS 属性值偏差 > 容差但 < 10%；截图 diff 1%~3% | 记录为已知问题，不阻塞发布 |
+| **FAIL** | CSS 属性完全缺失或偏差 > 10%；截图 diff > 3%；视觉元素不可见/错位 | 阻塞发布，立即修复 |
+
+### 10.8 编写检查清单补充
+
+在原有 §8.3 覆盖检查基础上，**新增视觉还原专项**：
+
+### 8.4 视觉还原检查
+
+- [ ] 每个 P0 E2E 用例填写了「视觉基准原型」字段
+- [ ] 每个 P0 E2E 用例填写了「视觉断言维度」字段（≥ 3 项）
+- [ ] 至少 1 个 P0 用例包含 Layer 2 截图快照断言
+- [ ] 暗色模式相关用例包含暗色模式的视觉断言
+- [ ] 视觉断言中的颜色值引用了 `ui-design-spec.md` 或 `index.css` 中的 CSS 变量名
+- [ ] 动态内容（时间戳/UUID）在截图断言中被 mask 或排除
+
+---
+
 ## 9. 版本历史
 
 | 版本 | 日期 | 变更内容 |
 |------|------|---------|
+| v1.1 | 2026-05-12 | **§10 视觉还原测试**：三层验证体系(Layer1 CSS属性/Layer2截图/Layer3像素diff)、基准来源(HTML原型)、用例模板扩展(视觉基准引用+断言维度)、各功能点视觉重点、暗色模式规范、通过/失败判定标准、编写检查清单补充 |
 | v1.0 | 2026-05-06 | 初版：编号体系 / API+E2E 模板 / 目录结构 / 覆盖完整性规则 / 检查清单 |

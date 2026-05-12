@@ -1,20 +1,26 @@
 /**
  * @module ProjectList
- * @description 项目列表页面（F-M1-01）：顶栏(搜索+筛选+新建) + 数据表格 +
- *              分页 + 空状态 + 归档确认对话框 + 骨架屏加载态。
+ * @description 项目列表页面（F-M1-01）— §7.1 列表页模板
  *
- * 布局区域：6 个（见 JSX 段落注释）
+ * 布局结构：
+ *   ┌─────────────────────────────────────────────┐
+ *   │ PageHeader: 标题 + 新建按钮                  │  ← §7.1 第一行
+ *   ├─────────────────────────────────────────────┤
+ *   │ FilterBar: 搜索 + 状态筛选 Badge + 操作      │  ← §7.1 第二行（Card 包裹）
+ *   ├─────────────────────────────────────────────┤
+ *   │ DataTableContainer: Table + Pagination       │  ← §7.1 数据区域（Card 包裹）
+ *   └─────────────────────────────────────────────┘
  */
 import { useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Search } from 'lucide-react';
+import { Plus } from 'lucide-react';
+import { PageHeader } from '@/components/common/PageHeader';
+import { FilterBar } from '@/components/common/FilterBar';
+import { DataTableContainer } from '@/components/common/DataTableContainer';
 import { ProjectTable } from '@/components/project/ProjectTable';
 import { PaginationComponent } from '@/components/common/PaginationComponent';
 import { EmptyState } from '@/components/common/EmptyState';
-import { LoadingSkeleton } from '@/components/common/LoadingSkeleton';
 import { ArchiveConfirmDialog } from '@/components/project/ArchiveConfirmDialog';
 import { CreateProjectDialog } from '@/components/project/CreateProjectDialog';
 import { useProjectList } from '@/hooks/useProjectList';
@@ -23,17 +29,16 @@ import type { ProjectListItem, Project } from '@apm/shared';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
 
-const STATUS_OPTIONS = [
-  { value: '', label: '全部' },
-  { value: 'active', label: '活跃' },
-  { value: 'archived', label: '已归档' },
-] as const;
+/** 筛选选项 — 对应 FilterBar FilterOption 接口 */
+const STATUS_FILTERS = [
+  { key: '', label: '全部', value: '' },
+  { key: 'active', label: '活跃', value: 'active' },
+  { key: 'archived', label: '已归档', value: 'archived' },
+];
 
 /**
- * 项目列表页面：组装搜索栏、状态筛选、数据表格、分页器、
- *              创建项目对话框、归档确认对话框 + 骨架屏加载态。
- *
- * 布局区域：7 个（见 JSX 段落注释）
+ * 项目列表页面：组装 PageHeader + FilterBar + DataTableContainer + 分页器 +
+ *              创建/归档对话框。
  */
 export default function ProjectList() {
   const navigate = useNavigate();
@@ -60,16 +65,6 @@ export default function ProjectList() {
   // 归档对话框状态
   const [archiveTarget, setArchiveTarget] = useState<ProjectListItem | null>(null);
   const [archiveLoading, setArchiveLoading] = useState(false);
-
-  // 搜索输入变化
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchInput(e.target.value);
-  };
-
-  // 状态筛选
-  const handleStatusChange = (status: string) => {
-    setParams((p) => ({ ...p, status }));
-  };
 
   // 打开归档确认
   const handleArchiveClick = useCallback((project: ProjectListItem) => {
@@ -114,67 +109,64 @@ export default function ProjectList() {
   }, [refetch, navigate]);
 
   return (
-    <div className="space-y-4 p-6">
-      {/* ===== 顶栏：搜索 + 状态筛选 + 新建按钮 ===== */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="搜索项目名称..."
-            value={searchInput}
-            onChange={handleSearchChange}
-            className="pl-8"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="flex gap-1">
-            {STATUS_OPTIONS.map((opt) => (
-              <Badge
-                key={opt.value}
-                variant={params.status === opt.value ? 'default' : 'outline'}
-                className="cursor-pointer"
-                onClick={() => handleStatusChange(opt.value)}
-              >
-                {opt.label}
-              </Badge>
-            ))}
-          </div>
-          <Button onClick={handleCreate}>
-            <Plus className="mr-2 h-4 w-4" />
-            新建
+    <div className="space-y-4">
+      {/* ===== §7.1 第一行：PageHeader ===== */}
+      <PageHeader
+        title="项目管理"
+        action={
+          <Button size="lg" onClick={handleCreate}>
+            <Plus className="mr-2 h-[var(--icon-button-inline)] w-[var(--icon-button-inline)]" />
+            新建项目
           </Button>
-        </div>
-      </div>
+        }
+      />
+
+      {/* ===== §7.1 第二行：FilterBar（Card 包裹） ===== */}
+      <FilterBar
+        searchPlaceholder="搜索项目名称..."
+        searchValue={searchInput}
+        onSearchChange={setSearchInput}
+        filters={STATUS_FILTERS}
+        activeFilter={params.status}
+        onFilterChange={(key) => setParams((p) => ({ ...p, status: key }))}
+
+      />
 
       {/* ===== 错误提示 ===== */}
       {error && (
-        <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="rounded-card border border-danger bg-[var(--danger-bg)] p-3 text-sm text-danger">
           {error}
-          <Button variant="link" className="ml-2 h-auto p-0 text-sm" onClick={refetch}>
+          <Button variant="link" className="ml-2 h-auto p-0 text-sm text-danger" onClick={refetch}>
             重试
           </Button>
         </div>
       )}
 
-      {/* ===== 加载中：骨架屏 ===== */}
-      {loading && !data.length ? <LoadingSkeleton /> : null}
-
-      {/* ===== 数据表格（含空状态） ===== */}
-      {!loading && data.length === 0 && !error ? (
-        <EmptyState onAction={handleCreate} />
-      ) : (
-        !loading && <ProjectTable data={data} onArchive={handleArchiveClick} />
-      )}
-
-      {/* ===== 分页 ===== */}
-      {meta && meta.total > 0 && (
-        <PaginationComponent
-          total={meta.total}
-          page={meta.page}
-          pageSize={meta.pageSize}
-          onPageChange={(page) => setParams((p) => ({ ...p, page }))}
-        />
-      )}
+      {/* ===== §7.1 数据区域：DataTableContainer ===== */}
+      <DataTableContainer
+        loading={loading && data.length === 0}
+        empty={!loading && data.length === 0 && !error ? (
+          <EmptyState onAction={handleCreate} />
+        ) : undefined}
+      >
+        {!loading && data.length > 0 && !error && (
+          <>
+            <ProjectTable data={data} onArchive={handleArchiveClick} />
+            {/* 分页在 DataTableContainer 内部底部 */}
+            {meta && meta.total > 0 && (
+              <div className="p-3">
+                <PaginationComponent
+                  total={meta.total}
+                  page={meta.page}
+                  pageSize={meta.pageSize}
+                  onPageChange={(page) => setParams((p) => ({ ...p, page }))}
+                  onPageSizeChange={(size) => setParams((p) => ({ ...p, pageSize: size, page: 1 }))}
+                />
+              </div>
+            )}
+          </>
+        )}
+      </DataTableContainer>
 
       {/* ===== 归档确认对话框 ===== */}
       <ArchiveConfirmDialog

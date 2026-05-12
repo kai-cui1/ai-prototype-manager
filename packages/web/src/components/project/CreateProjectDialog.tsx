@@ -165,7 +165,7 @@ export function CreateProjectDialog({
               id="create-name"
               placeholder="如 my-project"
               value={form.name}
-              onChange={(e) => updateField('name', e.target.value)}
+              onChange={(e) => updateField('name', (e.target as HTMLInputElement).value)}
               autoComplete="off"
               pattern="^[a-z][a-z0-9-]*$"
               disabled={submitting}
@@ -184,7 +184,7 @@ export function CreateProjectDialog({
               id="create-display-name"
               placeholder="如 换电站管理系统"
               value={form.displayName}
-              onChange={(e) => updateField('displayName', e.target.value)}
+              onChange={(e) => updateField('displayName', (e.target as HTMLInputElement).value)}
               disabled={submitting}
             />
             {errors.displayName && (

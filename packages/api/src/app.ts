@@ -99,14 +99,17 @@ await app.register(organizationRoutes, { prefix: '/api/v1/projects/:projectId' }
 // 启动服务器
 // ============================================
 
-try {
-  const port = Number(process.env.API_PORT) || 13180;
-  const host = process.env.API_HOST || '0.0.0.0';
-  await app.listen({ port, host });
-  console.log(`🚀 API server running at http://${host}:${port}`);
-} catch (err) {
-  app.log.error(err);
-  process.exit(1);
+// 仅在非测试模式下自动启动服务器（vitest 导入时通过 app.inject() 测试，不需要 HTTP 监听）
+if (!process.env.VITEST) {
+  try {
+    const port = Number(process.env.API_PORT) || 13180;
+    const host = process.env.API_HOST || '0.0.0.0';
+    await app.listen({ port, host });
+    console.log(`🚀 API server running at http://${host}:${port}`);
+  } catch (err) {
+    app.log.error(err);
+    process.exit(1);
+  }
 }
 
 export { app };

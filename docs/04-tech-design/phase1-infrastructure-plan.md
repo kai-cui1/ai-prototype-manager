@@ -484,11 +484,11 @@ Create `workspace/dev/.env.example`:
 DATABASE_URL=postgresql://apm_dev:apm_dev_secret@localhost:5432/apm_prototype
 
 # API
-API_PORT=3000
+API_PORT=13180
 API_HOST=0.0.0.0
 
-# Web
-WEB_PORT=5173
+# Web（Vite 前端，见 CLAUDE.md「全局端口约定」）
+WEB_PORT=13181
 ```
 
 Create `workspace/dev/.gitignore`:
@@ -1400,10 +1400,10 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: 13181,
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://localhost:13180',
         changeOrigin: true,
       },
     },
@@ -1964,11 +1964,11 @@ export function cn(...inputs: ClassValue[]) {
 - [ ] **Step 7: 验证前端可以启动**
 
 Run: `cd packages/web && pnpm dev` （在另一个终端运行 3 秒后 Ctrl+C）
-Expected: 看到 `Local: http://localhost:5173/` 输出，浏览器打开可见 Sidebar + 内容区域
+Expected: 看到 `Local: http://localhost:13181/` 输出，浏览器打开可见 Sidebar + 内容区域
 
 - [ ] **Step 8: 验证前后端联调（Vite proxy → Fastify health endpoint）**
 
-Run: `curl -s http://localhost:5173/api/v1/health | jq .`
+Run: `curl -s http://localhost:13181/api/v1/health | jq .`
 Expected: 通过 Vite proxy 转发到 Fastify，返回 `{ "data": { "status": "ok" } }`
 
 - [ ] **Step 9: Commit**

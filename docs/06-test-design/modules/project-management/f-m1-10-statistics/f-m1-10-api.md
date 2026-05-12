@@ -1,7 +1,7 @@
 # 统计摘要 — API 测试用例
 
 > 功能点: **F-M1-10** | 优先级: **P1**
-> 对应 PRD: `docs/03-prd/modules/project-management/project-management-prd-2.md` §4.10
+> 对应 PRD: `docs/03-prd-ux/modules/project-management/project-management-prd-2.md` §4.10
 
 ---
 

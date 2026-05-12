@@ -72,7 +72,7 @@ export function useProjectList(initialPageSize = 20): UseProjectListReturn {
       if (params.sort) query.sort = params.sort;
       if (params.order) query.order = params.order;
 
-      const res = await apiClient.get<{ data: ProjectListItem[]; meta: { total: number; page: number; pageSize: number } }>('/projects', { params });
+      const res = await apiClient.get<{ data: ProjectListItem[]; meta: { total: number; page: number; pageSize: number } }>('/projects', { params: query });
       setData(res.data.data);
       setMeta(res.data.meta);
     } catch (err) {

@@ -886,6 +886,37 @@ export default function ProjectDetail() {
 <Button style={{ backgroundColor: '#ef4444' }}>归档</Button>
 ```
 
+#### 6.3.1 Sidebar 主题适配规则
+
+Sidebar 采用**主题自适应**设计（亮色浅底 / 暗色深底），所有颜色通过 `--sidebar-*` CSS 变量族自动响应 `.dark` 类切换。
+
+**禁止**在 Sidebar 组件内硬编码颜色值：
+
+```tsx
+// ❌ 硬编码 — 亮色模式下文字不可见
+<span className="text-white">APM</span>
+<button className="hover:text-white">菜单项</button>
+
+// ✅ 使用 sidebar-* 语义 token
+<span className="text-sidebar-foreground">APM</span>
+<button className="hover:text-sidebar-text-active">菜单项</button>
+```
+
+**Sidebar 专用 Token 映射**：
+
+| 场景 | Token | 亮色值 | 暗色值 |
+|------|-------|--------|--------|
+| 背景 | `bg-sidebar` / `bg-[var(--sidebar-bg)]` | `#fff` | `#000` |
+| 主文字（Logo） | `text-sidebar-foreground` | `#333` | `rgba(255,255,255,0.8)` |
+| 菜单默认文字 | `text-sidebar-text` | `#737373` | `rgba(255,255,255,0.8)` |
+| 悬浮/选中文字 | `text-sidebar-text-active` | `#333` | `#fff` |
+| 悬浮背景 | `bg-sidebar-hover` | `#f5f5f5` | `rgba(255,255,255,0.08)` |
+| 选中背景 | `bg-sidebar-active-bg` | `#08979c`（不变） | 同左 |
+| 分割线 | `border-sidebar-border` | `#e8e8e8` | 深色半透明 |
+| 分组标签 | `text-sidebar-group-label` | `#999` | `rgba(255,255,255,0.45)` |
+
+> 完整规格见 `ui-design-spec.md` §1.2.1。
+
 ### 6.4 cn() 工具函数
 
 ```typescript

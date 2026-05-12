@@ -1,7 +1,7 @@
 # 项目详情 — API 测试用例
 
 > 功能点: **F-M1-03** | 优先级: **P0**
-> 对应 PRD: `docs/03-prd/modules/project-management/project-management-prd.md` §4.3
+> 对应 PRD: `docs/03-prd-ux/modules/project-management/project-management-prd.md` §4.3
 
 ---
 

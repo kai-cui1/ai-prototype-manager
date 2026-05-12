@@ -83,7 +83,7 @@
 
 | 检查项 | 状态 | 备注 |
 |--------|:----:|------|
-| Vite 配置 + API proxy | PASS | :5173 → localhost:3000 `/api` |
+| Vite 配置 + API proxy | PASS | :13181 → localhost:13180 `/api` |
 | Tailwind CSS + CSS 变量 | PASS | light/dark mode HSL 变量体系完整 |
 | postcss.config.js | PASS | tailwindcss + autoprefixer |
 | `main.tsx` 入口 | PASS | BrowserRouter + StrictMode |

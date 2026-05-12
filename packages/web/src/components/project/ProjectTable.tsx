@@ -1,107 +1,100 @@
 /**
  * @module ProjectTable
- * @description 项目列表数据表格：Name / ID(截断) / StatusBadge / Version /
- *              摘要统计(B-M1-88 内嵌) / UpdatedAt / 操作列。
+ * @description 项目列表数据表格 — §6.3 + §7.1 模板
+ *
+ * 列结构（6 列，§6.3.1 列宽参考）：
+ *   名称(280px) / ID(CodeCell 160px) / 状态(80px) / 版本(80px) / 更新时间(170px) / 操作(120px)
+ *
+ * 操作列：文字链接 "编辑"(primary) + "归档"/"恢复"(danger/green)，归档项编辑置灰
+ * 排序列头：名称 + 更新时间使用 SortableTableHead（静态箭头示意）
  */
 import {
   Table,
   TableBody,
   TableCell,
+  CodeCell,
   TableHead,
+  SortableTableHead,
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { StatusBadge } from '@/components/common/StatusBadge';
-import { MoreHorizontal, Archive, RotateCcw, Eye } from 'lucide-react';
 import type { ProjectListItem } from '@apm/shared';
 import { formatDateTime } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 
 interface ProjectTableProps {
   data: ProjectListItem[];
   onArchive: (project: ProjectListItem) => void;
-  onView?: (project: ProjectListItem) => void;
 }
 
 /**
  * 渲染项目数据表格。空数组时返回 null（由父组件处理 EmptyState）。
  *
- * ID 列仅显示前 8 位，完整 ID 可在详情页查看。
- * B-M1-88: 摘要统计列展示后端内嵌的 6 个模块计数 Badge。
+ * §7.1 列表页模板数据区域：DataTableContainer 内的 Table + Pagination
  */
-export function ProjectTable({ data, onArchive, onView }: ProjectTableProps) {
+export function ProjectTable({ data, onArchive }: ProjectTableProps) {
+  const navigate = useNavigate();
+
   if (data.length === 0) return null;
 
   return (
-    <div className="rounded-md border">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>项目名称</TableHead>
-            <TableHead>ID</TableHead>
-            <TableHead>状态</TableHead>
-            <TableHead>版本</TableHead>
-            <TableHead>摘要统计</TableHead>
-            <TableHead>更新时间</TableHead>
-            <TableHead className="w-[80px]">操作</TableHead>
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <SortableTableHead style={{ width: 280 }}>项目名称</SortableTableHead>
+          <TableHead style={{ width: 160 }}>标识符</TableHead>
+          <TableHead style={{ width: 80 }}>状态</TableHead>
+          <TableHead style={{ width: 80 }}>版本</TableHead>
+          <SortableTableHead style={{ width: 170 }} sortDir="desc">更新时间</SortableTableHead>
+          <TableHead style={{ width: 120 }} className="text-right">操作</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {data.map((project) => (
+          <TableRow key={project.id}>
+            {/* 名称列 — 左对齐、medium weight */}
+            <TableCell className="font-medium">{project.displayName}</TableCell>
+
+            {/* 标识符列 — CodeCell monospace 展示项目 name（非 UUID） */}
+            <CodeCell value={project.name} />
+
+            {/* 状态列 */}
+            <TableCell>
+              <StatusBadge status={project.status} />
+            </TableCell>
+
+            {/* 版本列 */}
+            <TableCell>v{project.version}</TableCell>
+
+            {/* 更新时间列 */}
+            <TableCell>{formatDateTime(project.updatedAt)}</TableCell>
+
+            {/* 操作列 — 文字链接（§6.3 注释：操作列右对齐） */}
+            <TableCell className="text-right">
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  className="text-[13px] text-primary hover:text-primary-hover hover:underline disabled:text-text-disabled disabled:no-underline cursor-pointer"
+                  onClick={() => navigate(`/projects/${project.id}`)}
+                  disabled={project.status === 'archived'}
+                >
+                  编辑
+                </button>
+                <button
+                  className={`text-[13px] hover:underline cursor-pointer ${
+                    project.status === 'archived'
+                      ? 'text-success hover:text-success/80'
+                      : 'text-danger hover:text-danger-hover'
+                  }`}
+                  onClick={() => onArchive(project)}
+                >
+                  {project.status === 'archived' ? '恢复' : '归档'}
+                </button>
+              </div>
+            </TableCell>
           </TableRow>
-        </TableHeader>
-        <TableBody>
-          {data.map((project) => (
-            <TableRow key={project.id}>
-              <TableCell className="font-medium">{project.displayName}</TableCell>
-              <TableCell className="font-mono text-xs text-muted-foreground">
-                {project.id.slice(0, 8)}…
-              </TableCell>
-              <TableCell>
-                <StatusBadge status={project.status} />
-              </TableCell>
-              <TableCell>v{project.version}</TableCell>
-              {/* B-M1-88: 内嵌摘要统计 — 6 个模块计数 Badge */}
-              <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  <Badge variant="secondary" className="text-xs">{project.summary.domainEntityCount} 实体</Badge>
-                  <Badge variant="secondary" className="text-xs">{project.summary.processCount} 流程</Badge>
-                  <Badge variant="secondary" className="text-xs">{project.summary.companyCount} 公司</Badge>
-                  <Badge variant="secondary" className="text-xs">{project.summary.departmentCount} 部门</Badge>
-                  <Badge variant="secondary" className="text-xs">{project.summary.roleCount} 角色</Badge>
-                  <Badge variant="secondary" className="text-xs">{project.summary.externalEntityCount} 外部</Badge>
-                </div>
-              </TableCell>
-              <TableCell className="text-muted-foreground">
-                {formatDateTime(project.updatedAt)}
-              </TableCell>
-              <TableCell>
-                <div className="flex items-center space-x-1">
-                  {onView && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => onView(project)}
-                      title="查看详情"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => onArchive(project)}
-                    title={project.status === 'archived' ? '恢复' : '归档'}
-                  >
-                    {project.status === 'archived'
-                      ? <RotateCcw className="h-4 w-4" />
-                      : <Archive className="h-4 w-4" />}
-                  </Button>
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+        ))}
+      </TableBody>
+    </Table>
   );
 }

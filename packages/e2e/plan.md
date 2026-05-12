@@ -14,7 +14,7 @@ Phase 1 基础设施（INF-1~INF-6）已全部执行完毕，项目可运行（`
 | 条件 | 验证方式 | 当前状态 |
 |------|---------|---------|
 | Docker Compose PG 运行中 | `docker compose -f workspace/dev/docker-compose.yml ps` | 需确认 |
-| `pnpm dev` 可正常启动（api:3000 + web:5173） | `pnpm dev` 终端无报错 | 需确认 |
+| `pnpm dev` 可正常启动（api:13180 + web:13181） | `pnpm dev` 终端无报错 | 需确认 |
 | 前端 Layout 非调试态 | `Layout.tsx` 中 `<Outlet />` 未被注释 | **当前为调试态**（见下方说明） |
 
 ### 关于前端调试状态的特别说明
@@ -87,15 +87,15 @@ export default defineConfig({
   use: {
     ...devices['Desktop Chrome'],
     viewport: { width: 1280, height: 720 },
-    baseURL: 'http://localhost:5173',  // Vite dev server（显式声明，非隐式推导）
+    baseURL: 'http://localhost:13181',  // Web 前端端口（见 CLAUDE.md「全局端口约定」）
   },
 
-  // 单 webServer：只等 Vite(5173)
-  // API 请求(/api/*) 通过 Vite proxy 自动转发到 Fastify(3000)
+  // 单 webServer：只等 Web 前端(13181)
+  // API 请求(/api/*) 通过 Vite proxy 自动转发到 Fastify(13180)
   // 无需双 webServer 避免重复启动 turbo 进程的竞态风险
   webServer: {
     command: 'npx turbo run dev',
-    port: 5173,
+    port: 13181,
     timeout: 120_000,
     reuseExistingServer: true,   // 已运行 pnpm dev 时复用，不重复启动
   },
@@ -112,9 +112,9 @@ export default defineConfig({
 ```
 
 关键设计决策：
-- **单 `webServer`** — 只等待 Vite(:5173)，API 请求通过 Vite proxy (`/api` → `localhost:3000`) 转发到 Fastify。无需双 webServer，避免同一 command 重复启动 turbo 的竞态问题
+- **单 `webServer`** — 只等待 Web 前端(:13181)，API 请求通过 Vite proxy (`/api` → `localhost:13180`) 转发到 Fastify。无需双 webServer，避免同一 command 重复启动 turbo 的竞态问题
 - **显式 `baseURL`** — 不依赖 webServer 隐式推导，配置更明确、更易维护
-- **`command: 'npx turbo run dev'`** — 不带 `--port` 参数（turbo 不支持端口透传，Vite 端口在 `vite.config.ts` 中硬编码为 5173）
+- **`command: 'npx turbo run dev'`** — 不带 `--port` 参数（turbo 不支持端口透传，Vite 端口在 `vite.config.ts` 中配置为 13181）
 - **`reuseExistingServer: true`** — 如果已运行 `pnpm dev`，不会重复启动
 - **`fullyParallel: false`** — E2E 串行，避免 PG 并发写入冲突
 - **`screenshot: 'only-on-failure'`** — pass 时不截图节省时间
@@ -333,7 +333,7 @@ export async function cleanupTestData(): Promise<void> {
 
 ### Step 1: 确保 dev server 可用
 
-确认 Docker Compose PG 在运行，且 `pnpm dev` 可正常启动（api:3000 + web:5173）。
+确认 Docker Compose PG 在运行，且 `pnpm dev` 可正常启动（api:13180 + web:13181）。
 
 ### Step 2: 运行 smoke test
 

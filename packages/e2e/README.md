@@ -57,7 +57,7 @@ packages/e2e/
 ├── README.md                    # 本文件
 ├── package.json                 # e2e 包配置
 ├── playwright.config.ts          # Playwright 配置
-│   ├── baseURL: http://localhost:5173   # Vite dev server
+│   ├── baseURL: http://localhost:13181   # Web 前端端口（见 CLAUDE.md「全局端口约定」）
 │   ├── webServer: 启动/关闭钩子          # 自动管理前后端
 │   ├── outputDir: ./test-results/        # 报告输出目录
 │   └── screenshot: only-on-failure      # 仅失败时截图
@@ -97,7 +97,7 @@ docker compose -f workspace/dev/docker-compose.yml up -d
 pnpm install          # 确保 turbo 等依赖已装
 
 # 2. 启动开发服务器
-pnpm dev             # turbo run dev → 同时启动 api(:3000) + web(:5173)
+pnpm dev             # turbo run dev → 同时启动 api(:13180) + web(:13181)
 
 # 3. 运行 E2E 测试
 pnpm test:e2e         # 运行全部 E2E 测试

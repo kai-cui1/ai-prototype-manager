@@ -3,15 +3,16 @@
  * @description 组织管理面板：Tab 切换的 4 个子区域 — 公司列表(F-M1-06) +
  *              部门树(F-M1-07) + 角色列表(F-M1-08) + 外部实体列表(F-M1-09)。
  *
- * 布局结构：
- * - Tab 栏：概要(统计卡片) / 组织架构(公司+部门) / 角色 / 外部实体
- * - 每个内容区：搜索栏 + 新建按钮 + 数据列表/表格 + 空状态 + 加载态
+ * 样式对齐：
+ * - SectionHeading 统一区块标题（§7）
+ * - Card 使用 §6.4 规格（rounded-card shadow-card）
+ * - 外部实体 Badge 使用 §2.3 语义色 token
  */
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Dialog,
@@ -24,6 +25,7 @@ import {
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Plus, Search, Building2, Users, Shield, UserPlus, Trash2, ChevronRight } from 'lucide-react';
+import { SectionHeading } from '@/components/common/SectionHeading';
 import { SummaryCards } from './SummaryCards';
 import type { Project, ProjectSummary, Company, Department, Role, ExternalEntity } from '@apm/shared';
 import { useOrganization } from '@/hooks/useOrganization';
@@ -90,14 +92,14 @@ function CreateDialog({ open, onOpenChange, title, fields, onSubmit, submitting 
           {fields.map((f) => (
             <div key={f.key} className="space-y-1.5">
               <Label>
-                {f.label} {f.required && <span className="text-destructive">*</span>}
+                {f.label} {f.required && <span className="text-danger">*</span>}
               </Label>
               {f.type === 'textarea' ? (
                 <Textarea
                   placeholder={f.placeholder}
                   value={form[f.key] ?? ''}
                   onChange={(e) => {
-                    setForm((prev) => ({ ...prev, [f.key]: e.target.value }));
+                    setForm((prev) => ({ ...prev, [f.key]: (e.target as HTMLTextAreaElement).value }));
                     if (errors[f.key]) setErrors((prev) => ({ ...prev, [f.key]: undefined }));
                   }}
                   rows={3}
@@ -108,13 +110,13 @@ function CreateDialog({ open, onOpenChange, title, fields, onSubmit, submitting 
                   placeholder={f.placeholder}
                   value={form[f.key] ?? ''}
                   onChange={(e) => {
-                    setForm((prev) => ({ ...prev, [f.key]: e.target.value }));
+                    setForm((prev) => ({ ...prev, [f.key]: (e.target as HTMLInputElement).value }));
                     if (errors[f.key]) setErrors((prev) => ({ ...prev, [f.key]: undefined }));
                   }}
                   disabled={submitting}
                 />
               )}
-              {errors[f.key] && <p className="text-sm text-destructive">{errors[f.key]}</p>}
+              {errors[f.key] && <p className="text-sm text-danger">{errors[f.key]}</p>}
             </div>
           ))}
         </div>
@@ -149,11 +151,12 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   api: 'API',
 };
 
-const ENTITY_TYPE_COLORS: Record<string, string> = {
-  system: 'bg-blue-100 text-blue-700',
-  organization: 'bg-green-100 text-green-700',
-  person: 'bg-orange-100 text-orange-700',
-  api: 'bg-purple-100 text-purple-700',
+/** 外部实体类型 → §2.3 语义色 Badge 变体映射 */
+const ENTITY_TYPE_BADGE_VARIANT: Record<string, 'info' | 'success' | 'warning' | 'error'> = {
+  system: 'info',
+  organization: 'success',
+  person: 'warning',
+  api: 'error',
 };
 
 interface OrganizationPanelProps {
@@ -163,13 +166,6 @@ interface OrganizationPanelProps {
 
 /**
  * 组织管理面板组件。
- *
- * Props:
- * - project: 当前项目数据（用于归档判断等）
- * - summary: 项目摘要统计（概要 Tab 使用）
- */
-/**
- * 组织管理面板：Tab 切换展示 4 类组织实体的 CRUD 操作界面。
  *
  * Tab 结构：
  * - 概要：复用 SummaryCards 展示 6 模块计数
@@ -208,11 +204,11 @@ export function OrganizationPanel({ project, summary }: OrganizationPanelProps) 
         <TabsContent value="overview" className="mt-4">
           {summary ? (
             <>
-              <h3 className="text-sm font-medium text-muted-foreground mb-3">模块统计总览</h3>
+              <SectionHeading title="模块统计总览" />
               <SummaryCards summary={summary} />
             </>
           ) : (
-            <p className="text-sm text-muted-foreground py-8 text-center">加载中...</p>
+            <p className="text-sm text-text-tertiary py-8 text-center">加载中...</p>
           )}
         </TabsContent>
 
@@ -220,38 +216,37 @@ export function OrganizationPanel({ project, summary }: OrganizationPanelProps) 
         <TabsContent value="org" className="mt-4 space-y-6">
           {/* --- 公司列表 --- */}
           <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                <Building2 className="h-4 w-4" /> 公司/组织
-                <Badge variant="secondary">{org.companies.length}</Badge>
-              </h3>
-              {!isArchived && (
-                <Button size="sm" onClick={() => setCompanyDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" /> 新建
-                </Button>
-              )}
-            </div>
+            <SectionHeading
+              title="公司/组织"
+              icon={<Building2 className="h-4 w-4" />}
+              count={org.companies.length}
+              action={
+                !isArchived && (
+                  <Button size="sm" onClick={() => setCompanyDialogOpen(true)}>
+                    <Plus className="mr-2 h-4 w-4" /> 新建
+                  </Button>
+                )
+              }
+            />
 
             {org.companiesLoading ? (
-              <p className="text-sm text-muted-foreground py-4">加载中...</p>
+              <p className="text-sm text-text-tertiary py-4">加载中...</p>
             ) : org.companies.length === 0 ? (
-              <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">暂无公司，点击「新建」添加</CardContent></Card>
+              <Card><CardContent className="py-8 text-center text-sm text-text-tertiary">暂无公司，点击「新建」添加</CardContent></Card>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {org.companies.map((c) => (
                   <Card key={c.id} className="cursor-pointer hover:border-primary/50 transition-colors"
                         onClick={() => org.refetchDepartments(c.id)}>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base">{c.displayName}</CardTitle>
-                      <p className="text-xs text-muted-foreground font-mono">{c.name}</p>
-                    </CardHeader>
-                    <CardContent className="pt-0">
+                    <CardContent className="p-4">
+                      <p className="text-base font-medium text-text-primary">{c.displayName}</p>
+                      <p className="text-xs text-text-tertiary font-mono mt-0.5">{c.name}</p>
                       {c.companyType && (
-                        <Badge variant="outline" className="text-xs mb-2">
+                        <Badge variant="outline" className="text-xs mt-2">
                           {COMPANY_TYPE_LABELS[c.companyType] ?? c.companyType}
                         </Badge>
                       )}
-                      {c.description && <p className="text-xs text-muted-foreground line-clamp-2">{c.description}</p>}
+                      {c.description && <p className="text-xs text-text-secondary mt-1 line-clamp-2">{c.description}</p>}
                     </CardContent>
                   </Card>
                 ))}
@@ -262,42 +257,45 @@ export function OrganizationPanel({ project, summary }: OrganizationPanelProps) 
           {/* --- 部门列表（选中公司后显示） --- */}
           {org.activeCompanyId && (
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                  <ChevronRight className="h-4 w-4" /> 部门
-                  <Badge variant="secondary">{org.departments.length}</Badge>
-                </h3>
-                {!isArchived && (
-                  <Button size="sm" onClick={() => setDepartmentDialogOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" /> 新建部门
-                  </Button>
-                )}
-              </div>
+              <SectionHeading
+                title="部门"
+                icon={<ChevronRight className="h-4 w-4" />}
+                count={org.departments.length}
+                action={
+                  !isArchived && (
+                    <Button size="sm" onClick={() => setDepartmentDialogOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" /> 新建部门
+                    </Button>
+                  )
+                }
+              />
 
               {org.departmentsLoading ? (
-                <p className="text-sm text-muted-foreground py-4">加载中...</p>
+                <p className="text-sm text-text-tertiary py-4">加载中...</p>
               ) : org.departments.length === 0 ? (
-                <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">该公司下暂无部门</CardContent></Card>
+                <Card><CardContent className="py-8 text-center text-sm text-text-tertiary">该公司下暂无部门</CardContent></Card>
               ) : (
-                <div className="border rounded-lg divide-y">
-                  {org.departments.map((d) => (
-                    <div key={d.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{d.displayName}</p>
-                        <p className="text-xs text-muted-foreground font-mono">{d.name}</p>
+                <Card>
+                  <div className="divide-y divide-divider">
+                    {org.departments.map((d) => (
+                      <div key={d.id} className="flex items-center justify-between px-4 py-3 hover:bg-fill transition-colors">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate text-text-primary">{d.displayName}</p>
+                          <p className="text-xs text-text-tertiary font-mono">{d.name}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {d.parentId ? <Badge variant="outline" className="text-xs">子部门</Badge> : <Badge variant="secondary" className="text-xs">顶级</Badge>}
+                          {!isArchived && (
+                            <Button variant="ghost" size="icon" className="h-7 w-7 text-danger"
+                              onClick={async () => { await org.deleteDepartment(d.id); toast.success('部门已删除'); }}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        {d.parentId ? <Badge variant="outline" className="text-xs">子部门</Badge> : <Badge variant="secondary" className="text-xs">顶级</Badge>}
-                        {!isArchived && (
-                          <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
-                            onClick={async () => { await org.deleteDepartment(d.id); toast.success('部门已删除'); }}>
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                </Card>
               )}
             </div>
           )}
@@ -305,87 +303,93 @@ export function OrganizationPanel({ project, summary }: OrganizationPanelProps) 
 
         {/* ===== Tab 3: 角色列表 ===== */}
         <TabsContent value="roles" className="mt-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <Shield className="h-4 w-4" /> 角色
-              <Badge variant="secondary">{org.roles.length}</Badge>
-            </h3>
-            {!isArchived && (
-              <Button size="sm" onClick={() => setRoleDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" /> 新建
-              </Button>
-            )}
-          </div>
+          <SectionHeading
+            title="角色"
+            icon={<Shield className="h-4 w-4" />}
+            count={org.roles.length}
+            action={
+              !isArchived && (
+                <Button size="sm" onClick={() => setRoleDialogOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" /> 新建
+                </Button>
+              )
+            }
+          />
 
           {org.rolesLoading ? (
-            <p className="text-sm text-muted-foreground py-4">加载中...</p>
+            <p className="text-sm text-text-tertiary py-4">加载中...</p>
           ) : org.roles.length === 0 ? (
-            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">暂无角色，点击「新建」添加</CardContent></Card>
+            <Card><CardContent className="py-8 text-center text-sm text-text-tertiary">暂无角色，点击「新建」添加</CardContent></Card>
           ) : (
-            <div className="border rounded-lg divide-y">
-              {org.roles.map((r) => (
-                <div key={r.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{r.displayName}</p>
-                    <p className="text-xs text-muted-foreground font-mono">{r.name}</p>
+            <Card>
+              <div className="divide-y divide-divider">
+                {org.roles.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between px-4 py-3 hover:bg-fill transition-colors">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate text-text-primary">{r.displayName}</p>
+                      <p className="text-xs text-text-tertiary font-mono">{r.name}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {r.departmentId ? <Badge variant="outline" className="text-xs">已归属</Badge> : <Badge variant="secondary" className="text-xs">独立</Badge>}
+                      {!isArchived && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-danger"
+                          onClick={async () => { await org.deleteRole(r.id); toast.success('角色已删除'); }}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {r.departmentId ? <Badge variant="outline" className="text-xs">已归属</Badge> : <Badge variant="secondary" className="text-xs">独立</Badge>}
-                    {!isArchived && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
-                        onClick={async () => { await org.deleteRole(r.id); toast.success('角色已删除'); }}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </Card>
           )}
         </TabsContent>
 
         {/* ===== Tab 4: 外部实体列表 ===== */}
         <TabsContent value="external" className="mt-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <UserPlus className="h-4 w-4" /> 外部实体
-              <Badge variant="secondary">{org.externalEntities.length}</Badge>
-            </h3>
-            {!isArchived && (
-              <Button size="sm" onClick={() => setEeDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" /> 新建
-              </Button>
-            )}
-          </div>
+          <SectionHeading
+            title="外部实体"
+            icon={<UserPlus className="h-4 w-4" />}
+            count={org.externalEntities.length}
+            action={
+              !isArchived && (
+                <Button size="sm" onClick={() => setEeDialogOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" /> 新建
+                </Button>
+              )
+            }
+          />
 
           {org.externalEntitiesLoading ? (
-            <p className="text-sm text-muted-foreground py-4">加载中...</p>
+            <p className="text-sm text-text-tertiary py-4">加载中...</p>
           ) : org.externalEntities.length === 0 ? (
-            <Card><CardContent className="py-8 text-center text-sm text-muted-foreground">暂无外部实体，点击「新建」添加</CardContent></Card>
+            <Card><CardContent className="py-8 text-center text-sm text-text-tertiary">暂无外部实体，点击「新建」添加</CardContent></Card>
           ) : (
-            <div className="border rounded-lg divide-y">
-              {org.externalEntities.map((e) => (
-                <div key={e.id} className="flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{e.displayName}</p>
-                    <p className="text-xs text-muted-foreground font-mono">{e.name}</p>
+            <Card>
+              <div className="divide-y divide-divider">
+                {org.externalEntities.map((e) => (
+                  <div key={e.id} className="flex items-center justify-between px-4 py-3 hover:bg-fill transition-colors">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate text-text-primary">{e.displayName}</p>
+                      <p className="text-xs text-text-tertiary font-mono">{e.name}</p>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      {e.entityType && (
+                        <Badge variant={ENTITY_TYPE_BADGE_VARIANT[e.entityType] ?? 'draft'} className="text-xs">
+                          {ENTITY_TYPE_LABELS[e.entityType] ?? e.entityType}
+                        </Badge>
+                      )}
+                      {!isArchived && (
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-danger"
+                          onClick={async () => { await org.deleteExternalEntity(e.id); toast.success('外部实体已删除'); }}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {e.entityType && (
-                      <Badge className={`text-xs ${ENTITY_TYPE_COLORS[e.entityType] ?? ''}`}>
-                        {ENTITY_TYPE_LABELS[e.entityType] ?? e.entityType}
-                      </Badge>
-                    )}
-                    {!isArchived && (
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive"
-                        onClick={async () => { await org.deleteExternalEntity(e.id); toast.success('外部实体已删除'); }}>
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            </Card>
           )}
         </TabsContent>
       </Tabs>

@@ -7,7 +7,7 @@
 > **适用范围**：Phase 1~5 所有模块的代码实施阶段（M1/M2/M3/M4/M5/M6 及后续模块）
 > **前置依赖**：本模块的 Step 0~4 必须全部完成（PRD ✅ + 技术方案 ✅ + 测试用例 ✅）
 > **关联文档**：
-> - PRD 编写规范 → `docs/03-prd/prd-convention.md`（Step 2 产出物格式）
+> - PRD 编写规范 → `docs/03-prd-ux/prd-convention.md`（Step 2 产出物格式）
 > - 注释规范 → `.claude/skills/coding-with-comments`（R1-R5 强制注释规则，**写代码时强制加载**）
 > - 后端编码细则 → `docs/04-tech-design/coding-convention-backend.md`（v1.1 — 后端分层/命名/模式等详细约定）
 > - 前端编码细则 → `docs/04-tech-design/coding-convention-frontend.md`（v1.1 — 前端组件/Hook/状态管理等详细约定）
@@ -34,7 +34,7 @@
 | 检查项 | 对应 SDLC 步骤 | 验证方式 |
 |--------|:-------------:|---------|
 | 领域模型设计 | Step 1 ✅ | `docs/02-domain-model/` 下有对应模块的实体定义 |
-| 产品 PRD | Step 2 ✅ | `docs/03-prd/modules/[模块名]/` 下有完整 PRD（含 Data Specs + Business Rules） |
+| 产品 PRD | Step 2 ✅ | `docs/03-prd-ux/modules/[模块名]/` 下有完整 PRD（含 Data Specs + Business Rules） |
 | 技术方案设计 | Step 3 ✅ | `docs/04-tech-design/` 下有对应技术方案（含 API 端点清单 + 分层架构 + 错误处理） |
 | 数据库 Schema 设计 | Step 3 子产出 | `docs/05-data-design/` 下有 DDL 定义 |
 | 测试用例设计 | Step 4 ✅ | `docs/06-test-design/modules/[模块名]/` 下有完整的 api.md + e2e.md |

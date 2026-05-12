@@ -9,16 +9,16 @@ export default defineConfig({
   use: {
     ...devices['Desktop Chrome'],
     viewport: { width: 1280, height: 720 },
-    baseURL: 'http://localhost:5173',  // Vite dev server（显式声明，非隐式推导）
+    baseURL: 'http://localhost:13181',  // Web 前端端口（见 CLAUDE.md「全局端口约定」）
     channel: 'chrome',                // 使用系统已安装的 Google Chrome，无需下载 Chromium
   },
 
-  // 单 webServer：只等 Vite(5173)
-  // API 请求(/api/*) 通过 Vite proxy 自动转发到 Fastify(3000)
+  // 单 webServer：只等 Web 前端(13181)
+  // API 请求(/api/*) 通过 Vite proxy 自动转发到 Fastify(13180)
   // 无需双 webServer 避免重复启动 turbo 进程的竞态风险
   webServer: {
     command: 'npx turbo run dev',
-    port: 5173,
+    port: 13181,
     timeout: 120_000,
     reuseExistingServer: true,   // 已运行 pnpm dev 时复用，不重复启动
   },

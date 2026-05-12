@@ -95,7 +95,7 @@ export default function Layout({ children }: LayoutProps) {
       />
       <div className="flex flex-1 flex-col overflow-hidden">
         <HeaderBar breadcrumbs={breadcrumbs} />
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto p-[var(--content-padding)]">
           {children}
         </main>
       </div>

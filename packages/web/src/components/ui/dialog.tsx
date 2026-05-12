@@ -41,17 +41,28 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  size = "default",
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
+  /* §6.6 Dialog 尺寸：sm=400px(确认弹窗) / default=520px(创建弹窗) / lg=720px */
+  size?: "sm" | "default" | "lg"
 }) {
+  /* §6.6 尺寸映射 */
+  const sizeClass = {
+    sm: "sm:max-w-[400px]",
+    default: "sm:max-w-[520px]",
+    lg: "sm:max-w-[720px]",
+  }[size] || "sm:max-w-[520px]";
+
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground ring-1 ring-foreground/10 duration-100 outline-none sm:max-w-sm data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          /* §6.6 Dialog 规格：圆角 10px(--radius-dialog)、shadow shadow-dialog、最小宽度 480px */
+          `fixed top-1/2 left-1/2 z-50 grid w-full min-w-[480px] max-w-[calc(100%-2rem)] ${sizeClass} -translate-x-1/2 -translate-y-1/2 gap-0 rounded-dialog bg-card p-0 text-sm text-foreground shadow-dialog duration-150 ease-out outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95`,
           className
         )}
         {...props}
@@ -82,7 +93,8 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      className={cn("flex flex-col gap-2", className)}
+      /* §6.6 Dialog Header：padding 16px 24px，字号 16px/600 weight，底部 border */
+      className={cn("flex flex-col items-center justify-between gap-2 border-b border-divider px-6 py-4", className)}
       {...props}
     />
   )
@@ -100,7 +112,8 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        "-mx-4 -mb-4 flex flex-col-reverse gap-2 rounded-b-xl border-t bg-muted/50 p-4 sm:flex-row sm:justify-end",
+        /* §6.6 Dialog Footer：padding 12px 24px，右对齐，顶部 border */
+        "flex flex-row items-center justify-end gap-2 border-t border-divider px-6 py-3",
         className
       )}
       {...props}
@@ -120,7 +133,8 @@ function DialogTitle({ className, ...props }: DialogPrimitive.Title.Props) {
     <DialogPrimitive.Title
       data-slot="dialog-title"
       className={cn(
-        "font-heading text-base leading-none font-medium",
+        /* §6.6 Dialog Title：字号 16px / 600 weight */
+        "font-heading text-base leading-none font-semibold",
         className
       )}
       {...props}
