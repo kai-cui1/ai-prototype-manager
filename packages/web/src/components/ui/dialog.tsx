@@ -61,8 +61,9 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          /* §6.6 Dialog 规格：圆角 10px(--radius-dialog)、shadow shadow-dialog、最小宽度 480px */
-          `fixed top-1/2 left-1/2 z-50 grid w-full min-w-[480px] max-w-[calc(100%-2rem)] ${sizeClass} -translate-x-1/2 -translate-y-1/2 gap-0 rounded-dialog bg-card p-0 text-sm text-foreground shadow-dialog duration-150 ease-out outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95`,
+          /* §6.6 Dialog 规格：圆角 10px(--radius-dialog)、shadow shadow-dialog、最小宽度 480px、flex column（原型 .dialog: display:flex; flex-direction:column） */
+          /* §6.6 Dialog 规格：固定 520px（原型 .dialog: width:520px; max-width:90vw） */
+          `fixed top-1/2 left-1/2 z-50 flex flex-col w-full min-w-[480px] max-w-[90vw] ${sizeClass} -translate-x-1/2 -translate-y-1/2 rounded-dialog bg-card p-0 text-sm text-foreground shadow-dialog duration-150 ease-out outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95`,
           className
         )}
         {...props}
@@ -93,8 +94,8 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      /* §6.6 Dialog Header：padding 16px 24px，字号 16px/600 weight，底部 border */
-      className={cn("flex flex-col items-center justify-between gap-2 border-b border-divider px-6 py-4", className)}
+      /* §6.6 Dialog Header：flex-row（原型 .dialog-header: display:flex; justify-content:space-between） */
+      className={cn("flex flex-row items-center justify-between border-b border-divider px-6 py-4", className)}
       {...props}
     />
   )
@@ -112,8 +113,8 @@ function DialogFooter({
     <div
       data-slot="dialog-footer"
       className={cn(
-        /* §6.6 Dialog Footer：padding 12px 24px，右对齐，顶部 border */
-        "flex flex-row items-center justify-end gap-2 border-t border-divider px-6 py-3",
+        /* §6.6 Dialog Footer：padding 12px 24px，右对齐，gap 10px（原型 .dialog-footer: gap:10px） */
+        "flex flex-row items-center justify-end gap-[10px] border-t border-divider px-6 py-3",
         className
       )}
       {...props}

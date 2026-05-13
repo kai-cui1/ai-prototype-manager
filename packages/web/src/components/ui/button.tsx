@@ -9,11 +9,11 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        /* §6.1 Primary：主色背景 + 白色文字 */
-        default: "bg-primary text-primary-foreground [a]:hover:bg-primary-hover [a]:active:bg-primary-active",
-        /* §6.1 Default / Soft：白底 + 主色文字边框，hover 时主色加深 */
+        /* §6.1 Primary：主色背景 + 白色文字 + 可见同色边框（原型 .btn-primary） */
+        default: "bg-primary text-primary-foreground border-primary hover:bg-primary-hover hover:border-primary-hover active:bg-primary-active",
+        /* §6.1 Default / Soft：白底 + 强边框，hover 时文字+边框变主色（原型 .btn-default:hover） */
         soft:
-          "bg-card text-text-primary border border-border-strong [a]:hover:border-primary [a]:hover:text-primary [a]:active:border-primary-active",
+          "bg-card text-text-primary border border-border-strong hover:border-primary hover:text-primary active:border-primary-active",
         /* §6.1 Ghost：透明 + 次要文字 + fill 背景 hover */
         ghost:
           "bg-transparent text-text-secondary hover:bg-fill hover:text-text-primary active:bg-fill/80",
@@ -24,7 +24,7 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline hover:text-primary-hover",
         /* Destructive：红色系（保留用于危险操作确认按钮） */
         destructive:
-          "bg-danger text-white border border-status-error-bg [a]:hover:bg-danger-hover focus-visible:border-destructive/40 focus-visible:ring-destructive/20",
+          "bg-danger text-white border border-status-error-bg hover:bg-danger-hover focus-visible:border-destructive/40 focus-visible:ring-destructive/20",
         /* Outline：边框按钮（保留 shadcn 默认） */
         outline:
           "border-border bg-background hover:bg-fill hover:text-foreground aria-expanded:bg-fill aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
@@ -35,7 +35,7 @@ const buttonVariants = cva(
       size: {
         /* §6.1 尺寸规范：Large 36px / Middle(default) 32px / Small 24px */
         default:
-          "h-8 gap-1.5 px-4 has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",   /* 32px = Middle */
+          "h-8 gap-1.5 px-4 text-[13px] has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2",   /* 32px = Middle, 字号 13px（原型 .btn） */
         sm:
           "h-6 gap-1 px-2.5 text-xs has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",  /* 24px = Small */
         lg:

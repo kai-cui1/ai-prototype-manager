@@ -7,7 +7,6 @@ import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -149,27 +148,25 @@ export function CreateProjectDialog({
       <DialogContent onKeyDown={handleKeyDown}>
         <DialogHeader>
           <DialogTitle>新建项目</DialogTitle>
-          <DialogDescription>
-            填写项目基本信息。标识符用于 URL 和 API 引用，创建后不可修改。
-          </DialogDescription>
         </DialogHeader>
 
-        {/* ===== 表单区域 ===== */}
-        <div className="space-y-4 py-2">
+        {/* ===== 表单区域 =====（原型 .dialog-body: padding:24px 四边, overflow-y:auto, .form-group: margin-bottom:18px） */}
+        <div className="p-6 overflow-y-auto [&>div]:mb-[18px] [&>div:last-child]:mb-0">
           {/* name */}
           <div className="space-y-1.5">
             <Label htmlFor="create-name">
-              项目标识符 <span className="text-destructive">*</span>
+              项目名称 <span className="text-destructive">*</span>
             </Label>
             <Input
               id="create-name"
-              placeholder="如 my-project"
+              placeholder="如：ecommerce-admin"
               value={form.name}
               onChange={(e) => updateField('name', (e.target as HTMLInputElement).value)}
               autoComplete="off"
               pattern="^[a-z][a-z0-9-]*$"
               disabled={submitting}
             />
+            <p className="text-xs text-text-tertiary">编程标识符，仅支持小写字母、数字和连字符，2~50 字符</p>
             {errors.name && (
               <p className="text-sm text-destructive">{errors.name}</p>
             )}
@@ -182,11 +179,12 @@ export function CreateProjectDialog({
             </Label>
             <Input
               id="create-display-name"
-              placeholder="如 换电站管理系统"
+              placeholder="请输入项目显示名称"
               value={form.displayName}
               onChange={(e) => updateField('displayName', (e.target as HTMLInputElement).value)}
               disabled={submitting}
             />
+            <p className="text-xs text-text-tertiary">用于界面展示的名称，建议不超过 50 个字符</p>
             {errors.displayName && (
               <p className="text-sm text-destructive">{errors.displayName}</p>
             )}
@@ -194,13 +192,14 @@ export function CreateProjectDialog({
 
           {/* description */}
           <div className="space-y-1.5">
-            <Label htmlFor="create-desc">项目描述（可选）</Label>
+            <Label htmlFor="create-desc">描述</Label>
             <Textarea
               id="create-desc"
-              placeholder="简要描述这个项目..."
+              placeholder="请输入项目描述（可选）"
               value={form.description}
               onChange={(e) => updateField('description', e.target.value)}
               rows={3}
+              className="min-h-[80px]"
               maxLength={500}
               disabled={submitting}
             />
@@ -209,14 +208,14 @@ export function CreateProjectDialog({
 
         <DialogFooter>
           <Button
-            variant="outline"
+            variant="soft"
             onClick={() => onOpenChange(false)}
             disabled={submitting}
           >
             取消
           </Button>
           <Button onClick={handleSubmit} disabled={submitting}>
-            {submitting ? '创建中...' : '确认创建'}
+            {submitting ? '创建中...' : '确定'}
           </Button>
         </DialogFooter>
       </DialogContent>
