@@ -90,6 +90,7 @@
     /* ===== §4.1 圆角规范 ===== */
     --radius: 0.625rem;             /* 默认圆角（shadcn 兼容） */
     --radius-btn: 6px;              /* 按钮 / 输入框 / Tooltip */
+    --radius-input: 6px;            /* 输入框 / 选择器 */
     --radius-tag: 4px;              /* Badge / Tag */
     --radius-card: 8px;             /* 卡片 / Panel */
     --radius-dialog: 10px;          /* Dialog / Modal */
@@ -100,6 +101,9 @@
     --shadow-dropdown: 0 4px 12px 0 0 0 0 10% / 10%;         /* 0 4px 12px rgba(0,0,0,.1) */
     --shadow-dialog: 0 8px 24px 0 0 0 0 15% / 15%;         /* 0 8px 24px rgba(0,0,0,.15) */
     --shadow-hover: 0 2px 8px 0 0 0 0 9% / 9%;             /* 0 2px 8px rgba(0,0,0,.09) */
+    --shadow-focus-primary: 0 0 0 2px rgba(8,151,156,0.10);   /* 输入框 focus 光晕（原型规范） */
+    --shadow-focus-error: 0 0 0 2px rgba(255,77,79,0.10);     /* 错误 focus 光晕 */
+    --overlay-bg: rgba(0, 0, 0, 0.45);                         /* 弹窗遮罩（原型 45%，非 shadcn 默认 10%） */
 
     /* ===== §1.2 布局尺寸常量 ===== */
     --header-height: 48px;
@@ -218,6 +222,9 @@
     --shadow-dropdown: 0 6px 20px 0 0 0 0 35% / 35%;
     --shadow-dialog: 0 8px 24px 0 0 0 0 35% / 35%;
     --shadow-hover: 0 4px 16px 0 0 0 0 18% / 18%;
+    --shadow-focus-primary: 0 0 0 2px rgba(8,151,156,0.15);   /* 暗色 focus 光晕略强 */
+    --shadow-focus-error: 0 0 0 2px rgba(255,77,79,0.15);     /* 暗色错误光晕略强 */
+    --overlay-bg: rgba(0, 0, 0, 0.55);                         /* 暗色遮罩略深 */
 
     /* Ring / Popover */
     --ring: 177 58% 31%;

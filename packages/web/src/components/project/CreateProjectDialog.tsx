@@ -122,7 +122,7 @@ export function CreateProjectDialog({
         description: form.description || undefined,
       });
 
-      onSuccess(res.data as Project);
+      onSuccess(res.data.data as Project);
     } catch (err: unknown) {
       // B-M1-10: 409 名称冲突 → 字段级错误，对话框保持打开
       const axiosErr = err as { response?: { status: number }; message?: string };

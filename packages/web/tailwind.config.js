@@ -146,6 +146,7 @@ export default {
         sm: 'calc(var(--radius) - 4px)',
         /* §4.1 圆角规范 */
         btn: 'var(--radius-btn)',
+        input: 'var(--radius-input)',
         tag: 'var(--radius-tag)',
         card: 'var(--radius-card)',
         dialog: 'var(--radius-dialog)',
@@ -157,6 +158,9 @@ export default {
         dropdown: 'var(--shadow-dropdown)',
         dialog: 'var(--shadow-dialog)',
         hover: 'var(--shadow-hover)',
+        /* Design Token: Focus 光晕（原型规范） */
+        'focus-primary': 'var(--shadow-focus-primary)',
+        'focus-error': 'var(--shadow-focus-error)',
       },
       fontSize: {
         /* §3 字体排版 — 扩展字号层级 */

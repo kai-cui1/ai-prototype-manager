@@ -1,4 +1,4 @@
-# Phase 1：数据模型中心 + MVP 骨架
+# Phase 1：数据模型中心 + MVP
 
 > 目标：按模块走完 SDLC 全流程，实现核心数据模块的可运行 CRUD + 基础 UI
 >
@@ -10,236 +10,128 @@
 
 ---
 
-## 1-A：基础设施（已完成 ✅）
+## SDLC 步骤定义
 
-> 公共基础层，不隶属于任何具体模块。一次性搭建，所有模块共用。
+| 步骤 | 名称 | 产出物 |
+|:----:|------|--------|
+| S0 | 产品思路 & 想法 | `01-design-idea/` |
+| S1 | 领域模型 & 业务流程设计 | `02-domain-model/` |
+| S2 | PRD 设计 | `03-prd-ux/modules/` |
+| **S3** | **高保真原型设计** | **`03-prd-ux/prototypes/`** |
+| S4 | 技术方案设计 | `04-tech-design/` + `05-data-design/` |
+| S5 | 测试用例设计 | `06-test-design/` |
+| S6 | 代码实现 | `packages/` |
+| S7 | 测试代码编写 | `packages/api/tests/` + `packages/e2e/tests/` |
+| **S8** | **测试验证执行** | **Dev-Test Loop 全绿闭环** |
+
+> **状态图例**：✅ 完成 | 🔶 进行中 | ⏳ 待开始 | ⏸ 暂挂
+
+---
+
+## §1 工程基础设施（一次性，不随功能重复）
+
+> 项目级一次性投入，Phase 0 已全部完成。后续新模块直接复用。
 
 | # | 任务 | 状态 | 产出物 |
-|---|------|------|--------|
-| 1.A.1 | Monorepo 工程初始化（pnpm workspaces + Turborepo + 5 子包） | ✅ 完成 | packages/{api,web,shared,validation-schemas,e2e}/ |
-| 1.A.2 | 后端骨架（Fastify 4.x + Drizzle ORM + 数据库连接） | ✅ 完成 | packages/api/src/{app.ts,db.ts,models/} (~240 行) |
-| 1.A.3 | 前端骨架（React + Vite + React Router v6 + shadcn/ui + Layout） | ✅ 完成 | packages/web/src/{App.tsx,components/Layout.tsx} (~280 行) |
-| 1.A.4 | 共享 TypeScript 类型定义（7 个领域类型文件） | ✅ 完成 | packages/shared/src/types/ (~242 行) |
-| 1.A.5 | TypeBox 校验 Schema 雏形（project.schema.ts） | ✅ 初版 | packages/validation-schemas/src/ (25 行) |
-| 1.A.6 | E2E 测试框架（Playwright + 3 个冒烟用例） | ✅ 就绪 | packages/e2e/ (config + smoke.spec.ts) |
-| 1.A.7 | 数据库 Schema 设计文档（19 张表 DDL） | ✅ 已审核 | docs/05-data-design/phase1-database-schema.md (568 行) |
-| 1.A.8 | 技术方案设计文档（API 规范 / 校验 / 错误处理 / 测试策略） | ✅ 已审核 | docs/04-tech-design/phase1-design-tech.md (636 行) |
-| 1.A.9 | PRD 编写规范（v1.0, 6 章模板 + 逐节确认流程） | ✅ 定稿 | docs/03-prd-ux/prd-convention.md (544 行) |
-| 1.A.10 | 编码实施规范 v1.1（总纲 + 五维 Review 模型 + R1-R5 强制注释） | ✅ 定稿 | docs/04-tech-design/coding-convention.md (~420 行) |
-| 1.A.11 | 后端编码细则 v1.1 | ✅ 定稿 | docs/04-tech-design/coding-convention-backend.md (~1127 行) |
-| 1.A.12 | 前端编码细则 v1.1 | ✅ 定稿 | docs/04-tech-design/coding-convention-frontend.md (~1200 行) |
+|---|------|:----:|--------|
+| 1.A.1 | Monorepo 工程初始化（pnpm workspaces + Turborepo） | ✅ | `packages/{api,web,shared,validation-schemas,e2e}/` |
+| 1.A.2 | 后端骨架（Fastify + Drizzle ORM + DB 连接） | ✅ | `packages/api/src/{app.ts,db.ts,models/}` (~240 行) |
+| 1.A.3 | 前端骨架（React + Vite + Router v6 + shadcn/ui） | ✅ | `packages/web/src/{App.tsx,Layout.tsx}` (~280 行) |
+| 1.A.4 | 共享 TypeScript 类型定义（7 个领域类型） | ✅ | `packages/shared/src/types/` (~242 行) |
+| 1.A.5 | TypeBox 校验 Schema（project + organization） | ✅ | `packages/validation-schemas/src/` (~25+ 行) |
+| 1.A.6 | E2E 测试框架（Playwright + prototype-helpers） | ✅ | `packages/e2e/` (config + helpers) |
+| 1.A.7 | 数据库 Schema 设计文档（19 张表 DDL） | ✅ | `docs/05-data-design/phase1-database-schema.md` (568 行) |
+| 1.A.8 | 技术方案设计文档（API 91 端点 / 校验 / 错误处理） | ✅ | `docs/04-tech-design/phase1-design-tech.md` (636 行) |
+| 1.A.9 | PRD 编写规范（v1.0 + Step 2.5 一致性审查） | ✅ | `docs/03-prd-ux/prd-convention.md` (544 行) |
+| 1.A.10 | 编码实施规范 v1.1（总纲 + 五维 Review） | ✅ | `docs/04-tech-design/coding-convention.md` (~420 行) |
+| 1.A.11 | 后端编码细则 v1.1 | ✅ | `coding-convention-backend.md` (~1127 行) |
+| 1.A.12 | 前端编码细则 v1.1 | ✅ | `coding-convention-frontend.md` (~1200 行) |
+| 1.A.13 | Design Token 体系（10 大类 token + 5 组件对齐） | ✅ | `design-token-system.md` + `design-tokens.ts` |
+| 1.A.14 | 多环境部署架构设计（Docker Compose, 仅文档） | ✅ | `docs/07-deploy-design/multi-env-deploy.md` (~500 行) |
 
 ---
 
-## 1-B：M1 项目管理模块 ✅ Step0~4 完成，Step 5 准备中（编码规范 ✅，P1 Schema ✅ 19表，P2 TypeBox ✅ M1全量Schema+Ajv）（5/8）
+## §2 M1 项目管理 — 功能进展总览
 
-> 模块定位：系统的顶级容器和基础组织架构管理（项目 CRUD + 公司/部门/角色/外部实体）
->
 > **API 端点组**：`projects.ts`（6 端点）+ `organization.ts`（21 端点）= **27 个**
 
-### SDLC 进度矩阵
+### 进度主表（功能 × SDLC 阶段）
 
-| SDLC 步骤 | 名称 | 状态 | 产出物 | 行数 |
-|-----------|------|:----:|--------|:----:|
-| Step 0 | 产品思路 & 想法 | ✅ 完成 | docs/01-design-idea/ | — |
-| Step 1 | 领域模型设计 | ✅ 完成 | docs/02-domain-model/ (5 文件) | — |
-| Step 2 | PRD 设计 | ✅ **审核通过** | project-management-prd.md (962) + prd-2.md (~1380) | ~2342 |
-| Step 3 | 技术方案 | ✅ 提前完成 | phase1-design-tech.md + database-schema.md | 1204 |
-| **Step 4** | **测试用例设计** | **✅ 完成** | **docs/06-test-design/ (20 文件, 315 用例)** | ~11070 |
-| Step 5 | 代码实现 | 🔄 **UI 差异修复中**（见下方 1-B.UI） | packages/api/routes/ + packages/web/pages/ | — |
-| Step 5.5 | **M1 UI 对齐高保真原型修复** | 🔴 **进行中**（2026-05-11 Playwright 实测发现 P0×6 + P1×11 差异） | docs/20-analyze-report/m1-ui-gap-analysis-2026-05-11.md | — |
-| Step 6 | 测试代码 | ⏳ 待开始 | packages/**/*.test.ts | — |
-| Step 7 | 部署方案 | ⏳ 待开始 | docs/07-deploy-design/ | — |
+| 功能编号 | 名称 | P | S0 | S1 | S2 | S3 | S4 | S5 | S6 | S7 | S8 | 备注 |
+|----------|------|:-:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|------|
+| **F-M1-01** | 项目列表（搜索/分页/排序） | P0 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | API 21 TC + E2E 7/7 |
+| **F-M1-02** | 创建项目（对话框/name 校验/唯一性） | P0 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | API 20 TC + E2E 2/2 全绿 |
+| F-M1-02-01 | CreateProjectDialog 高保真还原 | | ✅ | ✅ | ✅ | 🔶 | ✅ | ✅ | ✅ | ✅ | 🔶 | 文案 9 + 样式 12 + hover |
+| **F-M1-03** | 查看项目详情（并行请求/模块卡片） | P0 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🔶 | ⏳ | ⏳ | detail.html 完整：4Tab+信息网格+摘要统计 |
+| **F-M1-04** | 编辑项目基本信息（行内编辑/乐观锁） | P0 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ⏳ | ⏳ | ⏳ | detail.html 行内编辑模式完整实现 |
+| **F-M1-05** | 归档/恢复项目（AlertDialog/列表联动） | P0 | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🔶 | ⏳ | ⏳ | list.html + detail.html 双页面覆盖 |
+| **F-M1-06** | 公司管理（CRUD/级联删除/解绑角色） | P0 | ✅ | ✅ | ✅ | ⏳ | ✅ | ✅ | 🔶 | ⏳ | ⏳ | OrgPanel 初版 448 行 |
+| **F-M1-07** | 部门管理（多级树形/循环检测） | P0 | ✅ | ✅ | ✅ | 🔶 | ✅ | ✅ | ⏳ | ⏳ | ⏳ | 有扁平列表，缺树形+CRUD Dialog |
+| **F-M1-08** | 角色管理（独立 Tab/全局唯一） | P0 | ✅ | ✅ | ✅ | 🔶 | ✅ | ✅ | ⏳ | ⏳ | ⏳ | Badge 展示，缺独立管理UI+CRUD Dialog |
+| **F-M1-09** | 外部实体管理（CRUD/type 枚举） | P1 | ✅ | ✅ | ✅ | ⏳ | ✅ | ✅ | ⏳ | ⏳ | ⏳ | |
+| **F-M1-10** | 项目摘要统计（列表内嵌/缓存策略） | P1 | ✅ | ✅ | ✅ | ⏸ | ✅ | ✅ | ⏸ | ⏸ | ⏸ | 暂挂 |
 
-### Step 5.5: M1 UI 对齐高保真原型修复
+### 完成率汇总
 
-> **触发**: 2026-05-11 Playwright 实际运行检测 → 发现前端实现与高保真原型/E2E 设计存在显著差距
->
-> **分析报告**: `docs/20-analyze-report/m1-ui-gap-analysis-2026-05-11.md`
->
-> **修复范围**: 按 P0 → P1 → P2 优先级逐项对齐
+| 维度 | 总数 | ✅ | 🔶 | ⏳ | ⏸ | 完成率 |
+|------|:----:|:--:|:--:|:--:|:--:|:------:|
+| 功能点（顶层） | 10 | 2 | 1 | 6 | 1 | **20%** |
+| 含子功能展开 | 14 | 2 | 2 | 9 | 1 | **14%** |
 
-#### P0 阻塞性问题（6 项）
-
-| # | 问题 | 涉及文件(预估) |
-|---|------|:--|
-| P0-1 | 新增 Header Bar 组件（面包屑 + 主题切换 + 用户信息） | Layout.tsx (新建 Header) |
-| P0-2 | Sidebar 样式重构（深色背景 #001529 / 分组标签 / lucide 图标） | Layout.tsx Sidebar 部分 |
-| P0-3 | 详情页新增归档按钮 | ProjectDetail.tsx |
-| P0-4 | 公司列表改为表格展示（含部门数/角色数列） | OrganizationPanel.tsx |
-| P0-5 | 部门列表改为树形组件 | OrganizationPanel.tsx (新建 DeptTree) |
-| P0-6 | OrganizationPanel 去掉内部嵌套 Tab，改为单一区域内上下布局 | OrganizationPanel.tsx 重构 |
-
-#### P1 功能缺失（11 项）
-
-| # | 问题 | 涉及文件(预估) |
-|---|------|:--|
-| P1-1 | 基本信息 Card 补充 version 字段 | ProjectInfoCard.tsx |
-| P1-2 | 详情页 Tab 补充"领域模型"+"业务流程"占位 Tab | ProjectDetail.tsx |
-| P1-3 | Summary 卡片从 6→3（高层概览粒度） | SummaryCards.tsx |
-| P1-4 | 公司/部门/角色/外部实体补充编辑入口 | OrganizationPanel.tsx 各子区域 |
-| P1-5 | 部门创建对话框补充 parent_id 选择器 | CreateDialog 复用组件 |
-| P1-6 | 角色创建对话框补充 department_id + 列表补充过滤器 | 同上 |
-| P1-7 | 公司创建对话框补充 type 选择器 | 同上 |
-| P1-8 | 列表页表格补充排序 UI + 完整分页 | ProjectTable.tsx + PaginationComponent.tsx |
-| P1-9 | 操作列从图标改为文字链接 | ProjectTable.tsx |
-| P1-10 | 组织架构各列表补充搜索+分页 | OrganizationPanel.tsx |
-| P1-11 | Filter Bar 和 Table 补白底卡片包裹 | ProjectList.tsx |
-
-### PRD 详细进度
-
-| 章节 | 内容 | 状态 |
-|------|------|:----:|
-| §1 概述（定位/角色/前置依赖/参考输入） | ~60 行 | ✅ 审核 |
-| §2 业务流程（Happy Path / 异常分支 / 页面交互, 8 张 Mermaid 图） | ~180 行 | ✅ 审核 |
-| §3 功能范围总览（10 功能点 / 8 项 Out of Scope / 5 术语） | ~80 行 | ✅ 审核 |
-| §4.1 F-M1-01 项目列表（样例, CRUD 全维度规则） | ~130 行 | ✅ 审核 |
-| §4.2 F-M1-02 创建项目 | ~80 行 | ✅ 审核 |
-| §4.3 F-M1-03 查看项目详情 | ~130 行 | ✅ 审核 |
-| §4.4 F-M1-04 编辑项目基本信息 | ~130 行 | ✅ 审核 |
-| §4.5 F-M1-05 归档/恢复项目 | ~120 行 | ✅ 审核 |
-| §4.6 F-M1-06 公司管理 | ~200 行 | ✅ 审核 |
-| §4.7 F-M1-07 部门管理（多级树形, parent_id 自引用） | ~200 行 | ✅ 审核 |
-| §4.8 F-M1-08 角色管理（独立 Tab 入口, department_id 可选挂载） | ~250 行 | ✅ 审核 |
-| §4.9 F-M1-09 外部实体管理（P1） | ~140 行 | ✅ 审核 |
-| §4.10 F-M1-10 项目摘要统计（P1） | ~80 行 | ✅ 审核 |
-| §5 跨功能规则（状态机/校验/交互/权限） | ~130 行 | ✅ 审核 |
-| §6 验收标准（功能 24+ 项 + 异常 6 项 + UI/UX 8 项） | ~110 行 | ✅ 审核 |
-
-### 功能点清单（10 项）
-
-| # | 功能点 | 优先级 | SDLC 进度 |
-|---|--------|:------:|:---------:|
-| F-M1-01 | 项目列表（搜索/分页/排序/摘要内嵌） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
-| F-M1-02 | 创建项目（对话框表单 / name 校验 / 唯一性） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
-| F-M1-03 | 查看项目详情（并行请求 / 模块卡片 / 归档 UI 差异） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
-| F-M1-04 | 编辑项目基本信息（行内编辑 / 乐观锁 / 快照还原） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
-| F-M1-05 | 归档 / 恢复项目（标记操作 / AlertDialog / 列表联动） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
-| F-M1-06 | 公司管理（CRUD / 第一级 / 级联删除+解绑角色） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
-| F-M1-07 | 部门管理（CRUD / 多级树形 / company_id 唯一性 / 循环检测） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
-| F-M1-08 | 角色管理（独立 Tab / 可选挂载部门 / project 级全局唯一） | P0 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
-| F-M1-09 | 外部实体管理（CRUD / type 枚举 / 直接隶属项目） | P1 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏳ |
-| F-M1-10 | 项目摘要统计（列表内嵌 / 详情 API / 缓存策略） | P1 | Step 2 ✅ → Step 4 ✅ → Step 5~7 ⏸ |
-
----
-
-## 1-C：M2 领域模型模块 ⏳ 待开始
-
-> 模块定位：被建模产品的核心业务实体管理（领域实体定义 / 字段 / 关系 / 数据流 / ER 图）
->
-> **API 端点组**：`domain.ts`（实体 7 + 字段 6 + 关系 5 = **18 个**）
-
-| SDLC 步骤 | 状态 | 说明 |
-|-----------|:----:|------|
-| Step 0~1 | ✅ 完成 | Phase 0 已覆盖（domain-model.md + 语义层 Schema） |
-| Step 2 (PRD) | ⏳ 待开始 | 依赖 M1 Step 2 完成（Project 是领域实体的容器） |
-| Step 3 (技术方案) | ⏳ 待开始 | 可复用 1.A.7/1.A.8 的通用部分 |
-| Step 4~7 | ⏳ 待开始 | — |
-
----
-
-## 1-D：M3 业务流程模块 ⏳ 待开始
-
-> 模块定位：业务流程建模（流程定义 / 全局节点池 / 边 / 决策 / 子流程嵌套）
->
-> **API 端点组**：`process.ts`（流程 7 + 节点 6 + 边 5 + 流程-节点关联 4 = **22 个**）
-
-| SDLC 步骤 | 状态 | 说明 |
-|-----------|:----:|------|
-| Step 0~1 | ✅ 完成 | Phase 0 已覆盖（business-process.md 1476 行, 48 项决策） |
-| Step 2 (PRD) | ⏳ 待开始 | 依赖 M2 Step 2（流程引用领域实体） |
-| Step 3 (技术方案) | ⏳ 待开始 | — |
-| Step 4~7 | ⏳ 待开始 | — |
-
----
-
-## 1-E：M4 业务架构模块 ⏳ 待开始
-
-> 模块定位：业务架构树管理（L1-L4 层级架构节点 + 架构→流程映射关系）
->
-> 业务架构是项目的**功能分解结构**（如「交易系统 → 订单子系统 → 支付模块 → 退款流程」），将业务流程挂载到架构节点下。
->
-> **API 端点组**：`architecture.ts`（架构节点 6 + 流程映射 5 = **11 个**）
-
-| SDLC 步骤 | 状态 | 说明 |
-|-----------|:----:|------|
-| Step 0~1 | ✅ 完成 | Phase 0 已覆盖（domain-model.md 含架构相关实体定义） |
-| Step 2 (PRD) | ⏳ 待开始 | 依赖 M3 Step 2（架构节点映射到业务流程） |
-| Step 3 (技术方案) | ⏳ 待开始 | 可复用 1.A.7/1.A.8 的通用部分 |
-| Step 4~7 | ⏳ 待开始 | — |
-
-### API 端点清单
-
-**架构节点 CRUD（6 个）：**
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/v1/projects/:projectId/business-architectures` | 架构节点列表（扁平，含 parent_id） |
-| POST | `/api/v1/projects/:projectId/business-architectures` | 创建架构节点 |
-| GET | `/api/v1/projects/:projectId/business-architectures/:archId` | 节点详情（含子节点 + 关联流程） |
-| PUT | `/api/v1/projects/:projectId/business-architectures/:archId` | 更新架构节点 |
-| DELETE | `/api/v1/projects/:projectId/business-architectures/:archId` | 删除（级联子节点+映射关系） |
-| GET | `/api/v1/projects/:projectId/business-architectures/tree` | 完整树形结构（递归嵌套 JSON） |
-
-**架构→流程映射（5 个）：**
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `.../:archId/processes` | 某架构节点关联的流程列表 |
-| POST | `.../:archId/processes` | 将流程挂载到架构节点下 |
-| DELETE | `.../:archId/processes/:processId` | 从架构节点下移除流程 |
-| PUT | `.../:archId/processes/reorder` | 调整流程排序 |
-| GET | `/api/v1/projects/:projectId/processes/:processId/architectures` | 反查某流程归属的架构节点 |
-
----
-
-## 1-F：菜单管理（轻量级系统配置）⏳ 待开始
-
-> 模块定位：系统导航菜单的 CRUD 管理（驱动 Sidebar 渲染）
->
-> **特殊定位**：菜单不属于业务数据建模范畴，而是**系统级配置**，全局唯一。Phase 1 采用硬编码路由 + 数据库菜单数据驱动渲染的混合模式。
->
-> **API 端点组**：`menu.ts`（~6 个）
-
-| SDLC 步骤 | 状态 | 说明 |
-|-----------|:----:|------|
-| Step 0~1 | ✅ 完成 | menus 表已在 DB Schema 中定义（phase1-database-schema.md 表 #16） |
-| Step 2 (PRD) | ⏳ 待开始 | 范围较小，可与 M1 PRD 合并或独立为轻量 PRD |
-| Step 3 (技术方案) | ✅ 提前完成 | phase1-design-tech.md 已含 menu 路由/服务/页面定义 |
-| Step 4~7 | ⏳ 待开始 | — |
-
-> **实施建议**：菜单管理的复杂度远低于 M1~M4。可考虑在 M1 编码阶段（Step 5）顺手实现，或作为 M1 的子任务处理，无需单独走完 7 步全流程。
-
----
-
-## 模块依赖顺序
+### 模块依赖
 
 ```
-M1 项目管理（容器, 无前置模块依赖）
-  └─→ M2 领域模型（实体隶属于项目）
-       └─→ M3 业务流程（流程引用领域实体）
-            └─→ M4 业务架构（架构节点映射到流程）
-
-菜单管理（独立于业务数据，可并入 M1 实施）
+M1 项目管理（当前实施）
+  ├─ F-M1-01 ✅         ├─ F-M1-02 ✅         ├─ F-M1-03~05 🔶(S3✅/S6~8待做)
+  │                     ├─ F-M1-06 🔶        ├─ F-M1-07~08 🔶(S3部分)
+  └─ F-M1-09 ⏳         └─ F-M1-10 ⏸
+M2 领域模型 ⏳ → M3 业务流程 ⏳ → M4 业务架构 ⏳
+菜单管理 ⏳（可并入 M1）
 ```
 
 ---
 
-## Phase 1 文档产出总览（截至 2026-05-03）
+## §3 后续模块预览
 
-| 文件 | 行数 | 状态 | 内容摘要 |
-|------|------|:----:|---------|
-| `docs/04-tech-design/phase1-design-tech.md` | 636 | ✅ 已审核 | API 规范 / 校验 / 错误处理 / 测试策略 / 91 端点 |
-| `docs/05-data-design/phase1-database-schema.md` | 568 | ✅ 已审核 | 19 张表完整 DDL + 设计规范 |
-| `docs/03-prd-ux/prd-convention.md` | 544 | ✅ v1.0 | PRD 编写规范（6 章模板 + 逐节确认流程） |
-| `docs/01-design-idea/role-independence-design.md` | 146 | ✅ 已审核 | Role 独立性 4 项设计决策（department_id nullable / SET NULL / 独立 Tab / 全局唯一） |
-| `docs/02-domain-model/domain-model.md` | ~550 | ✅ v1.1 | 领域模型（新增 Company/Department/ExternalEntity + Role 迁移增强） |
-| `docs/03-prd-ux/modules/project-management/project-management-prd.md` | 962 | ✅ 全部审核 | M1 PRD §1~§4.4（F-M1-01~04） |
-| `docs/03-prd-ux/modules/project-management/project-management-prd-2.md` | ~1380 | ✅ 全部审核 | M1 PRD §4.5~§6（F-M1-05~10 + 跨功能规则 + 验收标准） |
-| `packages/api/src/` | ~240 | ✅ 骨架 | Fastify app / db / models (4 表 schema + relations) |
-| `packages/web/src/` | ~280 | ✅ 骨架 | App routing / Layout (193行) / pages (stubs) / api client |
-| `packages/shared/src/types/` | ~242 | ✅ 初版 | 7 个领域类型文件 (project/domain/process/org/architecture/menu) |
-| `packages/validation-schemas/src/` | 25 | ✅ 初版 | TypeBox project schema |
-| `packages/e2e/` | ~31 | ✅ 就绪 | Playwright config + 3 smoke tests |
+> M2~M5 的 S0~S1 在 Phase 0 已完成，S2 待 M1 收尾后启动。
+
+| 模块 | 定位 | API | S0 | S1 | S2 | S3 | S4 | S5 | S6 | S7 | S8 | 备注 |
+|------|------|:---:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:------|
+| **M2** 领域模型 | 核心业务实体（字段/关系/ER） | 18 | ✅ | ✅ | ⏳ | ⏳ | ✅ | ✅ | ⏳ | ⏳ | ⏳ | 依赖 M1 |
+| **M3** 业务流程 | 流程建模（节点池/边/决策/子流程） | 22 | ✅ | ✅ | ⏳ | ⏳ | ✅ | ✅ | ⏳ | ⏳ | ⏳ | 依赖 M2 |
+| **M4** 业务架构 | L1-L4 架构树 + 架构→流程映射 | 11 | ✅ | ✅ | ⏳ | ⏳ | ✅ | ✅ | ⏳ | ⏳ | ⏳ | 依赖 M3 |
+| **菜单** 导航菜单 | Sidebar 菜单 CRUD（轻量配置） | ~6 | ✅ | ✅ | ⏳ | ⏳ | ✅ | ✅ | ⏳ | ⏳ | ⏳ | 可并入 M1 |
+
+---
+
+## §4 资产附录（截至 2026-05-13）
+
+### 代码资产
+
+| 类别 | 文件数 | 行数 | 说明 |
+|------|:-----:|:----:|------|
+| API Routes / Services | 8 | 1,927 | routes(606) + services(1321) |
+| Web Pages / 组件 | 10 | 1,596 | pages(361) + project components(1235) |
+| UI 组件（已 token 化） | 5 | — | button/input/dialog/label/textarea |
+| Design Token 基础设施 | 3 | — | design-tokens.ts + index.css + tailwind.config.js |
+| **合计** | **~26** | **~3,500+** | |
+
+### 测试资产
+
+| 类别 | 文件数 | 用例数 | 通过率 |
+|------|:-----:|:-----:|:-----:|
+| API 测试 | 2 | 41 | 100%（F-M1-01: 21 + F-M1-02: 20） |
+| E2E 测试 | 3 | 12 | 100%（smoke 3 + M1-01 7 + M1-02 2） |
+| 测试设计文档 | 10 | 315 TC | 全部 10 功能点已设计 |
+
+### 设计文档
+
+| 文件 | 行数 | 内容 |
+|------|:----:|------|
+| `phase1-design-tech.md` | 636 | API 规范 / 校验 / 错误处理 / 91 端点 |
+| `phase1-database-schema.md` | 568 | 19 张表 DDL + 设计规范 |
+| `design-token-system.md` | 282 | Design Token 规格（D-SPEC-001） |
+| `multi-env-deploy.md` | ~500 | Docker Compose 多环境部署架构 |
+| `project-management-prd.md` (+ prd-2.md) | ~2,342 | M1 PRD 全部章节 |
 
 ← [返回主路线图](./README.md)

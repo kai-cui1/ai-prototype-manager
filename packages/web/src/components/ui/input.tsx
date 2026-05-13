@@ -4,10 +4,14 @@ import { Search } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
+/** 原型 .search-icon: 14px × 14px, 细线（stroke 1.5 使小尺寸下视觉精致） */
+const SearchIcon = () => <Search className="h-[14px] w-[14px]" strokeWidth={1.5} />
+
 /**
- * §6.2 输入框 — 高度 32px（与按钮对齐）、圆角 6px(--radius-btn)
- * Focus: border primary + shadow 0 0 0 2px rgba(8,151,156,0.1)
- * Error: border destructive + shadow 0 0 0 2px rgba(255,77,79,0.1)
+ * §6.2 输入框 — 高度 32px（与按钮对齐）、圆角 rounded-input(--radius-input)
+ * 字号 13px（原型 .input 规范，design-tokens.ts fontSize.bodySmall）
+ * Focus: border primary + shadow-focus-primary token
+ * Error: border destructive + shadow-focus-error token
  */
 function Input({ className, type, ...props }: React.InputHTMLAttributes<HTMLElement>) {
   return (
@@ -15,7 +19,7 @@ function Input({ className, type, ...props }: React.InputHTMLAttributes<HTMLElem
       type={type}
       data-slot="input"
       className={cn(
-        "h-8 w-full min-w-0 rounded-btn border border-border-strong bg-transparent px-3 py-1.5 text-sm transition-colors duration-150 ease outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-text-tertiary focus-visible:border-primary focus-visible:shadow-[0_0_0_2px_rgba(8,151,156,0.1)] disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-fill disabled:text-disabled disabled:border-border-strong disabled:opacity-50 aria-invalid:border-destructive aria-invalid:shadow-[0_0_0_2px_rgba(255,77,79,0.1)]",
+        "h-8 w-full min-w-0 rounded-input border border-border-strong bg-transparent px-2.5 py-1.5 text-[13px] transition-colors duration-150 ease outline-none file:inline-flex file:h-6 file:border-0 file:bg-transparent file:text-[13px] file:font-medium file:text-foreground placeholder:text-text-tertiary focus-visible:border-primary focus-visible:shadow-focus-primary disabled:pointer-events-none disabled:cursor-not-allowed disabled:bg-fill disabled:text-disabled disabled:border-border-strong disabled:opacity-50 aria-invalid:border-destructive aria-invalid:shadow-focus-error",
         className
       )}
       {...props}
@@ -47,15 +51,15 @@ interface SearchInputProps {
 
 function SearchInput({
   className,
-  icon = <Search />,
+  icon = <SearchIcon />,
   iconPosition = "left",
   width,
   ...props
 }: SearchInputProps) {
   return (
-    <div className={cn("relative", width ? `w-[${width}]` : "w-full")}>
+    <div className="relative" style={width ? { width: typeof width === 'number' ? `${width}px` : width } : undefined}>
       {iconPosition === "left" && (
-        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-text-tertiary pointer-events-none">
+        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none">
           {icon}
         </span>
       )}
@@ -67,7 +71,7 @@ function SearchInput({
         {...props}
       />
       {iconPosition === "right" && (
-        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-text-tertiary pointer-events-none">
+        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-text-tertiary pointer-events-none">
           {icon}
         </span>
       )}
