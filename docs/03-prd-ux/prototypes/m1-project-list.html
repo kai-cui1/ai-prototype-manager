@@ -590,5 +590,14 @@ function toggleEmptyState(){
    实际拖拽逻辑（mousedown/move/up + 宽度同步 + 双击重置）由前端编码实现。
    规格详见 ui-design-spec.md §6.3.1 */
 </script>
+
+<!--
+  PROTOTYPE-CONTRACT:dialog#createDialog
+  title=新建项目
+  field:1|label=项目名称|required=true|placeholder=如：ecommerce-admin|hint=编程标识符，仅支持小写字母、数字和连字符，2~50 字符
+  field:2|label=显示名称|required=true|placeholder=请输入项目显示名称|hint=用于界面展示的名称，建议不超过 50 个字符
+  field:3|label=描述|required=false|placeholder=请输入项目描述（可选）
+  button:cancel=取消|submit=确定
+-->
 </body>
 </html>
