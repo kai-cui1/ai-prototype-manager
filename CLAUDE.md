@@ -45,6 +45,25 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 另有 `05-data-design/` 存放后端 DDL 和前端数据方案细节（归入 Step 1 或 Step 3 的子产出）。
 
+### Step 2.5 PRD↔原型一致性审查 **（必须遵守）**
+
+**Step 2（PRD）完成后、Step 3（技术方案）开始前，必须执行此交叉审查。**
+
+**为什么需要这一步**：PRD 是功能规格（定义"系统做什么"），HTML 原型是视觉规格（定义"用户看到什么"）。两者对同一元素可能使用不同文案（如 PRD 写"编程标识符"，原型写"项目名称"）。如果不做交叉核对，开发者只能二选一，导致实现与原型视觉偏差。
+
+**审查范围**：每个包含用户可见文案的 UI 元素（Dialog/Form/Button/Label/Placeholder/Hint）
+
+**裁决原则**：
+| 元素类型 | 以谁为准 | 理由 |
+|---------|---------|------|
+| 用户看到的文字（标题/标签/按钮/placeholder/hint） | **原型** | 原型是视觉规格，面向用户 |
+| 内部字段名 / 校验规则 / 错误提示 | **PRD** | PRD 是功能规格，面向开发 |
+| 交互行为（校验时机/提交逻辑/异常处理） | **PRD** | 属于功能行为，非纯视觉 |
+
+**审查方式**：AI 同时读取 PRD 对应章节 + 原型 HTML 文件，提取所有用户可见文案并生成 diff 报告，人工确认裁决。
+
+**触发条件**：Step 2 的 PRD 文件和 `docs/03-prd-ux/prototypes/` 下对应原型文件均已存在时自动触发。
+
 ### Step 5~6 编码规范 **（必须遵守）**
 
 **Step 5（代码实现）和 Step 6（测试）开始前，必须先阅读并遵循** `docs/04-tech-design/coding-convention.md`（总纲）+ 对应的**后端/前端编码细则子文件**。
@@ -79,6 +98,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 新增配置文件或测试脚本引用端口时，必须查阅本表，不得使用默认值（如 Vite 默认 5173、Fastify 默认 3000）
 - E2E 测试的 `playwright.config.ts`（baseURL / webServer.port）和 `db-setup.ts` 等辅助文件中的端口必须与上表一致
 - 如需修改端口，同步更新本表 + 对应配置源文件
+
+### 多环境端口管理
+
+> **详见 `environments/README.md`** — AI 工作流中的环境定义、切换和约束规则。
+
+本表的端口值为 **dev1（日常开发）环境的默认值**。其他环境的端口定义见 `environments/*.json`：
+
+| 环境 | Web | API | DB | 数据库 |
+|------|-----|-----|-----|--------|
+| `dev1`（默认） | **13181** | **13180** | **5432** | `apm_dev1` |
+| `dev2`（隔离） | 13281 | 13280 | 5433 | `apm_dev2` |
+
+**AI 环境操作铁律**：AI 只能读取 `environments/` 目录，不能修改其中任何文件，不能启停任何服务。用户通过命令声明当前环境（如 "当前在 dev1"），AI 从环境文件获取连接参数后执行只读检查。
 
 ## 技术架构决策
 
