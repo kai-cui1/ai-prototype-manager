@@ -209,7 +209,7 @@ export const CompanyDetail = Type.Object(
     createdAt: Type.String({ format: 'date-time' }),
     updatedAt: Type.String({ format: 'date-time' }),
   },
-  { $id: 'CompanyDetail', description: '公司详情' },
+  { description: '公司详情' },
 );
 
 /** 公司列表项（与 Detail 相同，列表不过滤字段） */
@@ -244,7 +244,7 @@ export const DepartmentDetail = Type.Object(
     createdAt: Type.String({ format: 'date-time' }),
     updatedAt: Type.String({ format: 'date-time' }),
   },
-  { $id: 'DepartmentDetail', description: '部门详情' },
+  { description: '部门详情' },
 );
 
 /** 部门树节点（用于 tree 接口响应） */
@@ -256,11 +256,9 @@ export const DepartmentTreeNode = Type.Recursive(
         children: Type.Optional(Type.Array(This)),
       },
       {
-        $id: 'DepartmentTreeNode',
         description: '部门树节点',
       },
     ),
-  { $id: 'DepartmentTreeNode' },
 );
 
 /** 部门列表项 */
@@ -298,7 +296,7 @@ export const RoleDetail = Type.Object(
     createdAt: Type.String({ format: 'date-time' }),
     updatedAt: Type.String({ format: 'date-time' }),
   },
-  { $id: 'RoleDetail', description: '角色详情' },
+  { description: '角色详情' },
 );
 
 /** 角色列表项 */
@@ -335,7 +333,7 @@ export const ExternalEntityDetail = Type.Object(
     createdAt: Type.String({ format: 'date-time' }),
     updatedAt: Type.String({ format: 'date-time' }),
   },
-  { $id: 'ExternalEntityDetail', description: '外部实体详情' },
+  { description: '外部实体详情' },
 );
 
 /** 外部实体列表项 */

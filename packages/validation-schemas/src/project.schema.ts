@@ -141,7 +141,7 @@ export const ProjectListItem = Type.Object(
       externalEntityCount: Type.Number({ minimum: 0 }),
     }, { description: 'B-M1-88 内嵌摘要统计' }),
   },
-  { $id: 'ProjectListItem', description: '项目列表项' },
+  { description: '项目列表项' },
 );
 
 /** GET /api/v1/projects 响应 */
@@ -159,14 +159,14 @@ export const ProjectDetail = Type.Object(
     id: IdSchema,
     name: NameSchema,
     displayName: DisplayNameSchema,
-    description: Type.Optional(Type.String({ maxLength: 2000 })),
+    description: Type.Union([Type.String({ maxLength: 2000 }), Type.Null()], { description: '项目描述' }),
     status: StatusSchema,
     version: VersionSchema,
     config: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
     createdAt: Type.String({ format: 'date-time', description: '创建时间 (ISO 8601)' }),
     updatedAt: Type.String({ format: 'date-time', description: '更新时间 (ISO 8601)' }),
   },
-  { $id: 'ProjectDetail', description: '项目详情完整字段' },
+  { description: '项目详情完整字段' },
 );
 
 /** GET /api/v1/projects/:id 响应 */
@@ -192,7 +192,7 @@ export const ProjectSummary = Type.Object(
     roleCount: Type.Number({ minimum: 0 }),
     externalEntityCount: Type.Number({ minimum: 0 }),
   },
-  { $id: 'ProjectSummary', description: '项目子模块统计摘要' },
+  { description: '项目子模块统计摘要' },
 );
 
 /** GET /api/v1/projects/:id/summary 响应 */

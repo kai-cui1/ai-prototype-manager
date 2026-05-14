@@ -13,6 +13,11 @@
  * 与 shared types 对齐：
  * - ErrorResponse.error 结构匹配 app.ts 全局 setErrorHandler 的实际输出格式
  * - PaginationMeta 匹配 services/common/pagination.ts 的 buildMeta() 返回值
+ *
+ * 注意：本文件所有 Schema 均不设置 $id。
+ * 原因：Fastify 的 fast-json-stringify（基于 Ajv）会将 $id 用作 $ref 解析的基准 URI，
+ *       导致嵌套 Schema（如 SuccessEnvelope<ProjectDetail>）产生错误的 ref 路径。
+ *       不设 $id 不影响校验功能和 OpenAPI 文档生成。
  */
 import type { TSchema } from '@sinclair/typebox';
 import { Type } from '@sinclair/typebox';
@@ -36,9 +41,9 @@ export const PaginationMeta = Type.Object(
       Type.Literal(100),
     ], { description: '每页条数' }),
     total: Type.Number({ minimum: 0, description: '总记录数' }),
-    totalPages: Type.Number({ minimum: 0, description: '总页数' }),
+    totalPages: Type.Optional(Type.Number({ minimum: 0, description: '总页数（前端计算，后端不返回）' })),
   },
-  { $id: 'PaginationMeta', description: '分页元数据' },
+  { description: '分页元数据' },
 );
 
 // ============================================================
@@ -54,7 +59,6 @@ export function SuccessEnvelope<T extends TSchema>(data: T) {
   return Type.Object(
     { data },
     {
-      $id: `SuccessEnvelope<${data.$id ?? 'Unknown'}>`,
       description: '单资源成功响应',
     },
   );
@@ -72,7 +76,6 @@ export function PaginatedEnvelope<T extends TSchema>(items: T) {
       meta: PaginationMeta,
     },
     {
-      $id: `PaginatedEnvelope<${items.$id ?? 'Unknown'}>`,
       description: '分页列表成功响应',
     },
   );
@@ -87,7 +90,7 @@ export const DeleteResponse = Type.Object(
   {
     success: Type.Literal(true, { description: '操作是否成功' }),
   },
-  { $id: 'DeleteResponse', description: '删除操作响应' },
+  { description: '删除操作响应' },
 );
 
 // ============================================================
@@ -100,7 +103,7 @@ export const ErrorDetail = Type.Object(
     field: Type.String({ description: '校验失败的字段路径' }),
     message: Type.String({ description: '该字段的错误信息' }),
   },
-  { $id: 'ErrorDetail', description: '校验错误明细' },
+  { description: '校验错误明细' },
 );
 
 /**
@@ -126,8 +129,8 @@ export const ErrorResponse = Type.Object(
           Type.Array(ErrorDetail, { description: '校验错误明细列表（仅 400）' }),
         ),
       },
-      { $id: 'ErrorBody', description: '错误体' },
+      { description: '错误体' },
     ),
   },
-  { $id: 'ErrorResponse', description: '统一错误响应' },
+  { description: '统一错误响应' },
 );
