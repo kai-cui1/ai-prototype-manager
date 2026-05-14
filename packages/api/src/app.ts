@@ -57,8 +57,14 @@ await app.register(scalarApiReference, {
   routePrefix: '/docs',
   configuration: {
     theme: 'alternate',
+    spec: {
+      url: '/openapi/json',
+    },
   },
 });
+
+// 暴露 OpenAPI Spec JSON 端点（@fastify/swagger 不自动创建 HTTP 路由）
+app.get('/openapi/json', async () => app.swagger());
 
 // ============================================
 // 全局错误处理中间件

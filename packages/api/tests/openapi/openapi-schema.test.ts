@@ -4,7 +4,7 @@
  *              覆盖所有已注册端点且每个端点都有 response schema 定义。
  *
  * 技术说明：
- * - @fastify/swagger v9 不注册 /openapi/json HTTP 路由，spec 通过 app.swagger() 获取
+ * - @fastify/swagger v9 默认不注册 /openapi/json HTTP 路由，我们在 app.ts 中手动添加
  * - OpenAPI 3.0 使用 responses（复数）字段，非 response（单数）
  * - 响应 Schema 被 swagger 内联到各端点的 responses 中，components.schemas 可能为空
  * - health 端点无 schema 声明（原始路由未定义 schema），其余 27 个端点均有完整 schema
@@ -17,8 +17,20 @@ describe('OpenAPI Spec 合法性', () => {
 
   beforeAll(async () => {
     await app.ready();
-    // @fastify/swagger v9 通过 programmatic API 暴露 spec（不提供 HTTP 端点）
+    // @fastify/swagger v9 通过 programmatic API 获取 spec
     spec = app.swagger() as unknown as Record<string, unknown>;
+  });
+
+  test('/openapi/json HTTP 端点可访问且返回完整 spec', async () => {
+    const resp = await app.inject().get('/openapi/json');
+    expect(resp.statusCode).toBe(200);
+    expect(resp.headers['content-type']).toContain('application/json');
+
+    const httpSpec = resp.json();
+    expect(httpSpec.openapi).toBe('3.0.3');
+    expect(httpSpec.paths).toBeDefined();
+    // HTTP 端点和 programmatic API 返回的 spec 应一致
+    expect(Object.keys(httpSpec.paths)).toEqual(Object.keys(spec.paths));
   });
 
   test('swagger() 返回符合 OpenAPI 3.0.3 规范的完整 spec', () => {
@@ -30,7 +42,7 @@ describe('OpenAPI Spec 合法性', () => {
     expect(spec.components).toBeDefined();
   });
 
-  test('覆盖全部 28 个端点（1 health + 6 project + 21 organization）', () => {
+  test('覆盖全部 29 个端点（1 health + 6 project + 21 organization + 1 openapi/json）', () => {
     const paths = spec.paths as Record<string, Record<string, unknown>>;
     let totalEndpoints = 0;
     for (const methods of Object.values(paths)) {
@@ -39,8 +51,8 @@ describe('OpenAPI Spec 合法性', () => {
       ).length;
     }
 
-    // 1(health) + 6(projects) + 21(organization) = 28
-    expect(totalEndpoints).toBe(28);
+    // 1(health) + 6(projects) + 21(organization) + 1(openapi/json) = 29
+    expect(totalEndpoints).toBe(29);
   });
 
   test('每个端点都包含 responses 定义且含 2xx 成功响应', () => {
