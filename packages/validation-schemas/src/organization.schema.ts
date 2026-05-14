@@ -15,7 +15,12 @@ import {
   VersionSchema,
   PaginationQuery,
   SearchQuery,
+  IdSchema,
 } from './base.js';
+import {
+  SuccessEnvelope,
+  PaginatedEnvelope,
+} from './response.js';
 
 // ============================================================
 // F-M1-06: Company Management
@@ -176,3 +181,166 @@ export const ExternalEntityListQuery = Type.Object({
   ...PaginationQuery.properties,
   search: SearchQuery,
 });
+
+// ============================================================
+// Response Schemas for Organization Endpoints
+// ============================================================
+
+// ---------------------------------------------------------------
+// Company Response Schemas (F-M1-06)
+// ---------------------------------------------------------------
+
+/**
+ * 公司完整字段。
+ *
+ * 对应 shared types: Company (packages/shared/src/types/organization.ts:7)
+ */
+export const CompanyDetail = Type.Object(
+  {
+    id: IdSchema,
+    projectId: IdSchema,
+    name: NameSchema,
+    displayName: DisplayNameSchema,
+    description: Type.Optional(Type.String({ maxLength: 2000 })),
+    companyType: Type.Optional(Type.String()),
+    contactInfo: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+    sortOrder: Type.Number({ minimum: 0 }),
+    config: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+    createdAt: Type.String({ format: 'date-time' }),
+    updatedAt: Type.String({ format: 'date-time' }),
+  },
+  { $id: 'CompanyDetail', description: '公司详情' },
+);
+
+/** 公司列表项（与 Detail 相同，列表不过滤字段） */
+export const CompanyListItem = CompanyDetail;
+
+/** GET /companies 响应 */
+export const CompanyListResponse = PaginatedEnvelope(CompanyListItem);
+/** GET/POST/PUT /companies 单资源响应 */
+export const CompanyDetailResponse = SuccessEnvelope(CompanyDetail);
+
+// ---------------------------------------------------------------
+// Department Response Schemas (F-M1-07)
+// ---------------------------------------------------------------
+
+/**
+ * 部门完整字段。
+ *
+ * 对应 shared types: Department (packages/shared/src/types/organization.ts:21)
+ */
+export const DepartmentDetail = Type.Object(
+  {
+    id: IdSchema,
+    projectId: IdSchema,
+    companyId: IdSchema,
+    parentId: Type.Optional(Type.Union([IdSchema, Type.Null()])),
+    name: NameSchema,
+    displayName: DisplayNameSchema,
+    description: Type.Optional(Type.String({ maxLength: 2000 })),
+    contactInfo: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+    sortOrder: Type.Number({ minimum: 0 }),
+    config: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+    createdAt: Type.String({ format: 'date-time' }),
+    updatedAt: Type.String({ format: 'date-time' }),
+  },
+  { $id: 'DepartmentDetail', description: '部门详情' },
+);
+
+/** 部门树节点（用于 tree 接口响应） */
+export const DepartmentTreeNode = Type.Recursive(
+  (This) =>
+    Type.Object(
+      {
+        ...DepartmentDetail.properties,
+        children: Type.Optional(Type.Array(This)),
+      },
+      {
+        $id: 'DepartmentTreeNode',
+        description: '部门树节点',
+      },
+    ),
+  { $id: 'DepartmentTreeNode' },
+);
+
+/** 部门列表项 */
+export const DepartmentListItem = DepartmentDetail;
+/** GET /departments 列表响应 */
+export const DepartmentListResponse = PaginatedEnvelope(DepartmentListItem);
+/** GET /departments/tree 树形响应 */
+export const DepartmentTreeResponse = SuccessEnvelope(Type.Array(DepartmentTreeNode));
+/** GET/POST/PUT /departments 单资源响应 */
+export const DepartmentDetailResponse = SuccessEnvelope(DepartmentDetail);
+
+// ---------------------------------------------------------------
+// Role Response Schemas (F-M1-08)
+// ---------------------------------------------------------------
+
+/**
+ * 角色完整字段。
+ *
+ * 对应 shared types: Role (packages/shared/src/types/organization.ts:36)
+ */
+export const RoleDetail = Type.Object(
+  {
+    id: IdSchema,
+    projectId: IdSchema,
+    departmentId: Type.Optional(Type.Union([IdSchema, Type.Null()])),
+    name: NameSchema,
+    displayName: DisplayNameSchema,
+    description: Type.Optional(Type.String({ maxLength: 2000 })),
+    category: Type.Optional(Type.String()),
+    contactInfo: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+    actions: Type.Optional(Type.Array(Type.Unknown())),
+    decisions: Type.Optional(Type.Array(Type.Unknown())),
+    sortOrder: Type.Number({ minimum: 0 }),
+    config: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+    createdAt: Type.String({ format: 'date-time' }),
+    updatedAt: Type.String({ format: 'date-time' }),
+  },
+  { $id: 'RoleDetail', description: '角色详情' },
+);
+
+/** 角色列表项 */
+export const RoleListItem = RoleDetail;
+/** GET /roles 列表响应 */
+export const RoleListResponse = PaginatedEnvelope(RoleListItem);
+/** GET/POST/PUT /roles 单资源响应 */
+export const RoleDetailResponse = SuccessEnvelope(RoleDetail);
+
+// ---------------------------------------------------------------
+// External Entity Response Schemas (F-M1-09)
+// ---------------------------------------------------------------
+
+/**
+ * 外部实体完整字段。
+ *
+ * 对应 shared types: ExternalEntity (packages/shared/src/types/organization.ts:53)
+ */
+export const ExternalEntityDetail = Type.Object(
+  {
+    id: IdSchema,
+    projectId: IdSchema,
+    companyId: Type.Optional(Type.Union([IdSchema, Type.Null()])),
+    departmentId: Type.Optional(Type.Union([IdSchema, Type.Null()])),
+    name: NameSchema,
+    displayName: DisplayNameSchema,
+    description: Type.Optional(Type.String({ maxLength: 2000 })),
+    entityType: Type.Optional(Type.String()),
+    contactInfo: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+    actions: Type.Optional(Type.Array(Type.Unknown())),
+    decisions: Type.Optional(Type.Array(Type.Unknown())),
+    sortOrder: Type.Number({ minimum: 0 }),
+    config: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+    createdAt: Type.String({ format: 'date-time' }),
+    updatedAt: Type.String({ format: 'date-time' }),
+  },
+  { $id: 'ExternalEntityDetail', description: '外部实体详情' },
+);
+
+/** 外部实体列表项 */
+export const ExternalEntityListItem = ExternalEntityDetail;
+/** GET /external-entities 列表响应 */
+export const ExternalEntityListResponse = PaginatedEnvelope(ExternalEntityListItem);
+/** GET/POST/PUT /external-entities 单资源响应 */
+export const ExternalEntityDetailResponse = SuccessEnvelope(ExternalEntityDetail);
