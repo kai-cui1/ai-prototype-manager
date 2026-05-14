@@ -2,205 +2,278 @@
  * @module routes/organization
  * @description 组织管理路由：公司(F-M1-06) + 部门(F-M1-07) + 角色(F-M1-08) + 外部实体(F-M1-09)。
  *              Fastify 插件形式注册，前缀 /api/v1/projects/:projectId。
- *
- * 端点清单（共 21 个）：
- *
- * **Company (F-M1-06)** — 5 个端点
- * - GET    /companies              → 公司列表
- * - POST   /companies              → 创建公司
- * - GET    /companies/:id          → 公司详情
- * - PUT    /companies/:id          → 更新公司
- * - DELETE /companies/:id          → 删除公司
- *
- * **Department (F-M1-07)** — 6 个端点
- * - GET    /companies/:companyId/departments       → 部门列表
- * - POST   /companies/:companyId/departments       → 创建部门
- * - GET    /departments/:id                        → 部门详情
- * - PUT    /departments/:id                        → 更新部门
- * - DELETE /departments/:id                        → 删除部门
- * - GET    /companies/:companyId/departments/tree  → 部门树
- *
- * **Role (F-M1-08)** — 5 个端点
- * - GET    /roles                  → 角色列表
- * - POST   /roles                  → 创建角色
- * - GET    /roles/:id              → 角色详情
- * - PUT    /roles/:id              → 更新角色
- * - DELETE /roles/:id              → 删除角色
- *
- * **External Entity (F-M1-09)** — 5 个端点
- * - GET    /external-entities      → 外部实体列表
- * - POST   /external-entities      → 创建外部实体
- * - GET    /external-entities/:id  → 外部实体详情
- * - PUT    /external-entities/:id  → 更新外部实体
- * - DELETE /external-entities/:id  → 删除外部实体
+ *              使用 Fastify 原生 schema 进行请求校验 + OpenAPI 文档生成。
  */
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { Type } from '@sinclair/typebox';
 import { db } from '../db.js';
 import * as orgService from '../services/organization.service.js';
-import { validate } from './common/validate.js';
-import { Type } from '@sinclair/typebox';
 import {
-  // Company schemas
+  // 请求 Schema（输入）
   CreateCompanyInput,
   UpdateCompanyInput,
   CompanyListQuery,
-  // Department schemas
   CreateDepartmentInput,
   UpdateDepartmentInput,
   DepartmentListQuery,
-  // Role schemas
   CreateRoleInput,
   UpdateRoleInput,
   RoleListQuery,
-  // External Entity schemas
   CreateExternalEntityInput,
   UpdateExternalEntityInput,
   ExternalEntityListQuery,
+  // 基础 Schema
+  IdSchema,
+  // 响应 Schema（输出 + 信封）
+  CompanyListResponse,
+  CompanyDetailResponse,
+  DepartmentListResponse,
+  DepartmentTreeResponse,
+  DepartmentDetailResponse,
+  RoleListResponse,
+  RoleDetailResponse,
+  ExternalEntityListResponse,
+  ExternalEntityDetailResponse,
+  DeleteResponse,
+  // 错误 Schema
+  ErrorResponse,
 } from '@apm/validation-schemas';
+
+/** 复用的 UUID path param schema */
+const UuidParam = Type.Object({ id: IdSchema });
+const CompanyIdParam = Type.Object({ companyId: IdSchema });
 
 export default async function organizationRoutes(app: FastifyInstance) {
   // ================================================================
   // F-M1-06: Company Routes (前缀: /companies)
   // ================================================================
 
-  /** GET /companies — 公司列表 */
   app.get('/companies', {
-    preValidation: validate(CompanyListQuery, 'query'),
+    schema: {
+      querystring: CompanyListQuery,
+      response: { 200: CompanyListResponse, 400: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '查询公司列表',
+      description: 'B-M1-26(排序) / B-M1-27(双字段搜索)',
+    },
   }, listCompaniesHandler);
 
-  /** POST /companies — 创建公司 */
   app.post('/companies', {
-    preValidation: validate(CreateCompanyInput, 'body'),
+    schema: {
+      body: CreateCompanyInput,
+      response: { 201: CompanyDetailResponse, 400: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '创建公司',
+      description: 'B-M1-28~B-M1-31',
+    },
   }, createCompanyHandler);
 
-  /** GET /companies/:id — 公司详情 */
   app.get('/companies/:id', {
-    preValidation: validate(Type.Object({ id: Type.String({ format: 'uuid' }) }), 'params'),
+    schema: {
+      params: UuidParam,
+      response: { 200: CompanyDetailResponse, 400: ErrorResponse, 404: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '查询公司详情',
+    },
   }, getCompanyHandler);
 
-  /** PUT /companies/:id — 更新公司 */
   app.put('/companies/:id', {
-    preValidation: [validate(Type.Object({ id: Type.String({ format: 'uuid' }) }), 'params'), validate(UpdateCompanyInput, 'body')],
+    schema: {
+      params: UuidParam,
+      body: UpdateCompanyInput,
+      response: { 200: CompanyDetailResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '更新公司',
+      description: 'B-M1-37(乐观锁)',
+    },
   }, updateCompanyHandler);
 
-  /** DELETE /companies/:id — 删除公司 */
   app.delete('/companies/:id', {
-    preValidation: validate(Type.Object({ id: Type.String({ format: 'uuid' }) }), 'params'),
+    schema: {
+      params: UuidParam,
+      response: { 200: DeleteResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '删除公司',
+      description: 'B-M1-39(级联删除部门)',
+    },
   }, deleteCompanyHandler);
 
   // ================================================================
-  // F-M1-07: Department Routes (前缀: /companies/:companyId/departments)
+  // F-M1-07: Department Routes
   // ================================================================
 
-  /** GET /companies/:companyId/departments — 部门列表 */
   app.get('/companies/:companyId/departments', {
-    preValidation: [
-      validate(Type.Object({ companyId: Type.String({ format: 'uuid' }) }), 'params'),
-      validate(DepartmentListQuery, 'query'),
-    ],
+    schema: {
+      params: CompanyIdParam,
+      querystring: DepartmentListQuery,
+      response: { 200: DepartmentListResponse, 400: ErrorResponse, 404: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '查询部门列表',
+      description: 'B-M1-41(排序) / B-M1-42(搜索)',
+    },
   }, listDepartmentsHandler);
 
-  /** GET /companies/:companyId/departments/tree — 部门树 */
   app.get('/companies/:companyId/departments/tree', {
-    preValidation: validate(Type.Object({ companyId: Type.String({ format: 'uuid' }) }), 'params'),
+    schema: {
+      params: CompanyIdParam,
+      response: { 200: DepartmentTreeResponse, 400: ErrorResponse, 404: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '查询部门树形结构',
+    },
   }, getDepartmentTreeHandler);
 
-  /** POST /companies/:companyId/departments — 创建部门 */
   app.post('/companies/:companyId/departments', {
-    preValidation: [
-      validate(Type.Object({ companyId: Type.String({ format: 'uuid' }) }), 'params'),
-      validate(CreateDepartmentInput, 'body'),
-    ],
+    schema: {
+      params: CompanyIdParam,
+      body: CreateDepartmentInput,
+      response: { 201: DepartmentDetailResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '创建部门',
+      description: 'B-M1-50(name唯一) / B-M1-51(parentId校验)',
+    },
   }, createDepartmentHandler);
 
-  /** GET /departments/:id — 部门详情 */
   app.get('/departments/:id', {
-    preValidation: validate(Type.Object({ id: Type.String({ format: 'uuid' }) }), 'params'),
+    schema: {
+      params: UuidParam,
+      response: { 200: DepartmentDetailResponse, 400: ErrorResponse, 404: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '查询部门详情',
+    },
   }, getDepartmentHandler);
 
-  /** PUT /departments/:id — 更新部门 */
   app.put('/departments/:id', {
-    preValidation: [
-      validate(Type.Object({ id: Type.String({ format: 'uuid' }) }), 'params'),
-      validate(UpdateDepartmentInput, 'body'),
-    ],
+    schema: {
+      params: UuidParam,
+      body: UpdateDepartmentInput,
+      response: { 200: DepartmentDetailResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '更新部门',
+      description: 'B-M1-52b(环检测) / B-M1-37(乐观锁)',
+    },
   }, updateDepartmentHandler);
 
-  /** DELETE /departments/:id — 删除部门 */
   app.delete('/departments/:id', {
-    preValidation: validate(Type.Object({ id: Type.String({ format: 'uuid' }) }), 'params'),
+    schema: {
+      params: UuidParam,
+      response: { 200: DeleteResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '删除部门',
+      description: 'B-M1-39(级联删除子部门)',
+    },
   }, deleteDepartmentHandler);
 
   // ================================================================
-  // F-M1-08: Role Routes (前缀: /roles)
+  // F-M1-08: Role Routes
   // ================================================================
 
-  /** GET /roles — 角色列表 */
   app.get('/roles', {
-    preValidation: validate(RoleListQuery, 'query'),
+    schema: {
+      querystring: RoleListQuery,
+      response: { 200: RoleListResponse, 400: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '查询角色列表',
+      description: 'B-M1-43(排序) / B-M1-44(搜索) / B-M1-45(部门筛选)',
+    },
   }, listRolesHandler);
 
-  /** POST /roles — 创建角色 */
   app.post('/roles', {
-    preValidation: validate(CreateRoleInput, 'body'),
+    schema: {
+      body: CreateRoleInput,
+      response: { 201: RoleDetailResponse, 400: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '创建角色',
+      description: 'B-M1-47(name唯一) / B-M1-48(departmentId校验)',
+    },
   }, createRoleHandler);
 
-  /** GET /roles/:id — 角色详情 */
   app.get('/roles/:id', {
-    preValidation: validate(Type.Object({ id: Type.String({ format: 'uuid' }) }), 'params'),
+    schema: {
+      params: UuidParam,
+      response: { 200: RoleDetailResponse, 400: ErrorResponse, 404: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '查询角色详情',
+    },
   }, getRoleHandler);
 
-  /** PUT /roles/:id — 更新角色 */
   app.put('/roles/:id', {
-    preValidation: [
-      validate(Type.Object({ id: Type.String({ format: 'uuid' }) }), 'params'),
-      validate(UpdateRoleInput, 'body'),
-    ],
+    schema: {
+      params: UuidParam,
+      body: UpdateRoleInput,
+      response: { 200: RoleDetailResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '更新角色',
+      description: 'B-M1-37(乐观锁)',
+    },
   }, updateRoleHandler);
 
-  /** DELETE /roles/:id — 删除角色 */
   app.delete('/roles/:id', {
-    preValidation: validate(Type.Object({ id: Type.String({ format: 'uuid' }) }), 'params'),
+    schema: {
+      params: UuidParam,
+      response: { 200: DeleteResponse, 400: ErrorResponse, 404: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '删除角色',
+    },
   }, deleteRoleHandler);
 
   // ================================================================
-  // F-M1-09: External Entity Routes (前缀: /external-entities)
+  // F-M1-09: External Entity Routes
   // ================================================================
 
-  /** GET /external-entities — 外部实体列表 */
   app.get('/external-entities', {
-    preValidation: validate(ExternalEntityListQuery, 'query'),
+    schema: {
+      querystring: ExternalEntityListQuery,
+      response: { 200: ExternalEntityListResponse, 400: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '查询外部实体列表',
+      description: 'B-M1-54(排序) / B-M1-55(搜索)',
+    },
   }, listExternalEntitiesHandler);
 
-  /** POST /external-entities — 创建外部实体 */
   app.post('/external-entities', {
-    preValidation: validate(CreateExternalEntityInput, 'body'),
+    schema: {
+      body: CreateExternalEntityInput,
+      response: { 201: ExternalEntityDetailResponse, 400: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '创建外部实体',
+      description: 'B-M1-57(name唯一) / B-M1-58(entityType校验)',
+    },
   }, createExternalEntityHandler);
 
-  /** GET /external-entities/:id — 外部实体详情 */
   app.get('/external-entities/:id', {
-    preValidation: validate(Type.Object({ id: Type.String({ format: 'uuid' }) }), 'params'),
+    schema: {
+      params: UuidParam,
+      response: { 200: ExternalEntityDetailResponse, 400: ErrorResponse, 404: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '查询外部实体详情',
+    },
   }, getExternalEntityHandler);
 
-  /** PUT /external-entities/:id — 更新外部实体 */
   app.put('/external-entities/:id', {
-    preValidation: [
-      validate(Type.Object({ id: Type.String({ format: 'uuid' }) }), 'params'),
-      validate(UpdateExternalEntityInput, 'body'),
-    ],
+    schema: {
+      params: UuidParam,
+      body: UpdateExternalEntityInput,
+      response: { 200: ExternalEntityDetailResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '更新外部实体',
+      description: 'B-M1-37(乐观锁)',
+    },
   }, updateExternalEntityHandler);
 
-  /** DELETE /external-entities/:id — 删除外部实体 */
   app.delete('/external-entities/:id', {
-    preValidation: validate(Type.Object({ id: Type.String({ format: 'uuid' }) }), 'params'),
+    schema: {
+      params: UuidParam,
+      response: { 200: DeleteResponse, 400: ErrorResponse, 404: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '删除外部实体',
+    },
   }, deleteExternalEntityHandler);
 }
 
 // ============================================================
-// Route Handlers — Company (F-M1-06)
+// Route Handlers — 保持不变
 // ============================================================
 
-/** F-M1-06: GET /companies — 公司列表（B-M1-26 排序 + B-M1-27 双字段搜索） */
 async function listCompaniesHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { projectId } = request.params as { projectId: string };
   const { search, page, pageSize } = request.query as Record<string, unknown>;
@@ -211,7 +284,6 @@ async function listCompaniesHandler(request: FastifyRequest, _reply: FastifyRepl
   });
 }
 
-/** F-M1-06: POST /companies — 创建公司 */
 async function createCompanyHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { projectId } = request.params as { projectId: string };
   const body = request.body as Record<string, unknown>;
@@ -219,14 +291,12 @@ async function createCompanyHandler(request: FastifyRequest, _reply: FastifyRepl
   return { data: company };
 }
 
-/** F-M1-06: GET /companies/:id — 公司详情 */
 async function getCompanyHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
   const company = await orgService.getCompanyById(db, id);
   return { data: company };
 }
 
-/** F-M1-06: PUT /companies/:id — 更新公司（B-M1-37 乐观锁） */
 async function updateCompanyHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
   const body = request.body as Record<string, unknown>;
@@ -234,18 +304,12 @@ async function updateCompanyHandler(request: FastifyRequest, _reply: FastifyRepl
   return { data: company };
 }
 
-/** F-M1-06: DELETE /companies/:id — 删除公司（B-M1-39 级联删除部门） */
 async function deleteCompanyHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
   await orgService.deleteCompany(db, id);
   return { success: true };
 }
 
-// ============================================================
-// Route Handlers — Department (F-M1-07)
-// ============================================================
-
-/** F-M1-07: GET /companies/:companyId/departments — 部门列表（B-M1-41 排序 + B-M1-42 搜索） */
 async function listDepartmentsHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { companyId } = request.params as { companyId: string };
   const { search, page, pageSize } = request.query as Record<string, unknown>;
@@ -256,14 +320,12 @@ async function listDepartmentsHandler(request: FastifyRequest, _reply: FastifyRe
   });
 }
 
-/** F-M1-07: GET /companies/:companyId/departments/tree — 部门树形结构 */
 async function getDepartmentTreeHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { companyId } = request.params as { companyId: string };
   const tree = await orgService.getDepartmentTree(db, companyId);
   return { data: tree };
 }
 
-/** F-M1-07: POST /companies/:companyId/departments — 创建部门（B-M1-50 name唯一 + B-M1-51 parentId 校验） */
 async function createDepartmentHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { companyId } = request.params as { companyId: string };
   const body = request.body as Record<string, unknown>;
@@ -271,14 +333,12 @@ async function createDepartmentHandler(request: FastifyRequest, _reply: FastifyR
   return { data: dept };
 }
 
-/** F-M1-07: GET /departments/:id — 部门详情 */
 async function getDepartmentHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
   const dept = await orgService.getDepartmentById(db, id);
   return { data: dept };
 }
 
-/** F-M1-07: PUT /departments/:id — 更新部门（B-M1-52b 环检测 + B-M1-37 乐观锁） */
 async function updateDepartmentHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
   const body = request.body as Record<string, unknown>;
@@ -286,18 +346,12 @@ async function updateDepartmentHandler(request: FastifyRequest, _reply: FastifyR
   return { data: dept };
 }
 
-/** F-M1-07: DELETE /departments/:id — 删除部门（B-M1-39 级联删除子部门） */
 async function deleteDepartmentHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
   await orgService.deleteDepartment(db, id);
   return { success: true };
 }
 
-// ============================================================
-// Route Handlers — Role (F-M1-08)
-// ============================================================
-
-/** F-M1-08: GET /roles — 角色列表（B-M1-43 排序 + B-M1-44 搜索 + B-M1-45 部门筛选） */
 async function listRolesHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { projectId } = request.params as { projectId: string };
   const { search, departmentId, page, pageSize } = request.query as Record<string, unknown>;
@@ -309,7 +363,6 @@ async function listRolesHandler(request: FastifyRequest, _reply: FastifyReply) {
   });
 }
 
-/** F-M1-08: POST /roles — 创建角色（B-M1-47 name唯一 + B-M1-48 departmentId 校验） */
 async function createRoleHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { projectId } = request.params as { projectId: string };
   const body = request.body as Record<string, unknown>;
@@ -317,14 +370,12 @@ async function createRoleHandler(request: FastifyRequest, _reply: FastifyReply) 
   return { data: role };
 }
 
-/** F-M1-08: GET /roles/:id — 角色详情 */
 async function getRoleHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
   const role = await orgService.getRoleById(db, id);
   return { data: role };
 }
 
-/** F-M1-08: PUT /roles/:id — 更新角色（B-M1-37 乐观锁） */
 async function updateRoleHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
   const body = request.body as Record<string, unknown>;
@@ -332,18 +383,12 @@ async function updateRoleHandler(request: FastifyRequest, _reply: FastifyReply) 
   return { data: role };
 }
 
-/** F-M1-08: DELETE /roles/:id — 删除角色 */
 async function deleteRoleHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
   await orgService.deleteRole(db, id);
   return { success: true };
 }
 
-// ============================================================
-// Route Handlers — External Entity (F-M1-09)
-// ============================================================
-
-/** F-M1-09: GET /external-entities — 外部实体列表（B-M1-54 排序 + B-M1-55 搜索） */
 async function listExternalEntitiesHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { projectId } = request.params as { projectId: string };
   const { search, page, pageSize } = request.query as Record<string, unknown>;
@@ -354,7 +399,6 @@ async function listExternalEntitiesHandler(request: FastifyRequest, _reply: Fast
   });
 }
 
-/** F-M1-09: POST /external-entities — 创建外部实体（B-M1-57 name唯一 + B-M1-58 entityType 校验） */
 async function createExternalEntityHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { projectId } = request.params as { projectId: string };
   const body = request.body as Record<string, unknown>;
@@ -362,14 +406,12 @@ async function createExternalEntityHandler(request: FastifyRequest, _reply: Fast
   return { data: entity };
 }
 
-/** F-M1-09: GET /external-entities/:id — 外部实体详情 */
 async function getExternalEntityHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
   const entity = await orgService.getExternalEntityById(db, id);
   return { data: entity };
 }
 
-/** F-M1-09: PUT /external-entities/:id — 更新外部实体（B-M1-37 乐观锁） */
 async function updateExternalEntityHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
   const body = request.body as Record<string, unknown>;
@@ -377,7 +419,6 @@ async function updateExternalEntityHandler(request: FastifyRequest, _reply: Fast
   return { data: entity };
 }
 
-/** F-M1-09: DELETE /external-entities/:id — 删除外部实体 */
 async function deleteExternalEntityHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
   await orgService.deleteExternalEntity(db, id);
