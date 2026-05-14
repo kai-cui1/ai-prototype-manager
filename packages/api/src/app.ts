@@ -57,9 +57,6 @@ await app.register(scalarApiReference, {
   routePrefix: '/docs',
   configuration: {
     theme: 'alternate',
-    spec: {
-      url: '/openapi/json',
-    },
   },
 });
 

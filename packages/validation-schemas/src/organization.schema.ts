@@ -324,7 +324,7 @@ export const ExternalEntityDetail = Type.Object(
     name: NameSchema,
     displayName: DisplayNameSchema,
     description: Type.Optional(Type.String({ maxLength: 2000 })),
-    entityType: Type.Optional(Type.String()),
+    entityType: Type.Optional(EntityTypeSchema),
     contactInfo: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
     actions: Type.Optional(Type.Array(Type.Unknown())),
     decisions: Type.Optional(Type.Array(Type.Unknown())),

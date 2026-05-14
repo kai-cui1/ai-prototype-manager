@@ -276,17 +276,13 @@ export default async function organizationRoutes(app: FastifyInstance) {
 
 async function listCompaniesHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { projectId } = request.params as { projectId: string };
-  const { search, page, pageSize } = request.query as Record<string, unknown>;
-  return orgService.listCompanies(db, projectId, {
-    search: search as string | undefined,
-    page: page as number | undefined,
-    pageSize: pageSize as number | undefined,
-  });
+  const { search, page, pageSize } = request.query as typeof CompanyListQuery.static;
+  return orgService.listCompanies(db, projectId, { search, page, pageSize });
 }
 
 async function createCompanyHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { projectId } = request.params as { projectId: string };
-  const body = request.body as Record<string, unknown>;
+  const body = request.body as typeof CreateCompanyInput.static;
   const company = await orgService.createCompany(db, projectId, body);
   return { data: company };
 }
@@ -299,7 +295,7 @@ async function getCompanyHandler(request: FastifyRequest, _reply: FastifyReply) 
 
 async function updateCompanyHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
-  const body = request.body as Record<string, unknown>;
+  const body = request.body as typeof UpdateCompanyInput.static;
   const company = await orgService.updateCompany(db, id, body);
   return { data: company };
 }
@@ -312,12 +308,8 @@ async function deleteCompanyHandler(request: FastifyRequest, _reply: FastifyRepl
 
 async function listDepartmentsHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { companyId } = request.params as { companyId: string };
-  const { search, page, pageSize } = request.query as Record<string, unknown>;
-  return orgService.listDepartments(db, companyId, {
-    search: search as string | undefined,
-    page: page as number | undefined,
-    pageSize: pageSize as number | undefined,
-  });
+  const { search, page, pageSize } = request.query as typeof DepartmentListQuery.static;
+  return orgService.listDepartments(db, companyId, { search, page, pageSize });
 }
 
 async function getDepartmentTreeHandler(request: FastifyRequest, _reply: FastifyReply) {
@@ -328,7 +320,7 @@ async function getDepartmentTreeHandler(request: FastifyRequest, _reply: Fastify
 
 async function createDepartmentHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { companyId } = request.params as { companyId: string };
-  const body = request.body as Record<string, unknown>;
+  const body = request.body as typeof CreateDepartmentInput.static;
   const dept = await orgService.createDepartment(db, companyId, body);
   return { data: dept };
 }
@@ -341,7 +333,7 @@ async function getDepartmentHandler(request: FastifyRequest, _reply: FastifyRepl
 
 async function updateDepartmentHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
-  const body = request.body as Record<string, unknown>;
+  const body = request.body as typeof UpdateDepartmentInput.static;
   const dept = await orgService.updateDepartment(db, id, body);
   return { data: dept };
 }
@@ -354,18 +346,13 @@ async function deleteDepartmentHandler(request: FastifyRequest, _reply: FastifyR
 
 async function listRolesHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { projectId } = request.params as { projectId: string };
-  const { search, departmentId, page, pageSize } = request.query as Record<string, unknown>;
-  return orgService.listRoles(db, projectId, {
-    search: search as string | undefined,
-    departmentId: departmentId as string | undefined,
-    page: page as number | undefined,
-    pageSize: pageSize as number | undefined,
-  });
+  const { search, departmentId, page, pageSize } = request.query as typeof RoleListQuery.static;
+  return orgService.listRoles(db, projectId, { search, departmentId, page, pageSize });
 }
 
 async function createRoleHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { projectId } = request.params as { projectId: string };
-  const body = request.body as Record<string, unknown>;
+  const body = request.body as typeof CreateRoleInput.static;
   const role = await orgService.createRole(db, projectId, body);
   return { data: role };
 }
@@ -378,7 +365,7 @@ async function getRoleHandler(request: FastifyRequest, _reply: FastifyReply) {
 
 async function updateRoleHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
-  const body = request.body as Record<string, unknown>;
+  const body = request.body as typeof UpdateRoleInput.static;
   const role = await orgService.updateRole(db, id, body);
   return { data: role };
 }
@@ -391,17 +378,13 @@ async function deleteRoleHandler(request: FastifyRequest, _reply: FastifyReply) 
 
 async function listExternalEntitiesHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { projectId } = request.params as { projectId: string };
-  const { search, page, pageSize } = request.query as Record<string, unknown>;
-  return orgService.listExternalEntities(db, projectId, {
-    search: search as string | undefined,
-    page: page as number | undefined,
-    pageSize: pageSize as number | undefined,
-  });
+  const { search, page, pageSize } = request.query as typeof ExternalEntityListQuery.static;
+  return orgService.listExternalEntities(db, projectId, { search, page, pageSize });
 }
 
 async function createExternalEntityHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { projectId } = request.params as { projectId: string };
-  const body = request.body as Record<string, unknown>;
+  const body = request.body as typeof CreateExternalEntityInput.static;
   const entity = await orgService.createExternalEntity(db, projectId, body);
   return { data: entity };
 }
@@ -414,7 +397,7 @@ async function getExternalEntityHandler(request: FastifyRequest, _reply: Fastify
 
 async function updateExternalEntityHandler(request: FastifyRequest, _reply: FastifyReply) {
   const { id } = request.params as { id: string };
-  const body = request.body as Record<string, unknown>;
+  const body = request.body as typeof UpdateExternalEntityInput.static;
   const entity = await orgService.updateExternalEntity(db, id, body);
   return { data: entity };
 }
