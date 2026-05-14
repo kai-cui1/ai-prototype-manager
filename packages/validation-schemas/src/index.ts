@@ -9,6 +9,7 @@
 export * from './base.js';
 export * from './project.schema.js';
 export * from './organization.schema.js';
+export * from './response.js';
 
 // Ajv singleton instance (configured per validation-design.md §4.2)
 import Ajv from 'ajv';
