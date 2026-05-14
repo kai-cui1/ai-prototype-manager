@@ -23,6 +23,10 @@ import {
   SearchQuery,
   StatusQuery,
 } from './base.js';
+import {
+  SuccessEnvelope,
+  PaginatedEnvelope,
+} from './response.js';
 
 // ============================================================
 // F-M1-02: Create Project (POST /api/v1/projects)
@@ -107,3 +111,92 @@ export const ArchiveProjectInput = Type.Object({
 export const ProjectIdParam = Type.Object({
   id: IdSchema,
 });
+
+// ============================================================
+// Response Schemas for Project Endpoints
+// ============================================================
+
+/**
+ * 项目列表项（精简字段）。
+ *
+ * B-M1-05: 列表不返回 description/config/createdAt，减少传输体积。
+ * B-M1-88: 列表内嵌摘要统计（6 个模块计数），避免前端 N+1 请求。
+ *
+ * 对应 shared types: ProjectListItem (packages/shared/src/types/project.ts:46)
+ */
+export const ProjectListItem = Type.Object(
+  {
+    id: IdSchema,
+    name: NameSchema,
+    displayName: DisplayNameSchema,
+    status: StatusSchema,
+    version: VersionSchema,
+    updatedAt: Type.String({ format: 'date-time', description: '最后更新时间 (ISO 8601)' }),
+    summary: Type.Object({
+      domainEntityCount: Type.Number({ minimum: 0 }),
+      processCount: Type.Number({ minimum: 0 }),
+      companyCount: Type.Number({ minimum: 0 }),
+      departmentCount: Type.Number({ minimum: 0 }),
+      roleCount: Type.Number({ minimum: 0 }),
+      externalEntityCount: Type.Number({ minimum: 0 }),
+    }, { description: 'B-M1-88 内嵌摘要统计' }),
+  },
+  { $id: 'ProjectListItem', description: '项目列表项' },
+);
+
+/** GET /api/v1/projects 响应 */
+export const ProjectListResponse = PaginatedEnvelope(ProjectListItem);
+
+/**
+ * 项目详情完整字段（含 description + config）。
+ *
+ * B-M1-14: 详情 API 返回完整字段，与列表 API 不同。
+ *
+ * 对应 shared types: Project (packages/shared/src/types/project.ts:9)
+ */
+export const ProjectDetail = Type.Object(
+  {
+    id: IdSchema,
+    name: NameSchema,
+    displayName: DisplayNameSchema,
+    description: Type.Optional(Type.String({ maxLength: 2000 })),
+    status: StatusSchema,
+    version: VersionSchema,
+    config: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
+    createdAt: Type.String({ format: 'date-time', description: '创建时间 (ISO 8601)' }),
+    updatedAt: Type.String({ format: 'date-time', description: '更新时间 (ISO 8601)' }),
+  },
+  { $id: 'ProjectDetail', description: '项目详情完整字段' },
+);
+
+/** GET /api/v1/projects/:id 响应 */
+export const ProjectDetailResponse = SuccessEnvelope(ProjectDetail);
+
+/**
+ * 项目摘要统计（6 个子模块计数）。
+ *
+ * B-M1-15: 零计数必须返回 0，不得省略字段。
+ *
+ * 对应 shared types: ProjectSummary (packages/shared/src/types/project.ts:64)
+ */
+export const ProjectSummary = Type.Object(
+  {
+    id: IdSchema,
+    name: NameSchema,
+    displayName: DisplayNameSchema,
+    status: StatusSchema,
+    domainEntityCount: Type.Number({ minimum: 0 }),
+    processCount: Type.Number({ minimum: 0 }),
+    companyCount: Type.Number({ minimum: 0 }),
+    departmentCount: Type.Number({ minimum: 0 }),
+    roleCount: Type.Number({ minimum: 0 }),
+    externalEntityCount: Type.Number({ minimum: 0 }),
+  },
+  { $id: 'ProjectSummary', description: '项目子模块统计摘要' },
+);
+
+/** GET /api/v1/projects/:id/summary 响应 */
+export const ProjectSummaryResponse = SuccessEnvelope(ProjectSummary);
+
+/** POST /api/v1/projects 创建成功响应 (201) */
+export const CreateProjectResponse = SuccessEnvelope(ProjectDetail);
