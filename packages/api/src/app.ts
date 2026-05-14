@@ -1,5 +1,7 @@
 import Fastify, { type FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
+import swagger from '@fastify/swagger';
+import scalarApiReference from '@scalar/fastify-api-reference';
 import { db } from './db.js';
 const app: FastifyInstance = Fastify({
   logger: {
@@ -15,6 +17,47 @@ await app.register(cors, {
   origin: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+});
+
+// ============================================
+// OpenAPI 文档（Swagger Spec + Scalar UI）
+// ============================================
+
+await app.register(swagger, {
+  openapi: {
+    openapi: '3.0.3',
+    info: {
+      title: 'APM API',
+      version: '1.0.0',
+      description: 'AI Prototype Manager 后端 REST API 完整契约文档',
+      contact: { name: 'APM Team' },
+    },
+    servers: [
+      { url: 'http://localhost:13180', description: 'dev1 本地开发' },
+    ],
+    tags: [
+      { name: 'Health', description: '健康检查' },
+      { name: 'Projects', description: '项目管理 (M1)' },
+      { name: 'Organization', description: '组织管理 (M1 子模块)' },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: 'JWT Bearer Token 认证（Phase 2+ 启用）',
+        },
+      },
+    },
+  },
+});
+
+await app.register(scalarApiReference, {
+  routePrefix: '/docs',
+  configuration: {
+    theme: 'alternate',
+  },
 });
 
 // ============================================
