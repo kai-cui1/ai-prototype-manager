@@ -144,11 +144,11 @@ export function ProjectInfoCard({
     }
   };
 
-  // ===== 只读模式 =====
+  // ===== 只读模式（原型规格：auto-fit minmax(240px) + 字段顺序对齐） =====
   if (!isEditing) {
     return (
       <Card>
-        <CardContent className="p-6">
+        <CardContent className="px-6 py-4">
           <SectionHeading
             title="基本信息"
             action={
@@ -159,34 +159,39 @@ export function ProjectInfoCard({
               )
             }
           />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8">
+          {/* 原型：grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)) */}
+          <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }}>
+            {/* Row 1: 项目标识符 | 显示名称 */}
             <div>
-              <p className="text-sm text-text-secondary">项目标识符</p>
-              <p className="mt-1 text-sm font-medium font-mono text-text-primary">{project.name}</p>
+              <p className="text-xs text-text-tertiary">项目标识符</p>
+              <p className="mt-1 text-sm font-medium font-mono text-text-primary bg-[var(--color-fill,#fafafa)] px-2 py-0.5 rounded inline-block">{project.name}</p>
             </div>
             <div>
-              <p className="text-sm text-text-secondary">显示名称</p>
+              <p className="text-xs text-text-tertiary">显示名称</p>
               <p className="mt-1 text-sm font-medium text-text-primary">{project.displayName}</p>
             </div>
+            {/* Row 2: 状态 | 当前版本 */}
             <div>
-              <p className="text-sm text-text-secondary">项目描述</p>
-              <p className="mt-1 text-sm text-text-primary">{project.description || '—'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-text-secondary">当前状态</p>
+              <p className="text-xs text-text-tertiary">状态</p>
               <div className="mt-1"><StatusBadge status={project.status} /></div>
             </div>
             <div>
-              <p className="text-sm text-text-secondary">版本号</p>
+              <p className="text-xs text-text-tertiary">当前版本</p>
               <p className="mt-1 text-sm font-mono text-text-primary">v{project.version}</p>
             </div>
+            {/* Row 3: 创建时间 | 最后更新 */}
             <div>
-              <p className="text-sm text-text-secondary">创建时间</p>
-              <p className="mt-1 text-sm text-text-primary">{formatDateTime(project.createdAt)}</p>
+              <p className="text-xs text-text-tertiary">创建时间</p>
+              <p className="mt-1 text-sm text-text-secondary">{formatDateTime(project.createdAt)}</p>
             </div>
             <div>
-              <p className="text-sm text-text-secondary">更新时间</p>
-              <p className="mt-1 text-sm text-text-primary">{formatDateTime(project.updatedAt)}</p>
+              <p className="text-xs text-text-tertiary">最后更新</p>
+              <p className="mt-1 text-sm text-text-secondary">{formatDateTime(project.updatedAt)}</p>
+            </div>
+            {/* Row 4: 描述（跨全列） */}
+            <div className="col-span-full">
+              <p className="text-xs text-text-tertiary">描述</p>
+              <p className="mt-1 text-sm text-text-secondary">{project.description || '—'}</p>
             </div>
           </div>
         </CardContent>
@@ -194,10 +199,10 @@ export function ProjectInfoCard({
     );
   }
 
-  // ===== 编辑模式 =====
+  // ===== 编辑模式（原型规格：auto-fit minmax(240px) + 同上字段顺序） =====
   return (
     <Card>
-      <CardContent className="p-6">
+      <CardContent className="px-6 py-4">
         <SectionHeading
           title="基本信息（编辑中）"
           action={
@@ -211,7 +216,7 @@ export function ProjectInfoCard({
             </div>
           }
         />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-y-4 gap-x-8" onKeyDown={handleKeyDown}>
+        <div className="grid gap-4" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))' }} onKeyDown={handleKeyDown}>
           {/* name — 可编辑 */}
           <div className="space-y-1">
             <label className="text-sm text-text-secondary">

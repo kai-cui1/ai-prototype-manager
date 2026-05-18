@@ -4,7 +4,7 @@
  * 使用方式（在各 spec 的 beforeAll/afterAll 中）：
  *   import { TEST_PREFIX, cleanupTestData } from '../helpers/db-setup.js';
  *
- *   test.beforeAll(async () => { /* 准备前置数据 */ });
+ *   test.beforeAll(async () => { // 准备前置数据 });
  *   test.afterAll(async () => { await cleanupTestData(); });
  */
 

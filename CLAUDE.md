@@ -75,6 +75,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - 代码必须源自已审核的 PRD + 技术方案 + 测试用例，禁止凭空编写
 - 每个 F-Mx-NN 完成后触发 AI Code Review，Critical/Important 问题必须修复后才可继续
 
+### 测试数据安全铁律 **（必须遵守 — 违反即导致用户数据丢失）**
+
+**事故记录（2026-05-14）**：`f-m1-01-list.test.ts` 的 TC-015 用例使用 `db.delete(projects)` 无条件全表删除，每次全量跑测试时清空用户人工创建的所有项目 + CASCADE 级联删除子表数据。修复后改为 `where(ilike(projects.name, 'e2e-%'))`。
+
+> **核心原则：测试代码的任何 DML 操作（INSERT/UPDATE/DELETE）必须限定在测试数据范围内，绝对不能触碰用户/开发数据。**
+
+| # | 规则 | 正确做法 | 错误做法（已发生事故） |
+|---|------|---------|---------------------|
+| 1 | **DELETE 必须带 WHERE 条件** | `db.delete(projects).where(ilike(projects.name, 'e2e-%'))` | `db.delete(projects)` ← **杀人代码** |
+| 2 | **测试数据必须带前缀隔离** | name = `'e2e-' + testName` | name = `'test-proj'` / `'edited-full'` |
+| 3 | **PUT body 的字段值也需带前缀** | `{ name: 'e2e-edited' }` | `{ name: 'edited-full-project' }` → 孤儿数据无法被 cleanup 清理 |
+| 4 | **破坏性操作后做安全检查** | finally 块中验证非测试数据数量不变 | 删完就结束，不验证副作用 |
+| 5 | **禁止 TRUNCATE / DROP / 全表扫描式操作** | 使用 WHERE + LIKE/LIMIT | `TRUNCATE TABLE` / 无 WHERE DELETE |
+| 6 | **cleanupTestData 只删 TEST_PREFIX 数据** | API 测试用 `ilike(name, 'e2e-%')`；E2E 测试用 search prefix 查询后逐条归档 | 任何无前缀条件的批量删除 |
+
+**审查清单（每次写测试 DML 时逐条检查）**：
+- [ ] INSERT 的每条数据是否包含 `TEST_PREFIX` / `e2e-` 前缀？
+- [ ] DELETE / UPDATE 是否有 `.where()` 且条件包含前缀匹配？
+- [ ] PUT / PATCH 请求体中的 name 等唯一字段是否带前缀？
+- [ ] 是否有 try-finally 包裹破坏性操作并做安全校验？
+- [ ] 全量跑测试（`vitest run` 无文件过滤）时不会删除非 `e2e-` 开头的数据？
+
+**违规后果**：用户人工创建的开发数据、演示数据在每次测试运行后被静默删除，且无法恢复。
+
 ### 步骤完成状态核查规则 **（必须遵守）**
 
 **判断"某步骤是否已完成"时，必须用 Glob/ls 检查对应 `docs/` 子目录的实际文件，禁止仅凭记忆或推断下结论。**

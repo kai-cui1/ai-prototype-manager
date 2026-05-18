@@ -126,7 +126,7 @@ export default function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
                               'hover:bg-sidebar-hover hover:text-sidebar-text-active',
                               collapsed ? 'justify-center px-2' : 'pl-8',
                               location.pathname === child.path &&
-                                '!bg-sidebar-active-bg !text-sidebar-primary-foreground font-medium'
+                                '!bg-[#08979c] !text-white font-medium'
                             )}
                           >
                             <MenuIcon name={child.icon} />
@@ -147,7 +147,7 @@ export default function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
                     'hover:bg-sidebar-hover hover:text-sidebar-text-active',
                     collapsed ? 'justify-center px-2' : 'px-5',
                     location.pathname === menu.path &&
-                      '!bg-sidebar-active-bg !text-sidebar-primary-foreground font-medium'
+                      '!bg-[#08979c] !text-white font-medium'
                   )}
                 >
                   <MenuIcon name={menu.icon} />

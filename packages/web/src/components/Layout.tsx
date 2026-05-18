@@ -68,7 +68,7 @@ const ROUTE_BREADCRUMBS: Array<{
   labels: string[];
 }> = [
   { pattern: /^\/projects$/, labels: ['\u9996\u9875', '\u9879\u76EE\u7BA1\u7406'] },
-  { pattern: /^\/projects\/.+$/, labels: ['\u9996\u9875', '\u9879\u76EE\u7BA1\u7406'] },
+  { pattern: /^\/projects\/.+$/, labels: ['\u9996\u9875', '\u9879\u76EE\u7BA1\u7406', '\u9879\u76EE\u8BE6\u60C5'] },
   { pattern: /^\/menus$/, labels: ['\u9996\u9875', '\u7CFB\u7EDF\u8BBE\u7F6E', '\u83DC\u5355\u7BA1\u7406'] },
 ];
 

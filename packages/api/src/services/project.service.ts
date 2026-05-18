@@ -6,7 +6,7 @@
  * PRD Reference: F-M1-01 (列表) + F-M1-02 (创建) + F-M1-03 (详情+摘要) + F-M1-04 (编辑) + F-M1-05 (归档) + F-M1-10 (列表内嵌统计)
  */
 import type { Db } from '../db.js';
-import { eq, ilike, and, desc, asc, count } from 'drizzle-orm';
+import { eq, ne, ilike, and, desc, asc, count } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
 import { projects, domainEntities, businessProcesses, companies, departments, roles, externalEntities } from '../models/schema.js';
 import {
@@ -270,9 +270,9 @@ export async function updateProject(
   const [nameConflict] = await db
     .select({ id: projects.id })
     .from(projects)
-    .where(and(eq(projects.name, input.name), eq(projects.id, id).not()));
+    .where(and(eq(projects.name, input.name), ne(projects.id, id)));
 
-  // R5 Why: Drizzle ORM 的 .not() 用于否定条件，这里表达 "id != 当前id"
+  // R5 Why: neq() 表达 "id != 当前id"，排除自身后检查 name 唯一性
   if (nameConflict) {
     throw conflict(ERROR_CODES.NAME_CONFLICT, '该名称已被使用，请更换');
   }

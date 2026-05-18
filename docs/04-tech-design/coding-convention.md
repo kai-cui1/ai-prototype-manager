@@ -238,6 +238,15 @@ export async function getProjectHandler(request: FastifyRequest, reply: FastifyR
 | skip 禁止 | 不允许 `test.skip()` —— 要么实现要么不写此功能点 |
 | 回退机制 | 测试发现的缺陷 → 返回 C1-C3 修改代码 → 重新跑 C4 |
 
+> **【铁律】所有测试必须串行执行，禁止并行**
+>
+> | 框架 | 配置项 | 必填值 | 原因 |
+> |------|--------|:------:|------|
+> | Vitest (API 测试) | `fileParallelism` | `false` | 共享 DB，`afterAll` cleanup 会误删并行文件的数据 |
+> | Playwright (E2E 测试) | `fullyParallel` | `false` | 共享 DB，多 spec 并发读写导致乐观锁冲突 / 归档竞争 |
+>
+> **Code Review 审查点**：新增或修改测试配置文件时，必须确认包含上述串行设置。遗漏此配置 = **Important 级别问题**。
+
 ---
 
 ## 4. Code Review 标准（C5 详细规范）
