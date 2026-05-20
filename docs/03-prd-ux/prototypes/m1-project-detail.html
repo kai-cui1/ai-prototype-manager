@@ -174,6 +174,47 @@
   #infoEdit .input{border-color:var(--color-primary)}
   #infoEdit .input:focus{box-shadow:0 0 0 2px rgba(8,151,156,.15)}
 
+  /* ===== Master-Detail 布局（组织架构 Tab） ===== */
+  /* 公司列表区（Master）：上方区域 */
+  .org-master{margin-bottom:0}
+  /* 部门树详情区（Detail）：选中公司后显示，带顶部面包屑导航 */
+  .org-detail{display:none;margin-top:20px;border-top:1px solid var(--color-divider);padding-top:20px}
+  .org-detail.active{display:block}
+  .org-detail-breadcrumb{font-size:12px;color:var(--color-text-tertiary);margin-bottom:12px}
+  .org-detail-breadcrumb span+span::before{content:' > ';margin:0 4px;color:var(--color-border-strong)}
+  .org-detail-breadcrumb .current-company{color:var(--color-primary);font-weight:500}
+
+  /* ===== 树形组件（部门多级层级） ===== */
+  .dept-tree{list-style:none;padding:0;margin:0}
+  .dept-tree ul{list-style:none;padding:0;margin:0}
+  /* 节点缩进：每级 20px，通过 padding-left 实现 */
+  .dept-tree ul{padding-left:20px}
+  .dept-tree-node{display:flex;align-items:center;min-height:36px;padding:4px 8px;border-radius:4px;cursor:pointer;transition:background .12s}
+  .dept-tree-node:hover{background:var(--color-fill)}
+  /* 展开/折叠箭头 */
+  .tree-toggle{width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;color:var(--color-text-tertiary);transition:transform .15s;cursor:pointer;border:none;background:none;padding:0;font-family:inherit}
+  .tree-toggle.expanded{transform:rotate(90deg)}
+  .tree-toggle.leaf{visibility:hidden}
+  /* 节点图标（文件夹/文件） */
+  .tree-node-icon{width:18px;height:18px;margin-right:6px;flex-shrink:0;color:var(--color-text-tertiary);display:flex;align-items:center;justify-content:center;font-size:14px}
+  /* 节点名称 */
+  .tree-node-name{font-size:13px;font-weight:500;color:var(--color-text-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* 节点右侧信息区（Badge + 操作按钮） */
+  .tree-node-meta{margin-left:auto;display:flex;align-items:center;gap:8px;flex-shrink:0}
+  .tree-node-desc{font-size:12px;color:var(--color-text-tertiary);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:8px}
+  /* 子树容器：折叠时隐藏 */
+  .tree-children{display:none}
+  .tree-children.expanded{display:block}
+
+  /* 树工具栏 */
+  .tree-toolbar{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+
+  /* 外部实体子区域 */
+  .ee-section{margin-top:24px;border-top:1px solid var(--color-divider);padding-top:20px}
+
+  /* 角色 Tab 占位 */
+  .role-empty-state{padding:40px;text-align:center}
+
   /* Toast */
   .toast-container{position:fixed;top:16px;right:16px;z-index:2000;display:flex;flex-direction:column;gap:8px}
   .toast{background:var(--color-bg-card);border-radius:var(--radius-card);box-shadow:0 4px 12px rgba(0,0,0,.1);padding:12px 16px;font-size:13px;display:flex;align-items:start;gap:10px;min-width:280px;animation:slideIn .2s ease-out}
@@ -242,13 +283,15 @@
       </div>
 
       <!-- Tabs -->
-      <!-- [PRD 交互标注] F-M1-03 定义 4 个 Tab：概要 / 领域模型 / 业务流程 / 组织架构。
+      <!-- [PRD 交互标注] F-M1-03 + AC-M1-U06：定义 5 个一级 Tab：概要 / 领域模型 / 业务流程 / 组织架构 / 角色。
+           角色与组织架构平级（PRD §4.8.2 设计决策：Role 是 project 级核心对象，不应嵌套在组织架构下）。
            领域模型和业务流程 Tab 在 M1 阶段为空占位，后续模块实现后填充内容。 -->
       <div class="tabs">
         <div class="tab active" onclick="switchTab(this,'tab-overview')">概要</div>
         <div class="tab" onclick="switchTab(this,'tab-domain')">领域模型</div>
         <div class="tab" onclick="switchTab(this,'tab-flow')">业务流程</div>
         <div class="tab" onclick="switchTab(this,'tab-org')">组织架构</div>
+        <div class="tab" onclick="switchTab(this,'tab-role')">角色</div>
       </div>
 
       <!-- Tab: Overview -->
@@ -383,75 +426,302 @@
         <p style="font-size:13px;color:var(--color-text-tertiary);margin-top:4px">请在「业务流程」模块中创建流程定义</p>
       </div>
 
-      <!-- Tab: Organization -->
+      <!-- Tab: Organization (Master-Detail + Tree) -->
+      <!-- [PRD 交互标注] PRD §4.6.2 + §4.7.2 + AC-M1-U06：
+           组织架构 Tab 采用 Master-Detail 布局：
+           - Master（上方）：公司列表，点击「查看部门」选中某公司
+           - Detail（下方）：该公司下的部门树形列表（条件显示）
+           - 角色不在本 Tab 内，角色是独立的一级 Tab（见 tab-role）
+           - 外部实体为本 Tab 的子区域（底部） -->
       <div id="tab-org" style="display:none">
-        <!-- Companies Table -->
-        <div class="org-section">
+
+        <!-- ===== Master：公司列表 ===== -->
+        <div class="org-section org-master">
           <div class="org-section-title">
             <span>公司列表</span>
-            <button class="btn btn-primary btn-sm" onclick="showToast('success','添加公司')">+ 添加公司</button>
+            <button class="btn btn-primary btn-sm" onclick="openCompanyDialog(false)">+ 添加公司</button>
           </div>
           <div class="org-table-wrap">
             <table>
-              <!-- 各列 max-width：名称220px / 标识符160px / 部门数70px / 角色数70px / 操作100px -->
-              <thead><tr><th style="max-width:220px" data-col="companyName">公司名称<div class="col-resize-handle"></div></th><th style="max-width:160px" data-col="companyCode">标识符<div class="col-resize-handle"></div></th><th style="max-width:70px" data-col="deptCount">部门数<div class="col-resize-handle"></div></th><th style="max-width:70px" data-col="roleCount">角色数<div class="col-resize-handle"></div></th><th style="max-width:100px;text-align:right" data-col="actions">操作<div class="col-resize-handle"></div></th></tr></thead>
-              <tbody>
-                <tr>
+              <!-- 列定义：名称220px / 标识符160px / 描述(自适应) / 部门数70px / 角色数70px / 操作140px -->
+              <thead><tr><th style="max-width:220px" data-col="companyName">公司名称<div class="col-resize-handle"></div></th><th style="max-width:160px" data-col="companyCode">标识符<div class="col-resize-handle"></div></th><th data-col="companyDesc">描述<div class="col-resize-handle"></div></th><th style="max-width:70px" data-col="deptCount">部门数<div class="col-resize-handle"></div></th><th style="max-width:70px" data-col="roleCount">角色数<div class="col-resize-handle"></div></th><th style="max-width:140px;text-align:right" data-col="actions">操作<div class="col-resize-handle"></div></th></tr></thead>
+              <tbody id="companyTableBody">
+                <!-- [PRD 交互标注] 公司行操作（PRD §4.6.3）：
+                     「查看部门」→ 选中该公司，展开下方部门树(Detail区)，行高亮
+                     「编辑」→ 打开编辑公司对话框(F-M1-06)，预填充当前值
+                     「删除」→ 打开删除确认对话框(F-M1-06)，含级联删除警告
+                     角色数可点击 → 切换到「角色」Tab 并按该公司筛选（AC-M1-U06） -->
+                <tr id="company-row-1" data-company="示例科技有限公司">
                   <td title="示例科技有限公司" style="font-weight:500">示例科技有限公司</td>
                   <td title="demo-tech-co"><code style="font-size:12px;background:var(--color-fill);padding:2px 6px;border-radius:3px">demo-tech-co</code></td>
-                  <td>2</td><td>3</td>
-                  <td style="text-align:right"><button class="link-action">查看部门</button></td>
+                  <td title="专注于新能源技术研发的企业集团" class="text-muted" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">专注于新能源技术研发的企业集团</td>
+                  <td>2</td>
+                  <td><button class="link-action" onclick="switchTab(document.querySelectorAll('.tab')[4],'tab-role');showToast('info','已切换到角色Tab并筛选：示例科技有限公司')">3</button></td>
+                  <td style="text-align:right">
+                    <button class="link-action" onclick="selectCompany('示例科技有限公司',this)">查看部门</button>
+                    <button class="link-action" onclick="openCompanyDialog(true,'demo-tech-co','示例科技有限公司','专注于新能源技术研发的企业集团')">编辑</button>
+                    <button class="link-action link-danger" onclick="openDeleteCompanyDialog('示例科技有限公司')">删除</button>
+                  </td>
                 </tr>
-                <tr>
+                <tr id="company-row-2" data-company="测试企业集团">
                   <td title="测试企业集团" style="font-weight:500">测试企业集团</td>
                   <td title="test-enterprise"><code style="font-size:12px;background:var(--color-fill);padding:2px 6px;border-radius:3px">test-enterprise</code></td>
-                  <td>1</td><td>2</td>
-                  <td style="text-align:right"><button class="link-action">查看部门</button></td>
+                  <td title="综合性测试服务提供商" class="text-muted" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">综合性测试服务提供商</td>
+                  <td>1</td>
+                  <td><button class="link-action" onclick="switchTab(document.querySelectorAll('.tab')[4],'tab-role');showToast('info','已切换到角色Tab并筛选：测试企业集团')">2</button></td>
+                  <td style="text-align:right">
+                    <button class="link-action" onclick="selectCompany('测试企业集团',this)">查看部门</button>
+                    <button class="link-action" onclick="openCompanyDialog(true,'test-enterprise','测试企业集团','综合性测试服务提供商')">编辑</button>
+                    <button class="link-action link-danger" onclick="openDeleteCompanyDialog('测试企业集团')">删除</button>
+                  </td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
 
-        <!-- Departments & Roles (expanded view) -->
-        <div class="org-section" style="margin-top:24px">
+        <!-- ===== Detail：部门树形列表（选中公司后展示） ===== -->
+        <!-- [PRD 交互标注] PRD §4.7.2：两级导航 — 项目详情 → 组织架构 Tab → 选择公司 → 部门树形列表。
+             使用树形组件展示多级部门（parent_id 自引用），支持展开/折叠。
+             默认选中第一家公司（示例科技有限公司）以展示完整效果。 -->
+        <div class="org-detail active" id="orgDetail">
+          <!-- 面包屑导航：组织架构 > 公司名称 > 部门结构 -->
+          <div class="org-detail-breadcrumb">
+            <span>组织架构</span>
+            <span class="current-company" id="breadcrumbCompany">示例科技有限公司</span>
+            <span>部门结构</span>
+          </div>
+
+          <!-- 工具栏：新建部门 + 搜索 + 展开/折叠全部 -->
+          <div class="tree-toolbar">
+            <button class="btn btn-primary btn-sm" onclick="showToast('success','打开新建部门对话框')">+ 添加部门</button>
+            <!-- [PRD 交互标注] 搜索框：按 display_name 或 name ILIKE 模糊搜索部门（防抖300ms） -->
+            <input class="input" placeholder="搜索部门..." style="width:180px;height:28px;font-size:12px;padding:0 8px">
+            <button class="btn btn-default btn-sm" onclick="expandAllTree()">展开全部</button>
+            <button class="btn btn-default btn-sm" onclick="collapseAllTree()">折叠全部</button>
+          </div>
+
+          <!-- 部门树（nested ul/li 结构，视觉缩进表示层级） -->
+          <!-- 数据示例：研发部 → 前端组 → React小组（3级嵌套），验证树形组件的多级支持能力 -->
+          <ul class="dept-tree" id="deptTree">
+            <!-- 节点 1：研发部（有子节点，默认展开以展示层级效果） -->
+            <li>
+              <div class="dept-tree-node" data-node="rd">
+                <button class="tree-toggle expanded" onclick="toggleTreeNode(this)">▶</button>
+                <span class="tree-node-icon">📁</span>
+                <span class="tree-node-name">研发部</span>
+                <span class="tree-node-desc">负责核心技术攻关与架构设计</span>
+                <span class="tree-node-meta">
+                  <span class="badge badge-active" style="font-size:11px;cursor:pointer" onclick="switchTab(document.querySelectorAll('.tab')[4],'tab-role');showToast('info','已切换到角色Tab：研发部')" title="点击跳转到角色Tab">3 个角色</span>
+                  <span class="text-muted" style="font-size:11px">2 个子部门</span>
+                  <button class="link-action" style="font-size:12px" onclick="showToast('success','打开编辑部门对话框')">编辑</button>
+                  <button class="link-action link-danger" style="font-size:12px" onclick="showToast('warning','该部门有子部门和关联角色')">删除</button>
+                  <button class="btn btn-default btn-sm" style="height:22px;font-size:11px" onclick="showToast('success','新建子部门：父部门=研发部')">+ 子部门</button>
+                </span>
+              </div>
+              <!-- 研发部的子树（默认展开） -->
+              <ul class="tree-children expanded">
+                <!-- 节点 1.1：前端组（有子节点） -->
+                <li>
+                  <div class="dept-tree-node" data-node="fe">
+                    <button class="tree-toggle expanded" onclick="toggleTreeNode(this)">▶</button>
+                    <span class="tree-node-icon">📁</span>
+                    <span class="tree-node-name">前端组</span>
+                    <span class="tree-node-desc">Web 前端开发团队</span>
+                    <span class="tree-node-meta">
+                      <span class="badge badge-active" style="font-size:11px;cursor:pointer" onclick="switchTab(document.querySelectorAll('.tab')[4],'tab-role');showToast('info','已切换到角色Tab：前端组')" title="点击跳转到角色Tab">1 个角色</span>
+                      <span class="text-muted" style="font-size:11px">1 个子部门</span>
+                      <button class="link-action" style="font-size:12px" onclick="showToast('success','打开编辑部门对话框')">编辑</button>
+                      <button class="link-action link-danger" style="font-size:12px" onclick="showToast('warning','该部门有子部门')">删除</button>
+                      <button class="btn btn-default btn-sm" style="height:22px;font-size:11px" onclick="showToast('success','新建子部门：父部门=前端组')">+ 子部门</button>
+                    </span>
+                  </div>
+                  <!-- 前端组的子树 -->
+                  <ul class="tree-children expanded">
+                    <!-- 节点 1.1.1：React 小组（叶子节点） -->
+                    <li>
+                      <div class="dept-tree-node" data-node="react">
+                        <button class="tree-toggle leaf" onclick="return false">▶</button>
+                        <span class="tree-node-icon">📄</span>
+                        <span class="tree-node-name">React 小组</span>
+                        <span class="tree-node-desc">React 技术栈专项小组</span>
+                        <span class="tree-node-meta">
+                          <span class="text-muted" style="font-size:11px">0 个角色</span>
+                          <span class="text-muted" style="font-size:11px">0 个子部门</span>
+                          <button class="link-action" style="font-size:12px" onclick="showToast('success','打开编辑部门对话框')">编辑</button>
+                          <button class="link-action link-danger" style="font-size:12px" onclick="showToast('info','打开删除确认弹窗')">删除</button>
+                          <button class="btn btn-default btn-sm" style="height:22px;font-size:11px" onclick="showToast('success','新建子部门：父部门=React小组')">+ 子部门</button>
+                        </span>
+                      </div>
+                    </li>
+                  </ul>
+                </li>
+                <!-- 节点 1.2：后端组（叶子节点） -->
+                <li>
+                  <div class="dept-tree-node" data-node="be">
+                    <button class="tree-toggle leaf" onclick="return false">▶</button>
+                    <span class="tree-node-icon">📄</span>
+                    <span class="tree-node-name">后端组</span>
+                    <span class="tree-node-desc">服务端开发与 API 设计</span>
+                    <span class="tree-node-meta">
+                      <span class="badge badge-active" style="font-size:11px;cursor:pointer" onclick="switchTab(document.querySelectorAll('.tab')[4],'tab-role');showToast('info','已切换到角色Tab：后端组')" title="点击跳转到角色Tab">2 个角色</span>
+                      <span class="text-muted" style="font-size:11px">0 个子部门</span>
+                      <button class="link-action" style="font-size:12px" onclick="showToast('success','打开编辑部门对话框')">编辑</button>
+                      <button class="link-action link-danger" style="font-size:12px" onclick="showToast('info','打开删除确认弹窗')">删除</button>
+                      <button class="btn btn-default btn-sm" style="height:22px;font-size:11px" onclick="showToast('success','新建子部门：父部门=后端组')">+ 子部门</button>
+                    </span>
+                  </div>
+                </li>
+              </ul>
+            </li>
+            <!-- 节点 2：产品部（叶子节点） -->
+            <li>
+              <div class="dept-tree-node" data-node="pm">
+                <button class="tree-toggle leaf" onclick="return false">▶</button>
+                <span class="tree-node-icon">📄</span>
+                <span class="tree-node-name">产品部</span>
+                <span class="tree-node-desc">产品规划与需求管理</span>
+                <span class="tree-node-meta">
+                  <span class="badge badge-active" style="font-size:11px;cursor:pointer" onclick="switchTab(document.querySelectorAll('.tab')[4],'tab-role');showToast('info','已切换到角色Tab：产品部')" title="点击跳转到角色Tab">1 个角色</span>
+                  <span class="text-muted" style="font-size:11px">0 个子部门</span>
+                  <button class="link-action" style="font-size:12px" onclick="showToast('success','打开编辑部门对话框')">编辑</button>
+                  <button class="link-action link-danger" style="font-size:12px" onclick="showToast('info','打开删除确认弹窗')">删除</button>
+                  <button class="btn btn-default btn-sm" style="height:22px;font-size:11px" onclick="showToast('success','新建子部门：父部门=产品部')">+ 子部门</button>
+                </span>
+              </div>
+            </li>
+            <!-- 节点 3：运维部（叶子节点） -->
+            <li>
+              <div class="dept-tree-node" data-node="ops">
+                <button class="tree-toggle leaf" onclick="return false">▶</button>
+                <span class="tree-node-icon">📄</span>
+                <span class="tree-node-name">运维部</span>
+                <span class="tree-node-desc">系统运维与 DevOps</span>
+                <span class="tree-node-meta">
+                  <span class="badge badge-active" style="font-size:11px;cursor:pointer" onclick="switchTab(document.querySelectorAll('.tab')[4],'tab-role');showToast('info','已切换到角色Tab：运维部')" title="点击跳转到角色Tab">1 个角色</span>
+                  <span class="text-muted" style="font-size:11px">0 个子部门</span>
+                  <button class="link-action" style="font-size:12px" onclick="showToast('success','打开编辑部门对话框')">编辑</button>
+                  <button class="link-action link-danger" style="font-size:12px" onclick="showToast('info','打开删除确认弹窗')">删除</button>
+                  <button class="btn btn-default btn-sm" style="height:22px;font-size:11px" onclick="showToast('success','新建子部门：父部门=运维部')">+ 子部门</button>
+                </span>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- ===== 外部实体子区域 ===== -->
+        <!-- [PRD 交互标注] 外部实体为组织架构 Tab 内的独立子区域（PRD §4.9），与公司/部门平级。
+             F-M1-09 功能点，当前仅展示占位表格。 -->
+        <div class="org-section ee-section">
           <div class="org-section-title">
-            <span>部门与角色（示例科技有限公司）</span>
-            <button class="btn btn-default btn-sm" onclick="showToast('success','添加部门')">+ 添加部门</button>
+            <span>外部实体</span>
+            <button class="btn btn-default btn-sm" onclick="showToast('success','添加外部实体')">+ 添加外部实体</button>
           </div>
           <div class="org-table-wrap">
             <table>
-              <!-- 各列 max-width：部门名160px / 角色240px / 人数70px / 操作120px -->
-              <thead><tr><th style="max-width:160px" data-col="deptName">部门名称<div class="col-resize-handle"></div></th><th style="max-width:240px" data-col="roles">角色<div class="col-resize-handle"></div></th><th style="max-width:70px" data-col="memberCount">关联人数<div class="col-resize-handle"></div></th><th style="max-width:120px;text-align:right" data-col="actions">操作<div class="col-resize-handle"></div></th></tr></thead>
+              <thead><tr><th data-col="eeName">名称<div class="col-resize-handle"></div></th><th data-col="eeType">类型<div class="col-resize-handle"></div></th><th data-col="eeDesc">描述<div class="col-resize-handle"></div></th><th style="text-align:right" data-col="actions">操作<div class="col-resize-handle"></div></th></tr></thead>
               <tbody>
                 <tr>
-                  <td title="产品部" style="font-weight:500">产品部</td>
-                  <td title="产品经理"><span class="badge badge-active" style="font-size:11px">产品经理</span></td>
-                  <td class="text-muted">3</td>
-                  <td style="text-align:right"><button class="link-action">编辑</button> <button class="link-action link-danger">删除</button></td>
-                </tr>
-                <tr>
-                  <td title="研发部" style="font-weight:500">研发部</td>
-                  <td title="前端开发, 后端开发">
-                    <span class="badge badge-active" style="font-size:11px;margin-right:4px">前端开发</span>
-                    <span class="badge badge-active" style="font-size:11px">后端开发</span>
-                  </td>
-                  <td class="text-muted">5</td>
-                  <td style="text-align:right"><button class="link-action">编辑</button> <button class="link-action link-danger">删除</button></td>
-                </tr>
-                <tr>
-                  <td title="运维部" style="font-weight:500">运维部</td>
-                  <td title="运维工程师"><span class="badge badge-active" style="font-size:11px">运维工程师</span></td>
-                  <td class="text-muted">2</td>
+                  <td style="font-weight:500">支付宝</td>
+                  <td><span class="badge badge-active" style="font-size:11px">支付网关</span></td>
+                  <td class="text-muted">第三方支付渠道</td>
                   <td style="text-align:right"><button class="link-action">编辑</button> <button class="link-action link-danger">删除</button></td>
                 </tr>
               </tbody>
             </table>
           </div>
         </div>
+
+      </div>
+
+      <!-- Tab: Role (独立一级 Tab) -->
+      <!-- [PRD 交互标注] PRD §4.8.2 + AC-M1-U06：角色管理作为独立一级 Tab，与「概要」「组织架构」平级。
+           设计决策：Role 是 project 级核心对象（process_nodes.holder 引用 Role），不应嵌套在组织架构下。
+           当前为占位态，F-M1-08 S6 编码时实现完整 CRUD。 -->
+      <div id="tab-role" style="display:none;padding:40px;text-align:center">
+        <svg style="width:48px;height:48px;color:var(--color-border-strong);margin-bottom:12px"><use href="#icon-building"/></svg>
+        <p style="font-size:14px;color:var(--color-text-secondary)">暂无角色</p>
+        <p style="font-size:13px;color:var(--color-text-tertiary);margin-top:4px">请在「角色」模块中创建角色定义</p>
+        <!-- [PRD 交互标注] 完整角色 Tab 应包含（PRD §4.8.2 元素清单）：
+             1. 工具栏：新建角色 + 搜索框 + 部门筛选器下拉（全部/独立/各部门）
+             2. 角色卡片列表：名称(display_name) + 归属Badge(部门名或"独立") + 描述(截断) + 编辑/删除按钮
+             3. 分页控件（默认20条/页，支持10/20/50）
+             4. 空状态占位提示 -->
       </div>
 
     </main>
+  </div>
+</div>
+
+<!-- ========== F-M1-06 公司管理 CRUD 弹窗 ========== -->
+
+<!-- Create/Edit Company Dialog -->
+<!-- [PRD 交互标注] F-M1-06 新建/编辑公司：
+     1) 点击「+ 添加公司」→ 打开新建模式（空表单）
+     2) 点击公司行内「编辑」→ 打开编辑模式（预填充当前值）
+     3) 前端校验：name 格式(/^[a-zA-Z0-9_-]+/, 2~50字符)、display_name 非空(1~100字符)
+     4) 后端校验：name 在同一 project_id 范围内唯一(409 NAME_CONFLICT)
+     5) 提交按钮 loading 态、项目已归档时隐藏新建/编辑按钮(B-M1-28/B-M1-33/B-M1-36/B-M1-40)
+     6) 编辑模式额外携带 version 字段用于乐观锁(B-M1-37) -->
+<div class="dialog-overlay" id="companyDialog">
+  <!-- §6.6 Dialog 规格：width:520px(default)，min-width:480px -->
+  <div class="dialog" style="width:520px">
+    <div class="dialog-header">
+      <span class="dialog-title" id="companyDialogTitle">新建公司</span>
+      <button class="dialog-close" onclick="document.getElementById('companyDialog').classList.remove('show')">&times;</button>
+    </div>
+    <!-- §7.3 弹窗表单布局：label 到 input 8px，字段间 16px；必填标记红色星号 -->
+    <div class="dialog-body">
+      <!-- 字段 1：name（编程标识符）— PRD §4.6.5：必填，正则 /^[a-zA-Z0-9_-]+$/，2~50 字符 -->
+      <div class="form-group">
+        <label class="form-label">公司标识符<span class="required">*</span></label>
+        <input class="input" id="companyName" placeholder="如 state-grid" style="font-family:'SF Mono',Consolas,monospace">
+        <div class="form-hint">仅支持英文、数字、下划线、连字符，2~50 字符，同一项目内唯一</div>
+      </div>
+      <!-- 字段 2：display_name（显示名称）— PRD §4.6.5：必填，1~100 字符 -->
+      <div class="form-group">
+        <label class="form-label">显示名称<span class="required">*</span></label>
+        <input class="input" id="companyDisplayName" placeholder="如 国家电网">
+      </div>
+      <!-- 字段 3：description（描述）— PRD §4.6.5：可选，0~2000 字符 -->
+      <div class="form-group">
+        <label class="form-label">描述</label>
+        <textarea class="input" id="companyDesc" rows="3" placeholder="可选，简要描述该公司的业务定位..."></textarea>
+      </div>
+    </div>
+    <!-- §6.6 Dialog Footer：右对齐，gap 10px -->
+    <div class="dialog-footer">
+      <button class="btn btn-default" onclick="document.getElementById('companyDialog').classList.remove('show')">取消</button>
+      <button class="btn btn-primary" onclick="submitCompany()" id="companySubmitBtn">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Company Confirm Dialog -->
+<!-- [PRD 交互标注] F-M1-06 删除公司确认：
+     1) 点击公司卡片「删除」→ 弹出确认弹窗
+     2) 警告文案：级联删除下属部门 + 关联角色变为独立角色(B-M1-39)
+     3) 若公司被领域实体/业务流程引用 → 返回 409 ENTITY_IN_USE + 引用清单(B-M1-38)
+     4) 归档项目的删除按钮隐藏(B-M1-40) -->
+<div class="dialog-overlay" id="deleteCompanyDialog">
+  <!-- 确认类弹窗用 sm 尺寸(400px)，与归档弹窗一致 -->
+  <div class="dialog" style="width:400px">
+    <div class="dialog-header"><span class="dialog-title">确认删除</span><button class="dialog-close" onclick="document.getElementById('deleteCompanyDialog').classList.remove('show')">&times;</button></div>
+    <!-- 居中布局（原型 .dialog-body: text-align:center; padding:32px 24px） -->
+    <div class="dialog-body" style="text-align:center;padding:32px 24px">
+      <p style="font-size:14px;margin-bottom:8px">确定要删除以下公司吗？</p>
+      <!-- 公司名称加粗突出显示 -->
+      <p style="font-size:16px;font-weight:600;color:var(--color-text-primary)" id="deleteCompanyName">—</p>
+      <!-- 红色警告文字（#ff4d4f）：级联删除风险提示 -->
+      <p style="color:#ff4d4f;font-size:13px;margin-top:12px;font-weight:500">删除后该公司及其下属部门将被删除，关联的角色将变为独立角色。</p>
+      <p class="text-muted" style="font-size:12px;margin-top:6px">此操作不可撤销，请谨慎操作。</p>
+    </div>
+    <!-- Footer 居中对齐（与归档弹窗一致） -->
+    <div class="dialog-footer" style="justify-content:center">
+      <button class="btn btn-default" onclick="document.getElementById('deleteCompanyDialog').classList.remove('show')">取消</button>
+      <!-- 危险操作：红色实心按钮（§6.1 Button Danger 变体） -->
+      <button class="btn btn-primary" style="background:#ff4d4f;border-color:#ff4d4f" onclick="doDeleteCompany()">确认删除</button>
+    </div>
   </div>
 </div>
 
@@ -498,9 +768,77 @@ function toggleSidebar(){
 function switchTab(el,id){
   document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
   el.classList.add('active');
-  ['tab-overview','tab-domain','tab-flow','tab-org'].forEach(tid=>{
+  /* 含角色 Tab（5 个一级 Tab：概要/领域模型/业务流程/组织架构/角色） */
+  ['tab-overview','tab-domain','tab-flow','tab-org','tab-role'].forEach(tid=>{
     document.getElementById(tid).style.display=tid===id?'':'none';
   });
+}
+
+/* ===== Master-Detail：公司选择（组织架构 Tab） ===== */
+/**
+ * 选中某家公司，展开下方部门树(Detail区)，高亮当前行
+ * [PRD 交互标注] 实际逻辑：
+ *   1) 前端调用 GET /api/v1/companies/:companyId/departments?tree=true
+ *   2) 根据 parent_id 构建树形数据并渲染
+ *   3) 更新面包屑导航中的公司名称
+ * @param {string} companyName - 选中的公司显示名称
+ * @param {HTMLElement} btnEl - 触发按钮（用于定位 tr 行）
+ */
+function selectCompany(companyName, btnEl) {
+  // 高亮当前行：移除其他行的选中样式
+  document.querySelectorAll('#companyTableBody tr').forEach(function(tr) {
+    tr.style.background = '';
+  });
+  // 高亮当前点击的行
+  var row = btnEl.closest('tr');
+  if (row) row.style.background = 'var(--color-primary-bg)';
+  // 展开部门树 Detail 区
+  document.getElementById('orgDetail').classList.add('active');
+  // 更新面包屑
+  document.getElementById('breadcrumbCompany').textContent = companyName;
+  showToast('info', '已加载「' + companyName + '」的部门结构');
+}
+
+/* ===== 树形组件：节点展开/折叠 ===== */
+/**
+ * 切换树节点的展开/折叠状态
+ * 仅使用 classList toggle（符合 §11.2.0 JS 范围铁规则）
+ * @param {HTMLElement} btn - ▶ 箭头按钮元素
+ */
+function toggleTreeNode(btn) {
+  var isExpanded = btn.classList.toggle('expanded');
+  // 找到当前节点的子树容器（下一个 sibling ul.tree-children）
+  var nodeDiv = btn.closest('.dept-tree-node');
+  var childrenUl = nodeDiv.parentElement.querySelector(':scope > .tree-children');
+  if (childrenUl) {
+    childrenUl.classList.toggle('expanded', isExpanded);
+  }
+}
+
+/**
+ * 展开全部树节点
+ */
+function expandAllTree() {
+  document.querySelectorAll('.tree-toggle:not(.leaf)').forEach(function(btn) {
+    btn.classList.add('expanded');
+  });
+  document.querySelectorAll('.tree-children').forEach(function(ul) {
+    ul.classList.add('expanded');
+  });
+  showToast('info', '已展开全部部门节点');
+}
+
+/**
+ * 折叠全部树节点（仅折叠第一级，保留根可见）
+ */
+function collapseAllTree() {
+  document.querySelectorAll('.tree-toggle:not(.leaf)').forEach(function(btn) {
+    btn.classList.remove('expanded');
+  });
+  document.querySelectorAll('.tree-children').forEach(function(ul) {
+    ul.classList.remove('expanded');
+  });
+  showToast('info', '已折叠全部部门节点');
 }
 
 /* F-M1-04 行内编辑模式（Inline Edit）— PRD §4.4
@@ -547,6 +885,73 @@ function showToast(type,msg){
 /* [PRD 交互标注] 列宽拖拽（规则3）+ 双击重置（规则4）：
    原型仅展示视觉层面的拖拽手柄（.col-resize-handle，光标变 col-resize）。
    实际拖拽逻辑由前端编码实现。规格详见 ui-design-spec.md §6.3.1 */
+
+/* ===== F-M1-06 公司管理弹窗操作函数 ===== */
+
+/**
+ * 打开公司新建/编辑对话框
+ * @param {boolean} isEdit - true=编辑模式(预填充值)，false=新建模式(空表单)
+ * @param {string} [name] - 编辑模式时的 name 初始值
+ * @param {string} [displayName] - 编辑模式时的 display_name 初始值
+ * @param {string} [desc] - 编辑模式时的 description 初始值
+ */
+function openCompanyDialog(isEdit, name, displayName, desc) {
+  const dlg = document.getElementById('companyDialog');
+  // 根据模式切换标题文案
+  document.getElementById('companyDialogTitle').textContent = isEdit ? '编辑公司' : '新建公司';
+  // 填充或清空表单字段
+  document.getElementById('companyName').value = name || '';
+  document.getElementById('companyDisplayName').value = displayName || '';
+  document.getElementById('companyDesc').value = desc || '';
+  // 提交按钮文案区分
+  document.getElementById('companySubmitBtn').textContent = isEdit ? '保存' : '确定';
+  dlg.classList.add('show');
+}
+
+/**
+ * 提交公司表单（模拟提交，实际由前端编码调用 POST/PUT API）
+ * [PRD 交互标注] 实际逻辑：
+ *   新建 → POST /api/v1/projects/:id/companies (body: name, display_name, description)
+ *   编辑 → PUT /api/v1/companies/:companyId (body: name, display_name, description, version)
+ *   后端校验：name 格式 + 唯一性(project_id 范围) + 项目状态(active) + 乐观锁(编辑时)
+ */
+function submitCompany() {
+  var name = document.getElementById('companyName').value;
+  var displayName = document.getElementById('companyDisplayName').value;
+  /* 基础校验演示：非空检查（完整校验规则见 PRD §4.6.4.2/.3） */
+  if (!name.trim()) {
+    showToast('error', '请输入公司标识符');
+    return;
+  }
+  if (!displayName.trim()) {
+    showToast('error', '请输入显示名称');
+    return;
+  }
+  document.getElementById('companyDialog').classList.remove('show');
+  showToast('success', '公司「' + displayName + '」' + (document.getElementById('companyDialogTitle').textContent === '新建公司' ? '创建成功' : '已更新'));
+}
+
+/**
+ * 打开删除公司确认对话框
+ * @param {string} displayName - 要删除的公司显示名称
+ */
+function openDeleteCompanyDialog(displayName) {
+  document.getElementById('deleteCompanyName').textContent = displayName;
+  document.getElementById('deleteCompanyDialog').classList.add('show');
+}
+
+/**
+ * 执行删除公司操作（模拟）
+ * [PRD 交互标注] 实际逻辑：
+ *   DELETE /api/v1/companies/:companyId
+ *   后端执行级联删除：companies → departments(CASCADE) → roles.department_id SET NULL
+ *   若被 domain_entity / business_process 引用 → 409 ENTITY_IN_USE
+ */
+function doDeleteCompany() {
+  var name = document.getElementById('deleteCompanyName').textContent;
+  document.getElementById('deleteCompanyDialog').classList.remove('show');
+  showToast('success', '公司「' + name + '」已删除');
+}
 </script>
 </body>
 </html>

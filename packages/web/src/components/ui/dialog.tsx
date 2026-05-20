@@ -48,12 +48,12 @@ function DialogContent({
   /* §6.6 Dialog 尺寸：sm=400px(确认弹窗) / default=520px(创建弹窗) / lg=720px */
   size?: "sm" | "default" | "lg"
 }) {
-  /* §6.6 尺寸映射 */
-  const sizeClass = {
-    sm: "sm:max-w-[400px]",
-    default: "sm:max-w-[520px]",
-    lg: "sm:max-w-[720px]",
-  }[size] || "sm:max-w-[520px]";
+  /* §6.6 尺寸映射：每种尺寸同时控制 max-width 和 min-width，避免 min > max 冲突 */
+  const sizeConfig = {
+    sm: { maxW: "sm:max-w-[400px]", minW: "min-w-[360px]" },       // 确认弹窗（原型 400px）
+    default: { maxW: "sm:max-w-[520px]", minW: "min-w-[480px]" },   // 创建/编辑弹窗（原型 520px）
+    lg: { maxW: "sm:max-w-[720px]", minW: "min-w-[600px]" },         // 大型弹窗
+  }[size] || { maxW: "sm:max-w-[520px]", minW: "min-w-[480px]" };
 
   return (
     <DialogPortal>
@@ -61,9 +61,9 @@ function DialogContent({
       <DialogPrimitive.Popup
         data-slot="dialog-content"
         className={cn(
-          /* §6.6 Dialog 规格：圆角 10px(--radius-dialog)、shadow shadow-dialog、最小宽度 480px、flex column（原型 .dialog: display:flex; flex-direction:column） */
-          /* §6.6 Dialog 规格：固定 520px（原型 .dialog: width:520px; max-width:90vw） */
-          `fixed top-1/2 left-1/2 z-50 flex flex-col w-full min-w-[480px] max-w-[90vw] ${sizeClass} -translate-x-1/2 -translate-y-1/2 rounded-dialog bg-card p-0 text-sm text-foreground shadow-dialog duration-150 ease-out outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95`,
+          /* §6.6 Dialog 规格：圆角 10px(--radius-dialog)、shadow shadow-dialog、flex column（原型 .dialog: display:flex; flex-direction:column） */
+          /* 注意：width 由 sizeConfig 动态决定，不再硬编码单一 min-width */
+          `fixed top-1/2 left-1/2 z-50 flex flex-col w-full ${sizeConfig.minW} max-w-[90vw] ${sizeConfig.maxW} -translate-x-1/2 -translate-y-1/2 rounded-dialog bg-card p-0 text-sm text-foreground shadow-dialog duration-150 ease-out outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95`,
           className
         )}
         {...props}
