@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1777517181269,
+      "tag": "0000_init_projects_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778136128253,
+      "tag": "0001_confused_diamondback",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1778138462141,
+      "tag": "0002_far_whizzer",
+      "breakpoints": true
+    }
+  ]
+}

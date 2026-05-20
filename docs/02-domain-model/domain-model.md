@@ -1,8 +1,8 @@
 # ai-prototype-manager 领域模型
 
 > **文档编号**：docs/02-domain-model
-> **状态**：✅ v1.0 完成
-> **日期**：2026-04-27
+> **状态**：✅ v1.1 完成
+> **日期**：2026-04-27（v1.0）/ 2026-05-03（v1.1）
 > **定位**：本系统自身的领域模型，作为「元模型」供参考，也是未来用户使用时定义其项目领域模型的范例
 
 ---
@@ -17,13 +17,13 @@
 
 | # | 领域 | 实体数 | 职责 |
 |---|------|--------|------|
-| 1 | **项目管理** | 2 | 项目本身和成员 |
+| 1 | **项目管理** | 6 | 项目本身、成员、组织架构（公司/部门）、角色、外部实体 |
 | 2 | **应用与页面** | 5 | 应用框架、页面、组件、分区、设计稿 |
 | 3 | **流程与交互** | 4 | 业务流程、步骤、触发器、钩子 |
-| 4 | **数据与规则** | 4 | 领域模型定义、实体、字段、规则/角色 |
+| 4 | **数据与规则** | 3 | 领域模型定义、实体、字段、规则 |
 | 5 | **程序服务** | 4 | API 端点、业务行为、计划任务、全局行为 |
 
-**总计：~19 个核心实体**
+**总计：~22 个核心实体**（v1.1 新增 Company / Department / ExternalEntity；Role 从域四移至域一）
 
 ---
 
@@ -70,6 +70,119 @@ Member
 │
 └── 关联关系：
     └── N:1 → Project          // 所属项目
+```
+
+### 2.3 Company（公司 / 组织）
+
+被建模产品的业务参与方组织。一个 Project 可涉及多个公司（如集团+子公司、甲方+乙方）。
+
+> **定位说明**: Company 是**组织架构建模对象**, 描述的是"被建模产品中的组织结构", 而非本系统的用户组织。例如建模"换电站管理系统"时, "国家电网"是 Company（内部组织）, "特斯拉"是另一个 Company（外部合作方）。
+
+```
+Company
+├── id: string
+├── name: string               // 编程标识符
+├── displayName: string        // 显示名称
+├── description?: string
+├── companyType?: enum         // "internal" | "external" | "partner" | "client"
+├── contactInfo?: object       // { email?, phone?, address? }
+├── sortOrder: number
+├── config?: object            // 扩展配置
+│
+├── 关联关系：
+│   ├── N:1 → Project          // 所属项目
+│   └── 1:N → Department[]     // 下属部门
+│
+└── 业务行为：
+    └── 创建 / 编辑 / 删除（级联删部门 + 解绑角色）
+```
+
+### 2.4 Department（部门）
+
+公司下的组织单元，支持多级嵌套（parent_id 自引用）。
+
+> **定位说明**: 与 Company 同理, Department 是被建模产品的业务部门结构。2C 项目可能不需要 Department。
+> **多级支持**: 通过 `parentId` 自引用实现树形层级, 如"研发部→前端组→React 小组"。
+
+```
+Department
+├── id: string
+├── name: string               // 编程标识符
+├── displayName: string
+├── description?: string
+├── parentId?: string          // 父部门 ID（null = 顶级部门）★ 多级嵌套
+├── contactInfo?: object
+├── sortOrder: number
+├── config?: object
+│
+├── 关联关系：
+│   ├── N:1 → Project          // 所属项目（间接）
+│   ├── N:1 → Company          // 所属公司
+│   ├── N:1 → Department      // 父部门（自引用, nullable）
+│   └── 1:N → Department[]     // 子部门（自引用）
+│       └── ◄── 0:N → Role[]  // 可选挂载的角色（role.departmentId）
+│
+└── 业务行为：
+    └── 创建 / 编辑 / 删除（级联删子部门 + 解绑角色）
+```
+
+### 2.5 ExternalEntity（外部实体）
+
+与被建模产品交互的外部系统、组织或个人。是流程节点 holder 的第四种类型（与 Role / Service 对称）。
+
+> **定位说明**: 外部实体和公司/部门的区别 — 公司/部门是**建模对象内部的**组织架构（属于被建模产品的业务参与方）, 外部实体是**与被建模产品交互的外部方**。例如建模"换电站管理系统"时:
+> - "国家电网" = Company（内部组织）
+> - "政府监管部门" = ExternalEntity（外部交互方）
+
+```
+ExternalEntity
+├── id: string
+├── name: string
+├── displayName: string
+├── description?: string
+├── entityType?: enum         // "system" | "organization" | "person" | "api"
+├── contactInfo?: object       // { endpointUrl?, protocol?, authMethod? }
+├── actions?: ActionDef[]
+├── decisions?: DecisionDef[]
+├── sortOrder: number
+├── config?: object
+│
+├── 关联关系：
+│   ├── N:1 → Project          // 所属项目（直接, 无需经过公司/部门）
+│   ├── N:? → Company          // 可选关联到某公司（nullable）
+│   └── N:? → Department      // 可选关联到某部门（nullable）
+│
+└── 业务行为：
+    └── 创建 / 编辑 / 删除
+```
+
+### 2.6 Role（角色）
+
+业务流程中的参与者角色。可直接属于 Project（独立角色）, 也可选挂载到 Department（组织角色）。
+
+> **v1.1 变更**: Role 从域四移至域一（项目管理）, 因其本质是项目的参与者定义而非纯数据规则对象。
+> **独立性设计**: `departmentId` 为可选字段 — 2B 项目可挂载到部门下形成完整组织架构; 2C 项目直接创建独立角色, 无需先建虚拟组织。详见 `docs/01-design-idea/role-independence-design.md`。
+
+```
+Role
+├── id: string
+├── name: string               // 编程标识符（project_id 内全局唯一）
+├── displayName: string
+├── description?: string
+├── departmentId?: string      // 可选挂载目标部门 ID（null = 独立角色） ★ v1.1 新增
+├── category?: enum            // "internal" | "external" | "system"
+├── contactInfo?: object       // { email?, phone?, page? }
+├── actions?: ActionDef[]      // Phase 1 占位：该角色可执行的行为
+├── decisions?: DecisionDef[]  // Phase 1 占位：该角色可做的决策
+├── sortOrder: number
+├── config?: object
+│
+├── 关联关系：
+│   ├── N:1 → Project          // 所属项目（直接父实体）
+│   └── N:? → Department      // 可选挂载（nullable FK）
+│
+└── 业务行为：
+    └── 创建 / 编辑 / 删除 / 挂载变更
 ```
 
 ---
@@ -380,7 +493,7 @@ FieldDef
     └── N:1 → EntityDef
 ```
 
-### 5.4 Rule & Role
+### 5.4 Rule
 
 ```
 Rule（业务规则 — 纯函数，无副作用）
@@ -390,12 +503,9 @@ Rule（业务规则 — 纯函数，无副作用）
 ├── inputs[] / outputs[]
 ├── logic: { userDesc, data }   // JS 函数式表达
 └── 关联 → N:1 Project
-
-Role（角色）
-├── id / name / displayName / description
-├── permissions?: string[]      // 权限列表
-└── 关联 → N:1 Project
 ```
+
+> **v1.1 变更**: Role 已移至 §2.6 域一（项目管理）, 因其本质是项目的业务参与者定义。此处仅保留 Rule。
 
 ---
 
@@ -493,42 +603,59 @@ GlobalAction
 ## 7. 实体关系总览图（ER 图）
 
 ```
-Project ════════════════════════════════════════════════════════════╗
-│                                                                    │
-│  ├─1:N──► Application ◄─────────────────────────────────────┤ │
-│  │        │                                                    │ │
-│  │        ├─(web/android/ios/pc)──► Page ◄────1:N─────── Component │ │
-│  │        │                           │                      │    │ │
-│  │        │                           ├─1:N──────► Zone         │    │ │
-│  │        │                           └─ layoutHint           │    │ │
-│  │        │                                                    │ │
-│  │        ├─(api)──────────────► Endpoint ──actionRef──► Action   │ │
-│  │        │                                                    │ │
-│  │        ├─(service)───────► Action                               │ │
-│  │        │                ├─ ScheduleTask                        │ │
-│  │        │                ├─ GlobalAction                       │ │
-│  │        │                └─ Timer                              │ │
-│  │        │                                                    │ │
-│  │        └─(all types)─────► GlobalAction                       │ │
-│  │                           ► Timer                              │ │
-│  │                           ► Convention [预留]                  │ │
-│  │                                                                    │
-│  ├─1:N──► DomainModelDef ◄────1:N──► EntityDef ◄────1:N──► FieldDef │
-│  │                                                            │
-│  ├─1:N──► BusinessProcess ◄────1:N──► ProcessStep                 │
-│  │                    │                                        │
-│  │                    ├─1:N──► ProcessTransition               │
-│  │                    └─1:1──► ProcessTrigger                   │
-│  │                                                            │
-│  ├─1:N──► Rule                                                  │
-│  ├─1:N──► Role                                                  │
-│  ├─1:N──► DesignArtifact ◄────N:M──► Page (via pageMapping)    │
-│  │                                                            │
-│  └─N:1──◄ Member                                              │
-│                                                                    │
-│  Page/Component ──N:1──► Hook                                     │
-╝══════════════════════════════════════════════════════════════╝
+Project ═════════════════════════════════════════════════════════════════╗
+│                                                                        │
+│  ├─1:N──► Application ◄─────────────────────────────────────────┤   │
+│  │        │                                                        │   │
+│  │        ├─(web/android/ios/pc)──► Page ◄────1:N──────► Component │   │
+│  │        │                           │                            │   │
+│  │        │                           ├─1:N──────► Zone           │   │
+│  │        │                           └─ layoutHint             │   │
+│  │        │                                                        │   │
+│  │        ├─(api)──────────────► Endpoint ──actionRef──► Action     │   │
+│  │        │                                                        │   │
+│  │        ├─(service)───────► Action                                   │   │
+│  │        │                ├─ ScheduleTask                          │   │
+│  │        │                ├─ GlobalAction                         │   │
+│  │        │                └─ Timer                                │   │
+│  │        │                                                        │   │
+│  │        └─(all types)─────► GlobalAction                           │   │
+│  │                           ► Timer                                  │   │
+│  │                           ► Convention [预留]                      │   │
+│  │                                                                  │   │
+│  ├─1:N──► DomainModelDef ◄────1:N──► EntityDef ◄────1:N──► FieldDef  │   │
+│  │                                                                  │   │
+│  ├─1:N──► BusinessProcess ◄────1:N──► ProcessStep                   │   │
+│  │                    │                                            │   │
+│  │                    ├─1:N──► ProcessTransition                  │   │
+│  │                    └─1:1──► ProcessTrigger                      │   │
+│  │                                                                  │   │
+│  ├─1:N──► Rule                                                        │   │
+│  ├─1:N──► DesignArtifact ◄────N:M──► Page (via pageMapping)       │   │
+│  │                                                                  │   │
+│  ├─N:1──◄ Member                                                     │   │
+│  │                                                                  │   │
+│  ├─1:N──► Company ★─────────────────────────────────────────────┐   │
+│  │        │                                                      │   │
+│  │        └─1:N──► Department ★─────────────────────────────┐   │   │
+│  │                │                                          │   │   │
+│  │                ├── self-ref: parentId → id [多级嵌套]      │   │   │
+│  │                │                                          │   │   │
+│  │                └──◄── 0:N ── Role ★ [可选挂载]           │   │   │
+│  │                                                                  │   │
+│  ├─1:N──► ExternalEntity ★                                           │   │
+│  │        （可选关联 Company / Department）                             │   │
+│  │                                                                  │   │
+│  └─1:N──► Role ★ [独立角色, departmentId = null]                       │   │
+│                                                                        │
+│  Page/Component ──N:1──► Hook                                           │
+│                                                                        │
+│  流程节点 holder 引用：                                                  │
+│  processNodes.holder → role | externalEntity | service                 │
+╝════════════════════════════════════════════════════════════════════════╝
 ```
+
+> ★ 标记为 v1.1 新增实体（Company / Department / ExternalEntity / Role 迁移）
 
 ---
 
@@ -539,12 +666,17 @@ Project ════════════════════════
 | 领域模型实体 | Project JSON 节点 | 说明 |
 |------------|------------------|------|
 | Project | 根节点 `{ "project": { ... } }` | 包裹所有内容 |
+| Member | `members[]` | 项目成员 |
+| Company | `companies[]` | 组织架构 ★ v1.1 |
+| Department | `companies[].departments[]`（或 `departments[]`） | 公司下属, 支持多级 ★ v1.1 |
+| ExternalEntity | `externalEntities[]` | 外部参与方 ★ v1.1 |
+| Role | `roles[]` | 业务参与者 ★ v1.1 从域四迁入 |
 | Application | `applications[]` | 含 type 字段区分平台 |
 | Page | `applications[].pages[]` | 特殊 Component |
 | Component | `pages[].components[]`（递归） | ComponentBase |
 | Zone | `pages[].zones[]` | 逻辑分区 |
 | DesignArtifact | `designArtifacts[]` | Project 根级 |
-| BusinessProcess | `businessProcesses[]` | Project 根级 ⭐ |
+| BusinessProcess | `businessProcesses[]` | Project 根级 |
 | ProcessStep | 流程内部 steps[] | BusinessProcess 子节点 |
 | ProcessTrigger | 流程 trigger 字段 | BusinessProcess 内嵌 |
 | Hook | `components[].hooks[]` 或 `pages[].hooks[]` | 交互逻辑 |
@@ -552,10 +684,9 @@ Project ════════════════════════
 | EntityDef | `domainModels[].entities[]` | DomainModelDef 子节点 |
 | FieldDef | `entities[].fields[]` | EntityDef 子节点 |
 | Rule | `rules[]` | Project 根级 |
-| Role | `roles[]` | Project 根级 |
 | Endpoint | `applications[type="api"].endpoints[]` | API 应用内 |
-| Action | `applications[type="service"].actions[]` | Service 应用内 ⭐ |
-| ScheduleTask | `applications[type="service"].scheduleTasks[]` | Service 应用内 ⭐ |
+| Action | `applications[type="service"].actions[]` | Service 应用内 |
+| ScheduleTask | `applications[type="service"].scheduleTasks[]` | Service 应用内 |
 | GlobalAction | `applications[].globalActions[]` | 各应用内 |
 | Timer | `applications[].timers[]` | 各应用内 |
 
@@ -564,6 +695,20 @@ Project ════════════════════════
 ---
 
 ## 9. 架构变更记录
+
+### v1.1 变更（2026-05-03）
+
+| 变更项 | 内容 | 影响 |
+|--------|------|------|
+| **新增 Company 实体** | §2.3 定义 Company（公司/组织）, 含 companyType/contactInfo/config 字段 | 对齐 DB Schema `companies` 表 + PRD F-M1-06 |
+| **新增 Department 实体** | §2.4 定义 Department（部门）, 含 parentId 自引用支持多级嵌套 | 对齐 DB Schema `departments` 表 + PRD F-M1-07 |
+| **新增 ExternalEntity 实体** | §2.5 定义 ExternalEntity（外部实体）, 与 Role/Service 对称的第四类流程参与者 | 对齐 DB Schema `external_entities` 表 + PRD F-M1-09 |
+| **Role 迁移 + 增强** | 从 §5.4（域四）迁移至 §2.6（域一）, 新增 departmentId 可选挂载/category/contactInfo 等字段 | 对齐 role-independence-design.md 决策 |
+| **域一实体数 2→6** | 域一从 Project+Member 扩展为 Project+Member+Company+Department+ExternalEntity+Role | 组织架构对象归入项目管理域 |
+| **ER 图更新** | 新增组织架构子树（Company→Department→Role）+ ExternalEntity 独立分支 | 总览图完整性 |
+| **映射表更新** | 新增 4 行映射（Company/Department/ExternalEntity/Role 位置更新） | 与 JSON 结构对齐 |
+
+> **触发原因**: M1 PRD 审核中发现领域模型缺少 Phase 1 已实现的 3 个核心实体（Company/Department/ExternalEntity）, 且 Role 定义与最新设计决策不一致.
 
 ### v1.0 变更（2026-04-27）
 

@@ -280,8 +280,8 @@ PM 自用              研发 / Coding AI     测试系统
 - **待讨论**：
   - [x] **上游 MCP 接口设计**（✅ v1.0 完成——详见 docs/09-mcp-interface.md。含：语义层范围界定/8组实体级CRUD/~60+方法/下游延后）
   - [x] 语义层数据结构的 Schema 设计（⚠️ 已完成——详见 docs/03-semantic-layer-schema.md）
-  - [ ] PM 与 AI 协作的交互界面设计
-  - [ ] LLM 集成方案选择及 Prompt 工程策略
+  - [ ] PM 与 AI 协作的交互界面设计 → **已归入 Phase 2 [2.5-pre]**
+  - [ ] LLM 集成方案选择及 Prompt 工程策略 → **已归入 Phase 5 [5-pre]**
   - [ ] 版本管理策略（原型的迭代历史如何管理）
   - [x] **Project 级共享资源体系详细设计**（✅ 全部完成——详见 docs/04-app-shared-resources.md。含：架构变更、26种字段类型、JS代码逻辑表达、Context API 5模块、GlobalActions 21个行为、前端定时器、Hook JS函数模型、Endpoints、统一参数格式）
   - [x] **「对象生命周期」交互范式的具体定义**（钩子类型、事件类型、action 类型体系）—— ✅ 详见 docs/05-object-lifecycle.md

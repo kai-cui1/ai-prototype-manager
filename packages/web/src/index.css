@@ -1,0 +1,275 @@
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * APM Design Tokens — 基于 ui-design-spec.md v1.5
+ * =================================================
+ * 重要：所有颜色值使用 HSL 格式（非 hex）
+ * 原因：Tailwind v3 会将 colors 配置中的 var() 自动包裹在 hsl() 中，
+ *       若变量值为 hex（如 #08979c），则 hsl(#08979c) 为无效 CSS，导致颜色全部失效。
+ */
+
+@layer base {
+  :root {
+    /* ===== §2.1 品牌色（Brand Color）— HSL 格式 ===== */
+    --primary: 177 58% 31%;           /* #08979c */
+    --primary-foreground: 0 0% 100%;   /* #ffffff */
+    --primary-hover: 188 100% 26%;      /* #006d75 */
+    --primary-active: 189 100% 19%;     /* #00474f */
+    --primary-bg: 178 100% 95%;         /* #e6fffb */
+    --primary-lighter: 177 77% 85%;     /* #87e8de */
+
+    /* ===== §2.2 中性色（Neutral）— 文字三级色阶 ===== */
+    --text-primary: 0 0% 20%;          /* #333333 */
+    --text-secondary: 0 0% 40%;        /* #666666 */
+    --text-tertiary: 0 0% 60%;         /* #999999 */
+    --text-disabled: 0 0% 80%;         /* #cccccc */
+
+    /* ===== §2.2 中性色 — 表面五级层级 ===== */
+    --background: 0 0% 96%;            /* #f5f5f5 页面/内容区背景 */
+    --foreground: 0 0% 20%;            /* #333333 主文字 = text-primary */
+    --card: 0 0% 100%;                /* #ffffff 卡片/弹窗背景 */
+    --card-foreground: 0 0% 20%;
+    --border: 0 0% 91%;               /* #e8e8e8 默认分割线 */
+    --border-strong: 0 0% 85%;         /* #d9d9d9 强调边框、表格线 */
+    --divider: 0 0% 94%;              /* #f0f0f0 分割线 */
+    --fill: 0 0% 98%;                 /* #fafafa 表头、偶数行背景 */
+    --input: 0 0% 100%;               /* #ffffff 输入框背景 */
+
+    /* ===== §2.2 中性色 — shadcn 兼容别名 ===== */
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 20%;
+    --muted: 0 0% 96%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 0% 94%;
+    --accent-foreground: 0 0% 20%;
+
+    /* ===== §2.3 语义功能色 ===== */
+    --destructive: 0 100% 62%;         /* #ff4d4f */
+    --destructive-foreground: 0 0% 100%;
+    --danger: 0 100% 62%;             /* #ff4d4f */
+    --danger-hover: 0 100% 73%;       /* #ff7875 */
+    --danger-bg: rgba(255, 77, 79, 0.06);  /* 透明度：不经过 Tailwind 颜色系统 */
+    --success: 120 100% 39%;          /* #52c41a */
+
+    /* ===== 状态 Badge / Tag 用色（§6.5）===== */
+    --status-active-bg: 178 100% 95%;       /* #e6fffb */
+    --status-active-text: 172 87% 45%;      /* #13c2c2 */
+    --status-active-border: 164 84% 89%;     /* #b5f5ec */
+    --status-archived-bg: 38 100% 94%;       /* #fff7e6 */
+    --status-archived-text: 37 97% 48%;      /* #fa8c16 */
+    --status-archived-border: 40 100% 86%;    /* #ffe7ba */
+    --status-draft-bg: 0 0% 94%;             /* #f0f0f0 */
+    --status-draft-text: 0 0% 40%;           /* #666666 */
+    --status-draft-border: 0 0% 85%;         /* #d9d9d9 */
+    --status-info-bg: 210 100% 96%;          /* #e6f4ff */
+    --status-info-text: 217 100% 55%;        /* #1677ff */
+    --status-info-border: 214 100% 81%;      /* #91caff */
+    --status-success-bg: 120 100% 95%;       /* #f6ffed */
+    --status-success-text: 120 100% 39%;     /* #52c41a */
+    --status-success-border: 120 86% 81%;    /* #b7eb8f */
+    --status-warning-bg: 48 100% 96%;        /* #fffbe6 */
+    --status-warning-text: 45 93% 48%;       /* #faad14 */
+    --status-warning-border: 47 100% 82%;    /* #ffe58f */
+    --status-error-bg: 0 100% 96%;           /* #fff2f0 */
+    --status-error-text: 0 100% 62%;         /* #ff4d4f */
+    --status-error-border: 0 86% 86%;        /* #ffccc7 */
+
+    /* ===== 实体类型语义色 ===== */
+    --entity-domain: 217 100% 55%;       /* #1677ff 蓝 */
+    --entity-process: 120 100% 39%;      /* #52c41a 绿 */
+    --entity-company: 30 100% 52%;       /* #fa8c16 橙 */
+    --entity-department: 264 84% 63%;    /* #722ed1 紫 */
+    --entity-role: 0 100% 62%;          /* #ff4d4f 红 */
+    --entity-external: 177 58% 31%;     /* #08979c 青 */
+
+    /* ===== §4.1 圆角规范 ===== */
+    --radius: 0.625rem;             /* 默认圆角（shadcn 兼容） */
+    --radius-btn: 6px;              /* 按钮 / 输入框 / Tooltip */
+    --radius-input: 6px;            /* 输入框 / 选择器 */
+    --radius-tag: 4px;              /* Badge / Tag */
+    --radius-card: 8px;             /* 卡片 / Panel */
+    --radius-dialog: 10px;          /* Dialog / Modal */
+    --radius-code: 3px;             /* Code/ID 单元格内嵌 */
+
+    /* ===== §4.2 阴影规范 ===== */
+    --shadow-card: 0 1px 3px 0 0 0 0 6% / 6%;              /* 0 1px 3px rgba(0,0,0,.06) */
+    --shadow-dropdown: 0 4px 12px 0 0 0 0 10% / 10%;         /* 0 4px 12px rgba(0,0,0,.1) */
+    --shadow-dialog: 0 8px 24px 0 0 0 0 15% / 15%;         /* 0 8px 24px rgba(0,0,0,.15) */
+    --shadow-hover: 0 2px 8px 0 0 0 0 9% / 9%;             /* 0 2px 8px rgba(0,0,0,.09) */
+    --shadow-focus-primary: 0 0 0 2px rgba(8,151,156,0.10);   /* 输入框 focus 光晕（原型规范） */
+    --shadow-focus-error: 0 0 0 2px rgba(255,77,79,0.10);     /* 错误 focus 光晕 */
+    --overlay-bg: rgba(0, 0, 0, 0.45);                         /* 弹窗遮罩（原型 45%，非 shadcn 默认 10%） */
+
+    /* ===== §1.2 布局尺寸常量 ===== */
+    --header-height: 48px;
+    --sidebar-width: 220px;
+    --sidebar-collapsed-width: 64px;
+    --content-padding: 24px;
+
+    /* ===== §3 字体排版 Token ===== */
+    --font-size-h1: 20px;
+    --font-size-h2: 16px;
+    --font-size-h3: 14px;
+    --font-size-body: 14px;
+    --font-size-sm: 13px;
+    --font-size-caption: 12px;
+    --font-size-2xs: 11px;
+    --font-weight-title: 600;
+    --font-weight-label: 500;
+
+    /* ===== Ring / Popover（shadcn 必需）===== */
+    --ring: 177 58% 31%;              /* #08979c */
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 20%;
+
+    /* ===== Chart（shadcn 必需）===== */
+    --chart-1: 177 58% 31%;            /* #08979c */
+    --chart-2: 217 100% 55%;           /* #1677ff */
+    --chart-3: 120 100% 39%;           /* #52c41a */
+    --chart-4: 30 100% 52%;            /* #fa8c16 */
+    --chart-5: 0 100% 62%;             /* #ff4d4f */
+
+    /* ===== Sidebar（§1.2.1 主题自适应：亮色浅底 / 暗色深底）===== */
+    --sidebar: 0 0% 100%;               /* #ffffff 亮色背景 */
+    --sidebar-foreground: 0 0% 20%;     /* #333333 主文字 */
+    --sidebar-primary: 177 58% 31%;           /* #08979c 品牌色不变 */
+    --sidebar-primary-foreground: 0 0% 100%;  /* 主色上白字 */
+    --sidebar-accent: 0 0% 96%;               /* #f5f5f5 hover 底色 */
+    --sidebar-accent-foreground: 0 0% 20%;    /* #333 accent 上文字 */
+    --sidebar-border: 0 0% 91%;               /* #e8e8e8 分割线 */
+    --sidebar-ring: 177 58% 31%;              /* focus ring */
+    --sidebar-bg: 0 0% 100%;                  /* #ffffff 直接背景引用 */
+    --sidebar-text: 0 0% 45%;                 /* #737373 菜单默认文字 */
+    --sidebar-text-active: 0 0% 20%;          /* #333 悬浮/选中文字 */
+    --sidebar-hover: 0 0% 96%;                /* #f5f5f5 悬浮背景 */
+    --sidebar-active-bg: 177 58% 31%;         /* #08979c 选中=主色 */
+    --sidebar-group-label: 0 0% 60%;          /* #999 分组标签 */
+    --sidebar-footer-text: 0 0% 60%;          /* #999 版本号 */
+  }
+
+  /* ===== §2.4 + §8.2 暗色模式完整映射 ===== */
+  .dark {
+    /* 品牌色：主色保持不变，衍生色加深 */
+    --primary: 177 58% 31%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 188 100% 26%;
+    --primary-active: 189 100% 19%;
+    --primary-bg: 186 33% 11%;         /* #0a2829 */
+    --primary-lighter: 185 50% 22%;      /* #064e50 */
+
+    /* 文字：反转 */
+    --text-primary: 0 0% 100%;
+    --text-secondary: 0 0% 65%;
+    --text-tertiary: 0 0% 45%;
+    --text-disabled: 0 0% 25%;
+
+    /* 表面：深色层级 */
+    --background: 222 10% 8%;           /* #141414 */
+    --foreground: 0 0% 100%;
+    --card: 218 12% 12%;              /* #1f1f1f */
+    --card-foreground: 0 0% 100%;
+    --border: 220 13% 19%;             /* #303030 */
+    --border-strong: 223 9% 27%;        /* #434343 */
+    --divider: 218 11% 15%;            /* #262626 */
+    --fill: 216 12% 13%;              /* #1a1a1a */
+    --input: 216 12% 13%;
+
+    /* shadcn 兼容别名 */
+    --secondary: 223 9% 27%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 223 9% 27%;
+    --muted-foreground: 0 0% 45%;
+    --accent: 216 12% 13%;
+    --accent-foreground: 0 0% 100%;
+
+    /* 语义色：暗色适配 */
+    --destructive: 0 100% 62%;
+    --destructive-foreground: 0 0% 100%;
+    --danger: 0 100% 62%;
+    --danger-hover: 0 100% 73%;
+    --danger-bg: rgba(255, 77, 79, 0.15);  /* 暗色加深透明度 */
+
+    /* 状态 Badge 暗色：背景去饱和 */
+    --status-active-bg: 186 33% 11%;
+    --status-active-text: 172 87% 45%;
+    --status-active-border: 185 50% 22%;
+    --status-archived-bg: 28 17% 10%;
+    --status-archived-text: 37 97% 48%;
+    --status-archived-border: 29 21% 0%;
+    --status-draft-bg: 216 12% 13%;
+    --status-draft-text: 0 0% 45%;
+    --status-draft-border: 220 13% 19%;
+    --status-info-bg: 214 43% 11%;
+    --status-info-text: 217 100% 55%;
+    --status-info-border: 212 35% 18%;
+    --status-success-bg: 213 39% 11%;
+    --status-success-text: 120 100% 39%;
+    --status-success-border: 211 36% 13%;
+    --status-warning-bg: 215 38% 8%;
+    --status-warning-text: 45 93% 48%;
+    --status-warning-border: 214 32% 13%;
+    --status-error-bg: 214 26% 11%;
+    --status-error-text: 0 100% 62%;
+    --status-error-border: 213 23% 14%;
+
+    /* 阴影：暗色增强 */
+    --shadow-card: 0 2px 8px 0 0 0 0 25% / 25%;
+    --shadow-dropdown: 0 6px 20px 0 0 0 0 35% / 35%;
+    --shadow-dialog: 0 8px 24px 0 0 0 0 35% / 35%;
+    --shadow-hover: 0 4px 16px 0 0 0 0 18% / 18%;
+    --shadow-focus-primary: 0 0 0 2px rgba(8,151,156,0.15);   /* 暗色 focus 光晕略强 */
+    --shadow-focus-error: 0 0 0 2px rgba(255,77,79,0.15);     /* 暗色错误光晕略强 */
+    --overlay-bg: rgba(0, 0, 0, 0.55);                         /* 暗色遮罩略深 */
+
+    /* Ring / Popover */
+    --ring: 177 58% 31%;
+    --popover: 218 12% 12%;
+    --popover-foreground: 0 0% 100%;
+
+    /* Chart */
+    --chart-1: 177 58% 31%;
+    --chart-2: 54 100% 65%;
+    --chart-3: 120 100% 39%;
+    --chart-4: 30 100% 52%;
+    --chart-5: 0 100% 62%;
+
+    /* Sidebar 暗色：纯黑深色系（覆盖全部 16 个变量） */
+    --sidebar: 0 0% 0%;                     /* #000000 */
+    --sidebar-foreground: 0 0% 80%;          /* 白色主文字 */
+    --sidebar-primary: 177 58% 31%;                /* 品牌色不变 */
+    --sidebar-primary-foreground: 0 0% 100%;       /* 主色上白字 */
+    --sidebar-accent: 210 100% 8%;                 /* 深色 hover 底色 */
+    --sidebar-accent-foreground: 0 0% 100%;        /* accent 上白字 */
+    --sidebar-border: 210 100% 8%;                 /* 深色分割线 */
+    --sidebar-ring: 177 58% 31%;                  /* focus ring */
+    --sidebar-bg: 0 0% 0%;                        /* #000000 直接背景 */
+    --sidebar-text: 0 0% 80%;                     /* 白色菜单文字 */
+    --sidebar-text-active: 0 0% 100%;              /* 纯白悬浮/选中文字 */
+    --sidebar-hover: 210 100% 8%;                  /* 深色 hover 背景 */
+    --sidebar-active-bg: 177 58% 31%;              /* 选中=主色不变 */
+    --sidebar-group-label: 0 0% 45%;               /* 白色低透明度分组标签 */
+    --sidebar-footer-text: 0 0% 40%;               /* 白色低透明度版本号 */
+  }
+
+  .theme {
+    --font-heading: var(--font-sans);
+    --font-sans: 'Geist Variable', -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Helvetica Neue', sans-serif;
+  }
+
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  html {
+    @apply font-sans;
+  }
+}

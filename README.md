@@ -17,38 +17,35 @@ A. 理解业务（领域建模）→ B. 定义系统运转（业务流程设计�
 
 ## 当前状态
 
-> **概念设计阶段（阶段一进行中，77% 完成）**
+> **Phase 1 数据模型中心 + MVP（进行中）** — Phase 0 设计规格 87% 完成，M1 PRD 编写中。
 
-已完成的设计文档：
-
-| 文档 | 内容 | 状态 |
-|------|------|------|
-| `docs/01-design-idea/` | 项目定位、五大支柱、协作模式、要素清单 23 项 | ✅ |
-| `docs/02-domain-model/` | 系统领域模型 / 元模型（5 大域 ~19 实体） | ✅ |
-| `docs/03-semantic-layer-schema.md` | 语义层 Schema 骨架设计 | ✅ |
-| `docs/04-app-shared-resources.md` | App 级共享资源体系（26 种字段类型、GlobalActions、Hook 模型等） | ✅ |
-| `docs/05-object-lifecycle.md` | 对象生命周期交互范式（钩子/事件/action 体系） | ✅ |
-| `docs/06-external-design-integration.md` | 外部设计稿集成与布局映射 | ✅ |
-| `docs/07-component-library.md` | 标准组件库（~52 组件 / 6 分类 / 三层继承） | ✅ |
-| `docs/08-business-process.md` | 业务流程系统 v1.1（全局节点池、decisions 对称模型、纯管道数据流、29 项决策） | ✅ |
-| `docs/workflow.md` | A→F 六阶段完整工作流定义 | 📝 待补充细节 |
-
-待完成：subProcess 设计、循环约束规则、MCP 接口形态、PM-AI 协作界面、LLM 集成方案、版本管理策略
+详细路线图见 `docs/00-project/roadmap/README.md`。
 
 ## 技术栈
 
 - **B/S 架构**，Node.js
+- 后端: Fastify + PostgreSQL + Drizzle ORM + TypeBox + Ajv
+- 前端: React + Vite + TypeScript + shadcn/ui + React Router v6 + ReactFlow
+- 项目结构: Monorepo (pnpm workspaces + Turborepo)
 - 原型产物格式：**HTML + CSS + JS**（双轨制：视觉层 + 语义层分离）
-- MCP 双向接口：上游（Design AI 读写）+ 下游（Coding AI 只读）
 
 ## 目录结构
 
 ```
-├── CLAUDE.md              # Claude Code 项目指引
-├── README.md              # 本文件
-├── docs/                  # 设计文档
-│   ├── 01-design-idea/    # 设计构想与讨论记录
-│   ├── 02-roadmap.md      # 建设路线图
-│   └── 03~08/             # 各专项设计文档
-└── logs-important/        # 讨论日志（按日期归档）
+├── CLAUDE.md                  # Claude Code 项目指引
+├── README.md                  # 本文件
+├── docs/                      # 文档（持久化存储）
+│   ├── 00-project/             # 项目元数据
+│   │   └── roadmap/           # 建设路线图（主 README + phase0~5 明细）
+│   ├── 01-design-idea/        # 设计构想与讨论记录
+│   ├── 02-domain-model/       # 领域模型设计产物
+│   ├── 03-prd/                # 产品需求规格 + PRD 编写规范
+│   ├── 04-tech-design/        # 技术方案设计
+│   ├── 05-data-design/        # 数据库 DDL + 前端数据方案
+│   ├── 06-test-design/        # 测试方案（待填充）
+│   ├── 07-deploy-design/      # 部署方案（待填充）
+│   ├── 99-archived/           # 已归档历史文件
+│   └── 20-analyze-report/     # 分析报告
+├── packages/                  # 代码（Monorepo: api / web / shared / validation-schemas / e2e）
+└── logs-important/            # 重要对话记录（按日期分文件）
 ```

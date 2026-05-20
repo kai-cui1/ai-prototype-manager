@@ -1,0 +1,161 @@
+import Fastify, { type FastifyInstance } from 'fastify';
+import cors from '@fastify/cors';
+import swagger from '@fastify/swagger';
+import scalarApiReference from '@scalar/fastify-api-reference';
+import { db } from './db.js';
+const app: FastifyInstance = Fastify({
+  logger: {
+    level: process.env.LOG_LEVEL ?? 'info',
+  },
+});
+
+// ============================================
+// 注册插件
+// ============================================
+
+await app.register(cors, {
+  origin: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+});
+
+// ============================================
+// OpenAPI 文档（Swagger Spec + Scalar UI）
+// ============================================
+
+await app.register(swagger, {
+  openapi: {
+    openapi: '3.0.3',
+    info: {
+      title: 'APM API',
+      version: '1.0.0',
+      description: 'AI Prototype Manager 后端 REST API 完整契约文档',
+      contact: { name: 'APM Team' },
+    },
+    servers: [
+      { url: 'http://localhost:13180', description: 'dev1 本地开发' },
+    ],
+    tags: [
+      { name: 'Health', description: '健康检查' },
+      { name: 'Projects', description: '项目管理 (M1)' },
+      { name: 'Organization', description: '组织管理 (M1 子模块)' },
+    ],
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+          description: 'JWT Bearer Token 认证（Phase 2+ 启用）',
+        },
+      },
+    },
+  },
+});
+
+await app.register(scalarApiReference, {
+  routePrefix: '/docs',
+  configuration: {
+    theme: 'alternate',
+  },
+});
+
+// 暴露 OpenAPI Spec JSON 端点（@fastify/swagger 不自动创建 HTTP 路由）
+app.get('/openapi/json', async () => app.swagger());
+
+// ============================================
+// 全局错误处理中间件
+// ============================================
+
+app.setErrorHandler((error: unknown, request, reply) => {
+  const requestId = request.id;
+  const err = error as Error & { statusCode?: number; code?: string };
+
+  // 已知业务错误（带 HTTP status）
+  if (err.statusCode && err.statusCode >= 400 && err.statusCode < 500) {
+    reply.code(err.statusCode).send({
+      error: {
+        code: err.code ?? 'UNKNOWN_ERROR',
+        message: err.message,
+        requestId,
+      },
+    });
+    return;
+  }
+
+  // 未预期异常 — 不泄露堆栈
+  app.log.error({ err: error, requestId }, 'Unhandled error');
+  reply.code(500).send({
+    error: {
+      code: 'INTERNAL_ERROR',
+      message: '服务器内部错误',
+      requestId,
+    },
+  });
+});
+
+// ============================================
+// 请求日志装饰器
+// ============================================
+
+app.addHook('onRequest', async (request) => {
+  (request as unknown as Record<string, unknown>)._startTime = Date.now();
+});
+
+app.addHook('onResponse', async (request, reply) => {
+  const duration = Date.now() - ((request as unknown as Record<string, unknown>)._startTime as number);
+  app.log.debug(
+    `${request.method} ${request.url} → ${reply.statusCode} (${duration}ms)`
+  );
+});
+
+// ============================================
+// 健康检查路由
+// ============================================
+
+app.get('/api/v1/health', async () => {
+  try {
+    await db.execute('SELECT 1');
+    return {
+      data: { status: 'ok', timestamp: new Date().toISOString() },
+    };
+  } catch (err) {
+    return {
+      data: { status: 'degraded', timestamp: new Date().toISOString(), db: 'unreachable' },
+    };
+  }
+});
+
+// ============================================
+// 模块路由注册点（M1~M6 逐步添加）
+// ============================================
+
+// M1: 项目管理（F-M1-01 列表 / F-M1-02 创建 / F-M1-03 详情 / F-M1-04 编辑 / F-M1-05 归档）
+import projectRoutes from './routes/projects.js';
+await app.register(projectRoutes, { prefix: '/api/v1/projects' });
+// TODO(M2): app.register(domainRoutes, { prefix: '/api/v1/projects/:projectId/domain' })
+// TODO(M3): app.register(processRoutes, { prefix: '/api/v1/projects/:projectId/processes' })
+// M4: 组织管理（F-M1-06 公司 / F-M1-07 部门 / F-M1-08 角色 / F-M1-09 外部实体）
+import organizationRoutes from './routes/organization.js';
+await app.register(organizationRoutes, { prefix: '/api/v1/projects/:projectId' });
+// TODO(M5): app.register(architectureRoutes, { prefix: '/api/v1/projects/:projectId/business-architectures' })
+// TODO(M6): app.register(menuRoutes, { prefix: '/api/v1/menus' })
+
+// ============================================
+// 启动服务器
+// ============================================
+
+// 仅在非测试模式下自动启动服务器（vitest 导入时通过 app.inject() 测试，不需要 HTTP 监听）
+if (!process.env.VITEST) {
+  try {
+    const port = Number(process.env.API_PORT) || 13180;
+    const host = process.env.API_HOST || '0.0.0.0';
+    await app.listen({ port, host });
+    console.log(`🚀 API server running at http://${host}:${port}`);
+  } catch (err) {
+    app.log.error(err);
+    process.exit(1);
+  }
+}
+
+export { app };
