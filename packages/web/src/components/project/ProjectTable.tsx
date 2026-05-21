@@ -53,8 +53,13 @@ export function ProjectTable({ data, onArchive }: ProjectTableProps) {
       <TableBody>
         {data.map((project) => (
           <TableRow key={project.id}>
-            {/* 名称列 — 左对齐、medium weight */}
-            <TableCell className="font-medium">{project.displayName}</TableCell>
+            {/* 名称列 — 点击跳转项目详情 */}
+            <TableCell
+              className="font-medium cursor-pointer hover:text-primary-hover"
+              onClick={() => navigate(`/projects/${project.id}`)}
+            >
+              {project.displayName}
+            </TableCell>
 
             {/* 标识符列 — CodeCell monospace 展示项目 name（非 UUID） */}
             <CodeCell value={project.name} />
