@@ -6,6 +6,7 @@
 import { useState, useCallback } from 'react';
 import type { Company, Department, Role, ExternalEntity } from '@apm/shared';
 import { apiClient } from '@/lib/api-client';
+import { toast } from 'sonner';
 
 // ============================================================
 // Types
@@ -24,6 +25,10 @@ interface UseOrganizationReturn {
   createCompany: (data: Record<string, unknown>) => Promise<Company>;
   updateCompany: (id: string, data: Record<string, unknown>) => Promise<Company>;
   deleteCompany: (id: string) => Promise<void>;
+
+  // Companies search
+  companySearch: string;
+  setCompanySearch: (s: string) => void;
 
   // Departments
   departments: Department[];
@@ -62,14 +67,22 @@ export function useOrganization(projectId: string): UseOrganizationReturn {
   // ---- Companies ----
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
+  const [companySearch, setCompanySearch] = useState('');
 
   const refetchCompanies = useCallback(() => {
     setCompaniesLoading(true);
-    apiClient.get<ListResult<Company>>(`/projects/${projectId}/companies`)
+    const params: Record<string, string> = {};
+    if (companySearch) params.search = companySearch;
+    apiClient.get<ListResult<Company>>(
+      `/projects/${projectId}/companies`,
+      Object.keys(params).length > 0 ? params : undefined,
+    )
       .then((res) => setCompanies(res.data.data))
-      .catch(() => {})
+      .catch((err) => {
+        toast.error(err?.message ?? '加载公司列表失败');
+      })
       .finally(() => setCompaniesLoading(false));
-  }, [projectId]);
+  }, [projectId, companySearch]);
 
   const createCompany = useCallback(async (data: Record<string, unknown>) => {
     const res = await apiClient.post<{ data: Company }>(`/projects/${projectId}/companies`, data);
@@ -180,6 +193,7 @@ export function useOrganization(projectId: string): UseOrganizationReturn {
   return {
     companies, companiesLoading, refetchCompanies,
     createCompany, updateCompany, deleteCompany,
+    companySearch, setCompanySearch,
     departments, departmentsLoading, refetchDepartments,
     createDepartment, updateDepartment, deleteDepartment,
     roles, rolesLoading, refetchRoles,
