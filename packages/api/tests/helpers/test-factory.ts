@@ -11,7 +11,7 @@
  */
 
 import { db } from '../../src/db.js';
-import { projects } from '../../src/models/schema.js';
+import { companies, projects } from '../../src/models/schema.js';
 import { eq, ilike, and } from 'drizzle-orm';
 
 /** 测试数据名称前缀，用于隔离和清理 */
@@ -81,6 +81,41 @@ export async function createTestProjects(
     }
   }
   return rows;
+}
+
+/** 创建测试公司的默认参数 */
+interface CreateCompanyParams {
+  name?: string;
+  displayName?: string;
+  description?: string;
+  companyType?: string;
+}
+
+/**
+ * 创建一个测试公司（name 自动加 TEST_PREFIX 前缀）。
+ *
+ * @param projectId - 所属项目 ID
+ * @param overrides - 覆盖默认值的参数
+ * @returns 插入的数据库行
+ */
+export async function createTestCompany(
+  projectId: string,
+  overrides: CreateCompanyParams = {},
+): Promise<typeof companies.$inferSelect> {
+  const name = `${TEST_PREFIX}${overrides.name ?? `co-${Date.now()}`}`;
+  const [row] = await db
+    .insert(companies)
+    .values({
+      projectId,
+      name,
+      displayName: overrides.displayName ?? `测试公司${name}`,
+      description: overrides.description ?? null,
+      companyType: overrides.companyType ?? 'internal',
+      status: 'active',
+      version: 1,
+    })
+    .returning();
+  return row!;
 }
 
 /**
