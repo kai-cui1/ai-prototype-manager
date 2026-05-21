@@ -14,6 +14,10 @@ export interface Company {
   contactInfo: Record<string, unknown>;
   sortOrder: number;
   config: Record<string, unknown>;
+  status: string;            // 'active'
+  version: number;           // optimistic lock version
+  departmentCount?: number;  // dept count (list only)
+  roleCount?: number;        // role count (list only)
   createdAt: string;
   updatedAt: string;
 }

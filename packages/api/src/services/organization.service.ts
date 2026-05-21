@@ -60,7 +60,10 @@ async function assertProjectActive(db: Db, projectId: string): Promise<void> {
 // Mapper Functions — Company
 // ============================================================
 
-function toCompany(row: typeof companies.$inferSelect): Company {
+function toCompany(
+  row: typeof companies.$inferSelect,
+  stats?: { departmentCount: number; roleCount: number },
+): Company {
   return {
     id: row.id,
     projectId: row.projectId,
@@ -71,6 +74,10 @@ function toCompany(row: typeof companies.$inferSelect): Company {
     contactInfo: row.contactInfo as Record<string, unknown>,
     sortOrder: row.sortOrder,
     config: row.config as Record<string, unknown>,
+    status: row.status ?? 'active',
+    version: row.version ?? 1,
+    departmentCount: stats?.departmentCount ?? 0,
+    roleCount: stats?.roleCount ?? 0,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -174,7 +181,6 @@ export async function listCompanies(
     pageSize: params.pageSize,
   });
 
-  // B-M1-27: 双字段搜索
   const conditions = [eq(companies.projectId, projectId)];
   if (params.search) {
     const kw = `%${params.search}%`;
@@ -184,8 +190,8 @@ export async function listCompanies(
   }
   const whereClause = and(...conditions);
 
-  // COUNT + DATA 并行
-  const [countRows, rows] = await Promise.all([
+  // 三路并行：COUNT + DATA + STATS
+  const [countRows, rows, statsRows] = await Promise.all([
     db.select({ count: count() }).from(companies).where(whereClause),
     db.select()
       .from(companies)
@@ -193,10 +199,30 @@ export async function listCompanies(
       .orderBy(desc(companies.createdAt))
       .limit(limit)
       .offset(offset),
+    // 统计子查询：每家公司的部门数和角色数
+    db.select({
+      companyId: companies.id,
+      departmentCount: sql<number>`count(distinct ${departments.id})`,
+      roleCount: sql<number>`count(distinct ${roles.id})`,
+    })
+      .from(companies)
+      .leftJoin(departments, eq(departments.companyId, companies.id))
+      .leftJoin(roles, eq(roles.departmentId, departments.id))
+      .where(eq(companies.projectId, projectId))
+      .groupBy(companies.id),
   ]);
 
+  // 构建 stats Map
+  const statsMap = new Map<string, { departmentCount: number; roleCount: number }>();
+  for (const s of statsRows) {
+    statsMap.set(s.companyId, {
+      departmentCount: Number(s.departmentCount ?? 0),
+      roleCount: Number(s.roleCount ?? 0),
+    });
+  }
+
   return {
-    data: rows.map((r) => toCompany(r as typeof companies.$inferSelect)),
+    data: rows.map((r) => toCompany(r as typeof companies.$inferSelect, statsMap.get(r.id))),
     meta: buildMeta(countRows[0]?.count ?? 0, page, pageSize),
   };
 }
@@ -211,6 +237,15 @@ export async function createCompany(
 ): Promise<Company> {
   await assertProjectActive(db, projectId);
 
+  // B-M1-30: name 在 projectId 范围内唯一
+  const [existing] = await db
+    .select({ id: companies.id })
+    .from(companies)
+    .where(and(eq(companies.projectId, projectId), eq(companies.name, input.name as string)));
+  if (existing) {
+    throw conflict(ERROR_CODES.NAME_CONFLICT, '该名称已被使用，请更换');
+  }
+
   const [inserted] = await db
     .insert(companies)
     .values({
@@ -218,6 +253,8 @@ export async function createCompany(
       name: input.name as string,
       displayName: input.displayName as string,
       description: (input.description as string | undefined) ?? null,
+      status: 'active',
+      version: 1,
     })
     .returning();
 
@@ -255,11 +292,11 @@ export async function updateCompany(
 
   // B-M1-20 类似：name 唯一性（排除自身，DB UNIQUE 是最终防线）
   if (input.name && input.name !== existing.name) {
-    const [conflict] = await db
+    const [existingName] = await db
       .select({ id: companies.id })
       .from(companies)
-      .where(and(eq(companies.name, input.name as string), eq(companies.id, id).not()));
-    if (conflict) {
+      .where(and(eq(companies.name, input.name as string), not(eq(companies.id, id))));
+    if (existingName) {
       throw conflict(ERROR_CODES.NAME_CONFLICT, '该名称已被使用，请更换');
     }
   }
@@ -289,9 +326,19 @@ export async function deleteCompany(db: Db, id: string): Promise<void> {
   if (!existing) throw notFound('Company', id);
   await assertProjectActive(db, existing.projectId);
 
-  // B-M1-38: 引用完整性检查（Phase 1 可简化——Drizzle CASCADE 会处理子表）
-  // R5 Why: 不显式检查 process_nodes 引用，因为 Phase 1 尚无流程数据；
-  //        DB CASCADE 会自动删除关联的 departments → roles.departmentId SET NULL
+  // B-M1-38: 引用完整性检查 — 检查 domain_entities 是否引用该公司
+  const refs = await db
+    .select({ id: externalEntities.id, name: externalEntities.name })
+    .from(externalEntities)
+    .where(eq(externalEntities.companyId, id));
+
+  if (refs.length > 0) {
+    throw conflict(
+      ERROR_CODES.ENTITY_IN_USE,
+      `该公司被 ${refs.length} 个领域实体引用，无法删除`,
+    );
+  }
+
   await db.delete(companies).where(eq(companies.id, id));
 }
 
@@ -485,7 +532,7 @@ export async function updateDepartment(
         and(
           eq(departments.companyId, existing.companyId),
           eq(departments.name, input.name as string),
-          eq(departments.id, id).not(),
+          not(eq(departments.id, id)),
         ),
       );
     if (conflictRow) {
@@ -657,7 +704,7 @@ export async function updateRole(
         and(
           eq(roles.projectId, existing.projectId),
           eq(roles.name, input.name as string),
-          eq(roles.id, id).not(),
+          not(eq(roles.id, id)),
         ),
       );
     if (conflictRow) {
@@ -804,7 +851,7 @@ export async function updateExternalEntity(
         and(
           eq(externalEntities.projectId, existing.projectId),
           eq(externalEntities.name, input.name as string),
-          eq(externalEntities.id, id).not(),
+          not(eq(externalEntities.id, id)),
         ),
       );
     if (conflictRow) {

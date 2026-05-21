@@ -136,8 +136,10 @@ await app.register(projectRoutes, { prefix: '/api/v1/projects' });
 // TODO(M2): app.register(domainRoutes, { prefix: '/api/v1/projects/:projectId/domain' })
 // TODO(M3): app.register(processRoutes, { prefix: '/api/v1/projects/:projectId/processes' })
 // M4: 组织管理（F-M1-06 公司 / F-M1-07 部门 / F-M1-08 角色 / F-M1-09 外部实体）
-import organizationRoutes from './routes/organization.js';
+import organizationRoutes, { companyResourceRoutes } from './routes/organization.js';
 await app.register(organizationRoutes, { prefix: '/api/v1/projects/:projectId' });
+// Single-resource company routes (GET/PUT/DELETE /companies/:id) — no :projectId needed
+await app.register(companyResourceRoutes, { prefix: '/api/v1' });
 // TODO(M5): app.register(architectureRoutes, { prefix: '/api/v1/projects/:projectId/business-architectures' })
 // TODO(M6): app.register(menuRoutes, { prefix: '/api/v1/menus' })
 

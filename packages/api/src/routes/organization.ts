@@ -48,6 +48,7 @@ export default async function organizationRoutes(app: FastifyInstance) {
   // F-M1-06: Company Routes (前缀: /companies)
   // ================================================================
 
+  // 列表和创建需要 projectId（在 /projects/:projectId 前缀下）
   app.get('/companies', {
     schema: {
       querystring: CompanyListQuery,
@@ -67,36 +68,6 @@ export default async function organizationRoutes(app: FastifyInstance) {
       description: 'B-M1-28~B-M1-31',
     },
   }, createCompanyHandler);
-
-  app.get('/companies/:id', {
-    schema: {
-      params: UuidParam,
-      response: { 200: CompanyDetailResponse, 400: ErrorResponse, 404: ErrorResponse, 500: ErrorResponse },
-      tags: ['Organization'],
-      summary: '查询公司详情',
-    },
-  }, getCompanyHandler);
-
-  app.put('/companies/:id', {
-    schema: {
-      params: UuidParam,
-      body: UpdateCompanyInput,
-      response: { 200: CompanyDetailResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
-      tags: ['Organization'],
-      summary: '更新公司',
-      description: 'B-M1-37(乐观锁)',
-    },
-  }, updateCompanyHandler);
-
-  app.delete('/companies/:id', {
-    schema: {
-      params: UuidParam,
-      response: { 200: DeleteResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
-      tags: ['Organization'],
-      summary: '删除公司',
-      description: 'B-M1-39(级联删除部门)',
-    },
-  }, deleteCompanyHandler);
 
   // ================================================================
   // F-M1-07: Department Routes
@@ -280,10 +251,11 @@ async function listCompaniesHandler(request: FastifyRequest, _reply: FastifyRepl
   return orgService.listCompanies(db, projectId, { search, page, pageSize });
 }
 
-async function createCompanyHandler(request: FastifyRequest, _reply: FastifyReply) {
+async function createCompanyHandler(request: FastifyRequest, reply: FastifyReply) {
   const { projectId } = request.params as { projectId: string };
   const body = request.body as typeof CreateCompanyInput.static;
   const company = await orgService.createCompany(db, projectId, body);
+  reply.status(201);
   return { data: company };
 }
 
@@ -406,4 +378,42 @@ async function deleteExternalEntityHandler(request: FastifyRequest, _reply: Fast
   const { id } = request.params as { id: string };
   await orgService.deleteExternalEntity(db, id);
   return { success: true };
+}
+
+// ============================================================
+// Single-Resource Company Routes (prefix: /api/v1/companies)
+// ============================================================
+// These are registered separately because GET/PUT/DELETE /companies/:id
+// do not require :projectId in the path — the company ID is sufficient.
+
+export async function companyResourceRoutes(app: FastifyInstance) {
+  app.get('/companies/:id', {
+    schema: {
+      params: UuidParam,
+      response: { 200: CompanyDetailResponse, 400: ErrorResponse, 404: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '查询公司详情',
+    },
+  }, getCompanyHandler);
+
+  app.put('/companies/:id', {
+    schema: {
+      params: UuidParam,
+      body: UpdateCompanyInput,
+      response: { 200: CompanyDetailResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '更新公司',
+      description: 'B-M1-37(乐观锁)',
+    },
+  }, updateCompanyHandler);
+
+  app.delete('/companies/:id', {
+    schema: {
+      params: UuidParam,
+      response: { 200: DeleteResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
+      tags: ['Organization'],
+      summary: '删除公司',
+      description: 'B-M1-39(级联删除部门)',
+    },
+  }, deleteCompanyHandler);
 }

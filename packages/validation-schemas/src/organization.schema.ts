@@ -208,6 +208,10 @@ export const CompanyDetail = Type.Object(
     config: Type.Optional(Type.Record(Type.String(), Type.Unknown())),
     createdAt: Type.String({ format: 'date-time' }),
     updatedAt: Type.String({ format: 'date-time' }),
+    status: Type.Literal('active'),
+    version: Type.Number({ minimum: 1 }),
+    departmentCount: Type.Number({ minimum: 0 }),
+    roleCount: Type.Number({ minimum: 0 }),
   },
   { description: '公司详情' },
 );
