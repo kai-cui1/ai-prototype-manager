@@ -3,7 +3,7 @@
  * @description 组织管理数据获取 Hook：公司(F-M1-06) + 部门(F-M1-07) + 角色(F-M1-08) +
  *              外部实体(F-M1-09) 的列表/创建/更新/删除操作。
  */
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { Company, Department, Role, ExternalEntity } from '@apm/shared';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -68,11 +68,20 @@ export function useOrganization(projectId: string): UseOrganizationReturn {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [companiesLoading, setCompaniesLoading] = useState(false);
   const [companySearch, setCompanySearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+
+  // 300ms debounce for search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(companySearch);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [companySearch]);
 
   const refetchCompanies = useCallback(() => {
     setCompaniesLoading(true);
     const params: Record<string, string> = {};
-    if (companySearch) params.search = companySearch;
+    if (debouncedSearch) params.search = debouncedSearch;
     apiClient.get<ListResult<Company>>(
       `/projects/${projectId}/companies`,
       Object.keys(params).length > 0 ? params : undefined,
@@ -82,7 +91,7 @@ export function useOrganization(projectId: string): UseOrganizationReturn {
         toast.error(err?.message ?? '加载公司列表失败');
       })
       .finally(() => setCompaniesLoading(false));
-  }, [projectId, companySearch]);
+  }, [projectId, debouncedSearch]);
 
   const createCompany = useCallback(async (data: Record<string, unknown>) => {
     const res = await apiClient.post<{ data: Company }>(`/projects/${projectId}/companies`, data);
