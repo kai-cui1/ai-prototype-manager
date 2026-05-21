@@ -305,6 +305,8 @@ export const companies = pgTable('companies', {
   contactInfo: jsonb('contact_info').default('{}'),
   sortOrder: integer('sort_order').notNull().default(0),
   config: jsonb('config').default('{}'),
+  status: text('status').notNull().default('active'),
+  version: integer('version').notNull().default(1),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
