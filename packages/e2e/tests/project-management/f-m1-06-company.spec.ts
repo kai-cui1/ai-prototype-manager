@@ -167,7 +167,7 @@ async function setupCompanyMocks(
     });
   });
 
-  // GET 公司列表
+  // GET 公司列表 + POST 创建公司（合并为单个 route handler，避免后者覆盖前者）
   await page.route(`**/api/v1/projects/${projectId}/companies`, (route) => {
     if (route.request().method() === 'GET') {
       const url = new URL(route.request().url());
@@ -186,28 +186,31 @@ async function setupCompanyMocks(
         }),
       });
     }
-    return route.continue();
-  });
-
-  // POST 创建公司
-  await page.route(`**/api/v1/projects/${projectId}/companies`, (route) => {
     if (route.request().method() === 'POST') {
       const body = route.request().postDataJSON() as Record<string, unknown>;
       const newCompany = {
         id: `comp-e2e-new-${Date.now()}`,
         projectId,
         name: body.name,
+        displayName: body.display_name as string,
         display_name: body.display_name,
         description: body.description ?? null,
+        companyType: null,
         company_type: null,
+        contactInfo: {},
         contact_info: {},
+        sortOrder: companies.length + 1,
         sort_order: companies.length + 1,
         config: {},
         status: 'active',
         version: 1,
+        departmentCount: 0,
         department_count: 0,
+        roleCount: 0,
         role_count: 0,
+        createdAt: new Date().toISOString(),
         created_at: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
       // name 冲突检测
@@ -238,7 +241,8 @@ async function setupCompanyMocks(
 }
 
 /**
- * 导航到项目详情页 → 点击「组织架构」Tab → 切换到 OrganizationPanel 的 org 子 Tab。
+ * 导航到项目详情页 → 点击「组织架构」Tab。
+ * 新布局无内层 Tabs，点击外层 Tab 后直接展示公司列表 Table。
  */
 async function navigateToOrgTab(
   page: Parameters<Parameters<typeof test>[1]>[0],
@@ -252,13 +256,9 @@ async function navigateToOrgTab(
   await expect(orgTab).toBeVisible({ timeout: 5000 });
   await orgTab.click();
 
-  // 等待 OrganizationPanel 内的 Tabs 渲染，点击「组织架构」子 Tab（TabsTrigger value="org"）
-  const orgSubTab = page.locator('button:has-text("组织架构")').nth(1); // 第二个「组织架构」是 OrganizationPanel 内部的
-  // 更可靠的方式：通过 TabsList 内的 trigger 定位
-  const tabsList = page.locator('[role="tablist"]').last(); // OrganizationPanel 的 tablist
-  const orgTrigger = tabsList.locator('[role="tab"]:has-text("组织架构")');
-  await expect(orgTrigger).toBeVisible({ timeout: 5000 });
-  await orgTrigger.click();
+  // 等待公司列表区域渲染完成：Table（有数据）或空状态提示（无数据）
+  const orgContent = page.locator('table').or(page.locator('text=暂无公司'));
+  await expect(orgContent.first()).toBeVisible({ timeout: 5000 });
 }
 
 /** 获取 Dialog 容器（role="dialog"） */
@@ -303,68 +303,31 @@ test.describe('F-M1-06 公司管理 E2E', () => {
     })));
     await navigateToOrgTab(page, TEST_PROJECT_ID);
 
-    // 断言: 公司卡片网格可见（至少有 3 张卡片）
-    const cards = page.locator('.grid > div > [class*="rounded"], .grid > div > [class*="card"]').or(
-      page.locator('[class*="grid"] >> [class*="Card"]'),
-    );
-    // 更精确：OrganizationPanel 的公司卡片在 grid 布局中，CardContent 包含 displayName
-    const companyCards = page.locator('div[class*="grid"]').first().locator('> div').filter({ hasText: /Alpha|Beta|Gamma/ });
-    await expect(companyCards).toHaveCount(MOCK_COMPANIES.length);
+    // 断言: 公司 Table 可见，行数 = 公司数量
+    const tableRows = page.locator('table tbody tr');
+    await expect(tableRows).toHaveCount(MOCK_COMPANIES.length);
 
-    // 断言: 第一张卡片显示 displayName
-    await expect(companyCards.first()).toContainText('Alpha 公司');
+    // 断言: 第一行显示 displayName（公司名称列）
+    await expect(tableRows.first().locator('td').first()).toContainText('Alpha 公司');
 
-    // 断言: 卡片显示 name(mono 字体)
-    await expect(companyCards.first()).toContainText('alpha-corp');
+    // 断言: 第二列（标识符）显示 name(mono)
+    const codeCell = tableRows.first().locator('td').nth(1);
+    await expect(codeCell).toContainText('alpha-corp');
 
-    // 断言: 类型 Badge 可见（内部）
-    const typeBadge = companyCards.first().locator('[class*="Badge"]');
-    await expect(typeBadge.first()).toContainText('内部');
-
-    // 断言: 统计 Badge 显示部门数和角色数
-    await expect(companyCards.first()).toContainText(/个部门/);
-    await expect(companyCards.first()).toContainText(/个角色/);
+    // 断言: 部门数和角色数列有数值
+    const cells = tableRows.first().locator('td');
+    // 列顺序: 公司名称(0) / 标识符(1) / 描述(2) / 部门数(3) / 角色数(4) / 操作(5)
+    await expect(cells.nth(3)).toContainText('3'); // departmentCount
+    await expect(cells.nth(4)).toContainText('5'); // roleCount
   });
 
   // ============================================================
   // TC-E2E-M1-06-002: 搜索交互 — 输入关键词过滤列表
   // ============================================================
 
-  test('TC-E2E-M1-06-002: 搜索交互 — 输入关键词过滤列表', async ({ page }) => {
-    await setupCompanyMocks(page, TEST_PROJECT_ID, TEST_PROJECT, MOCK_SUMMARY, MOCK_COMPANIES.map((c) => ({
-      ...c,
-      display_name: c.displayName,
-      company_type: c.companyType,
-      contact_info: c.contactInfo,
-      sort_order: c.sortOrder,
-      department_count: c.departmentCount,
-      role_count: c.roleCount,
-      created_at: c.createdAt,
-      updated_at: c.updatedAt,
-    })));
-    await navigateToOrgTab(page, TEST_PROJECT_ID);
-
-    // 初始状态：3 张卡片
-    const companyCards = page.locator('div[class*="grid"]').first().locator('> div').filter({ hasText: /Alpha|Beta|Gamma/ });
-    await expect(companyCards).toHaveCount(3);
-
-    // 在搜索框输入 "Beta"
-    const searchInput = page.locator('input[placeholder*="搜索公司"]');
-    await expect(searchInput).toBeVisible();
-    await searchInput.fill('Beta');
-    // 等待防抖 300ms + 额外缓冲
-    await page.waitForTimeout(500);
-
-    // 断言: 列表过滤为 1 张匹配卡片
-    await expect(companyCards).toHaveCount(1);
-    await expect(companyCards.first()).toContainText('Beta 企业');
-
-    // 清空搜索框
-    await searchInput.clear();
-    await page.waitForTimeout(500);
-
-    // 断言: 列表恢复全量 3 张
-    await expect(companyCards).toHaveCount(3);
+  test.skip('TC-E2E-M1-06-002: 搜索交互 — 输入关键词过滤列表（TODO: 当前版本公司列表区无搜索框）', async () => {
+    // 原型中公司列表 Table 无搜索输入框。搜索能力保留在 hook 中但未渲染。
+    // 当搜索 UI 添加回 SectionHeading action 区后取消 skip。
   });
 
   // ============================================================
@@ -380,8 +343,8 @@ test.describe('F-M1-06 公司管理 E2E', () => {
     }, []);
     await navigateToOrgTab(page, TEST_PROJECT_ID);
 
-    // 断言: 显示空状态提示
-    const emptyState = page.locator('text="暂无公司，点击「新建」添加"');
+    // 断言: 显示空状态提示（新文案）
+    const emptyState = page.locator('text=暂无公司，点击「添加公司」创建');
     await expect(emptyState).toBeVisible({ timeout: 5000 });
   });
 
@@ -396,8 +359,8 @@ test.describe('F-M1-06 公司管理 E2E', () => {
     }, []);
     await navigateToOrgTab(page, TEST_PROJECT_ID);
 
-    // 步骤 1: 点击"新建"按钮 → Dialog 打开
-    const createBtn = page.locator('button:has-text("新建")').filter({ visible: true });
+    // 步骤 1: 点击"添加公司"按钮 → Dialog 打开
+    const createBtn = page.locator('button:has-text("添加公司")').filter({ visible: true });
     await expect(createBtn).toBeVisible({ timeout: 5000 });
     await createBtn.click();
 
@@ -428,15 +391,16 @@ test.describe('F-M1-06 公司管理 E2E', () => {
     const submitBtn = dialog.locator('button:has-text("确认创建")');
     await submitBtn.click();
 
-    // 等待请求完成 + refetch
-    await page.waitForTimeout(800);
+    // 等待请求完成 + refetch（创建成功后 hook 会自动 refetchCompanies）
+    // 先等 Dialog 关闭（onOpenChange(false) 在 submit 成功后调用）
+    await expect(dialog).not.toBeVisible({ timeout: 5000 });
 
-    // 断言: Dialog 关闭
-    await expect(dialog).not.toBeVisible({ timeout: 3000 });
+    // 等待 Table 渲染（从空状态切换到有数据状态需要 refetch 完成）
+    await expect(page.locator('table')).toBeVisible({ timeout: 5000 });
 
-    // 断言: 新公司出现在列表中
-    const companyCards = page.locator('div[class*="grid"]').first().locator('> div').filter({ hasText: /新建测试公司/ });
-    await expect(companyCards).toHaveCount(1);
+    // 断言: 新公司出现在 Table 行中
+    const newRow = page.locator('table tbody tr').filter({ hasText: /新建测试公司/ });
+    await expect(newRow).toHaveCount(1);
 
     // 断言: Toast 成功提示（sonner toast）
     const toast = page.locator('[data-sonner-toast]').filter({ hasText: /创建成功/ });
@@ -485,13 +449,11 @@ test.describe('F-M1-06 公司管理 E2E', () => {
 
     await navigateToOrgTab(page, TEST_PROJECT_ID);
 
-    // hover 第一张公司卡片 → 出现编辑按钮
-    const firstCard = page.locator('div[class*="grid"]').first().locator('> div').filter({ hasText: /Alpha 公司/ }).first();
-    await firstCard.hover();
-    // 编辑按钮（Pencil icon）在 group-hover 时显示
-    const editBtn = firstCard.locator('button:has(svg)').first(); // Pencil button
-    await expect(editBtn).toBeVisible({ timeout: 2000 });
-    await editBtn.click();
+    // 在第一行（Alpha 公司）的操作列找到"编辑"文字链接并点击
+    const firstRow = page.locator('table tbody tr').first();
+    const editLink = firstRow.locator('button:has-text("编辑")');
+    await expect(editLink).toBeVisible({ timeout: 2000 });
+    await editLink.click();
 
     // 断言: Edit Dialog 打开，标题为"编辑公司"
     const dialog = getDialog(page);
@@ -562,16 +524,11 @@ test.describe('F-M1-06 公司管理 E2E', () => {
 
     await navigateToOrgTab(page, TEST_PROJECT_ID);
 
-    // hover 第三张公司卡片（Gamma）→ 出现删除按钮
-    const gammaCard = page.locator('div[class*="grid"]').first().locator('> div').filter({ hasText: /Gamma 有限/ }).first();
-    await gammaCard.hover();
-
-    // 删除按钮（Trash2 icon，红色文字）
-    const deleteBtn = gammaCard.locator('button[class*="danger"], button:text-is("删除")').or(
-      gammaCard.locator('button').nth(1), // 第二个按钮通常是删除
-    );
-    await expect(deleteBtn.first()).toBeVisible({ timeout: 2000 });
-    await deleteBtn.first().click();
+    // 在第三行（Gamma 有限）的操作列找到"删除"文字链接并点击
+    const gammaRow = page.locator('table tbody tr').filter({ hasText: /Gamma 有限/ }).first();
+    const deleteLink = gammaRow.locator('button:has-text("删除")');
+    await expect(deleteLink).toBeVisible({ timeout: 2000 });
+    await deleteLink.click();
 
     // 断言: AlertDialog 弹出
     const alertDlg = getAlertDialog(page);
@@ -616,8 +573,8 @@ test.describe('F-M1-06 公司管理 E2E', () => {
     await setupCompanyMocks(page, TEST_PROJECT_ID, TEST_PROJECT, { ...MOCK_SUMMARY, companyCount: 0 }, []);
     await navigateToOrgTab(page, TEST_PROJECT_ID);
 
-    // 点击"新建"打开 Dialog
-    const createBtn = page.locator('button:has-text("新建")').filter({ visible: true });
+    // 点击"添加公司"打开 Dialog
+    const createBtn = page.locator('button:has-text("添加公司")').filter({ visible: true });
     await createBtn.click();
 
     const dialog = getDialog(page);
@@ -659,8 +616,8 @@ test.describe('F-M1-06 公司管理 E2E', () => {
     })));
     await navigateToOrgTab(page, TEST_PROJECT_ID);
 
-    // 点击"新建"
-    const createBtn = page.locator('button:has-text("新建")').filter({ visible: true });
+    // 点击"添加公司"
+    const createBtn = page.locator('button:has-text("添加公司")').filter({ visible: true });
     await createBtn.click();
 
     const dialog = getDialog(page);
@@ -726,26 +683,20 @@ test.describe('F-M1-06 公司管理 E2E', () => {
     await expect(orgTab).toBeVisible({ timeout: 5000 });
     await orgTab.click();
 
-    const tabsList = page.locator('[role="tablist"]').last();
-    const orgTrigger = tabsList.locator('[role="tab"]:has-text("组织架构")');
-    await expect(orgTrigger).toBeVisible({ timeout: 5000 });
-    await orgTrigger.click();
+    // 新布局无内层 Tabs，等待公司 Table 渲染
+    await expect(page.locator('table')).toBeVisible({ timeout: 5000 });
 
-    // 断言: "新建"按钮不存在（归档模式下 isArchived=true，action 为 undefined）
-    const createBtn = page.locator('button:has-text("新建")').filter({ visible: true });
-    // 在组织架构区域内查找新建按钮 — 应该不可见或不存在
-    // 新建按钮仅在 SectionHeading action 中渲染，归档时不渲染
-    const orgSection = page.locator('text=公司/组织').locator('..');
-    const newBtnInOrg = orgSection.locator('button:has-text("新建")');
+    // 断言: "添加公司"按钮不存在（归档模式下 isArchived=true，action 为 undefined）
+    // 添加公司按钮仅在 SectionHeading action 中渲染，归档时不渲染
+    const newBtnInOrg = page.locator('button:has-text("添加公司")');
     await expect(newBtnInOrg).toHaveCount(0);
 
-    // 如果有公司卡片，验证无编辑/删除按钮（hover 后也不显示）
-    const companyCards = page.locator('div[class*="grid"]').first().locator('> div');
-    const cardCount = await companyCards.count();
-    if (cardCount > 0) {
-      await companyCards.first().hover();
-      // 归档模式下 edit/delete 按钮不渲染（!isArchived 条件）
-      const actionButtons = companyCards.first().locator('button[class*="danger"], button:has(svg)');
+    // 如果有公司行，验证操作列无编辑/删除按钮
+    const tableRows = page.locator('table tbody tr');
+    const rowCount = await tableRows.count();
+    if (rowCount > 0) {
+      // 归档模式下编辑/删除按钮不渲染（!isArchived 条件）
+      const actionButtons = tableRows.first().locator('button:has-text("编辑"), button:has-text("删除")');
       await expect(actionButtons).toHaveCount(0);
     }
   });
@@ -783,13 +734,11 @@ test.describe('F-M1-06 公司管理 E2E', () => {
 
     await navigateToOrgTab(page, TEST_PROJECT_ID);
 
-    // hover Alpha 公司卡片 → 点击删除
-    const alphaCard = page.locator('div[class*="grid"]').first().locator('> div').filter({ hasText: /Alpha 公司/ }).first();
-    await alphaCard.hover();
-
-    const deleteBtn = alphaCard.locator('button[class*="danger"]').or(alphaCard.locator('button').nth(1));
-    await expect(deleteBtn.first()).toBeVisible({ timeout: 2000 });
-    await deleteBtn.first().click();
+    // 在 Alpha 公司行的操作列点击"删除"
+    const alphaRow = page.locator('table tbody tr').filter({ hasText: /Alpha 公司/ }).first();
+    const deleteLink = alphaRow.locator('button:has-text("删除")');
+    await expect(deleteLink).toBeVisible({ timeout: 2000 });
+    await deleteLink.click();
 
     // 确认弹窗
     const alertDlg = getAlertDialog(page);
@@ -808,8 +757,8 @@ test.describe('F-M1-06 公司管理 E2E', () => {
     // OrganizationPanel 的 delete handler 直接 await org.deleteCompany 然后 toast.success
     // 如果 delete 抛出异常（409），会 unhandled rejection 或被 react error boundary 捕获
     // 这里验证至少公司未被从 UI 移除（因为删除失败了）
-    const companyCards = page.locator('div[class*="grid"]').first().locator('> div').filter({ hasText: /Alpha 公司/ });
-    await expect(companyCards).toHaveCount(1); // Alpha 公司仍在列表中
+    const companyRows = page.locator('table tbody tr').filter({ hasText: /Alpha 公司/ });
+    await expect(companyRows).toHaveCount(1); // Alpha 公司仍在列表中
   });
 
   // ============================================================
@@ -847,9 +796,8 @@ test.describe('F-M1-06 公司管理 E2E', () => {
       await expect(toast).toContainText(/失败|错误|网络/);
     }
 
-    // 至少验证页面没有崩溃（Skeleton 或空状态应显示）
-    const emptyOrLoading = page.locator('text="暂无公司", text="加载中..."').first();
-    await expect(emptyOrLoading.or(page.locator('div[class*="grid"]'))).toBeVisible();
+    // 至少验证页面没有崩溃（Skeleton 或空状态或 Table 应显示）
+    await expect(page.locator('table').or(page.locator('text=暂无公司'))).toBeVisible();
   });
 
   // ============================================================
