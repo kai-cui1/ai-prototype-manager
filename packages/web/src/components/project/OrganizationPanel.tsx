@@ -494,7 +494,7 @@ export function OrganizationPanel({ project }: OrganizationPanelProps) {
         mode="create"
         fields={[
           { key: 'name', label: '名称标识', placeholder: '如 acme-corp', required: true },
-          { key: 'display_name', label: '显示名称', placeholder: '如 ACME 公司', required: true },
+          { key: 'displayName', label: '显示名称', placeholder: '如 ACME 公司', required: true },
           { key: 'description', label: '描述', placeholder: '简要描述...', type: 'textarea' },
         ]}
         onSubmit={async (data) => { const c = await org.createCompany(data); toast.success(`公司「${c.displayName}」创建成功`); }}
@@ -508,7 +508,7 @@ export function OrganizationPanel({ project }: OrganizationPanelProps) {
         mode="create"
         fields={[
           { key: 'name', label: '名称标识', placeholder: '如 engineering', required: true },
-          { key: 'display_name', label: '显示名称', placeholder: '如 工程部', required: true },
+          { key: 'displayName', label: '显示名称', placeholder: '如 工程部', required: true },
           { key: 'description', label: '描述', placeholder: '...', type: 'textarea' },
         ]}
         onSubmit={async (data) => {
@@ -528,12 +528,12 @@ export function OrganizationPanel({ project }: OrganizationPanelProps) {
         mode="edit"
         initialValues={editDepartmentTarget ? {
           name: editDepartmentTarget.name,
-          display_name: editDepartmentTarget.displayName,
+          displayName: editDepartmentTarget.displayName,
           description: editDepartmentTarget.description ?? '',
         } : undefined}
         fields={[
           { key: 'name', label: '名称标识', required: true },
-          { key: 'display_name', label: '显示名称', required: true },
+          { key: 'displayName', label: '显示名称', required: true },
           { key: 'description', label: '描述', type: 'textarea' },
         ]}
         onSubmit={async (data) => {
@@ -552,7 +552,7 @@ export function OrganizationPanel({ project }: OrganizationPanelProps) {
         mode="create"
         fields={[
           { key: 'name', label: '名称标识', placeholder: '如 payment-gateway', required: true },
-          { key: 'display_name', label: '显示名称', placeholder: '如 支付网关', required: true },
+          { key: 'displayName', label: '显示名称', placeholder: '如 支付网关', required: true },
           { key: 'type', label: '类型', placeholder: 'system / organization / person / api', required: true },
           { key: 'description', label: '描述', placeholder: '...', type: 'textarea' },
         ]}
@@ -567,13 +567,13 @@ export function OrganizationPanel({ project }: OrganizationPanelProps) {
         mode="edit"
         initialValues={editEeTarget ? {
           name: editEeTarget.name,
-          display_name: editEeTarget.displayName,
+          displayName: editEeTarget.displayName,
           type: editEeTarget.entityType ?? '',
           description: editEeTarget.description ?? '',
         } : undefined}
         fields={[
           { key: 'name', label: '名称标识', required: true },
-          { key: 'display_name', label: '显示名称', required: true },
+          { key: 'displayName', label: '显示名称', required: true },
           { key: 'type', label: '类型', required: true },
           { key: 'description', label: '描述', type: 'textarea' },
         ]}
@@ -593,13 +593,13 @@ export function OrganizationPanel({ project }: OrganizationPanelProps) {
         mode="edit"
         initialValues={editCompanyTarget ? {
           name: editCompanyTarget.name,
-          display_name: editCompanyTarget.displayName,
+          displayName: editCompanyTarget.displayName,
           description: editCompanyTarget.description ?? '',
         } : undefined}
         entityVersion={editCompanyTarget?.version}
         fields={[
           { key: 'name', label: '名称标识', placeholder: '如 acme-corp', required: true },
-          { key: 'display_name', label: '显示名称', placeholder: '如 ACME 公司', required: true },
+          { key: 'displayName', label: '显示名称', placeholder: '如 ACME 公司', required: true },
           { key: 'description', label: '描述', placeholder: '简要描述...', type: 'textarea' },
         ]}
         onSubmit={async (data) => {
