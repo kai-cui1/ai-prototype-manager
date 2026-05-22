@@ -56,6 +56,14 @@ interface UseOrganizationReturn {
 
   // Active company ID (for department context)
   activeCompanyId: string | null;
+
+  // Department tree UI
+  expandedDeptIds: Set<string>;
+  toggleExpandDept: (id: string) => void;
+  expandAllDepts: () => void;
+  collapseAllDepts: () => void;
+  deptSearch: string;
+  setDeptSearch: (s: string) => void;
 }
 
 /**
@@ -115,6 +123,10 @@ export function useOrganization(projectId: string): UseOrganizationReturn {
   const [departmentsLoading, setDepartmentsLoading] = useState(false);
   const [activeCompanyId, setActiveCompanyId] = useState<string | null>(null);
 
+  // ---- Department tree UI state ----
+  const [expandedDeptIds, setExpandedDeptIds] = useState<Set<string>>(new Set());
+  const [deptSearch, setDeptSearch] = useState('');
+
   const refetchDepartments = useCallback((companyId: string) => {
     setActiveCompanyId(companyId);
     setDepartmentsLoading(true);
@@ -140,6 +152,34 @@ export function useOrganization(projectId: string): UseOrganizationReturn {
     await apiClient.delete(`/departments/${id}`);
     if (activeCompanyId) refetchDepartments(activeCompanyId);
   }, [activeCompanyId, refetchDepartments]);
+
+  // ---- Department tree operations ----
+
+  /** 切换部门的展开/折叠状态 */
+  const toggleExpandDept = useCallback((id: string) => {
+    setExpandedDeptIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  /** 展开所有部门节点 */
+  const expandAllDepts = useCallback(() => {
+    setExpandedDeptIds(new Set(departments.map((d) => d.id)));
+  }, [departments]);
+
+  /** 折叠所有部门节点 */
+  const collapseAllDepts = useCallback(() => {
+    setExpandedDeptIds(new Set());
+  }, []);
+
+  // 当部门数据加载完成后，默认展开所有节点
+  useEffect(() => {
+    if (departments.length > 0) {
+      setExpandedDeptIds(new Set(departments.map((d) => d.id)));
+    }
+  }, [departments]);
 
   // ---- Roles ----
   const [roles, setRoles] = useState<Role[]>([]);
@@ -210,5 +250,8 @@ export function useOrganization(projectId: string): UseOrganizationReturn {
     externalEntities, externalEntitiesLoading, refetchExternalEntities,
     createExternalEntity, updateExternalEntity, deleteExternalEntity,
     activeCompanyId,
+    expandedDeptIds, toggleExpandDept,
+    expandAllDepts, collapseAllDepts,
+    deptSearch, setDeptSearch,
   };
 }
