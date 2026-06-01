@@ -11,3 +11,16 @@ workspace/dev/.env
 # E2E test artifacts (Playwright 生成)
 test-results/
 playwright-report/
+
+# AI / IDE 工具配置（不入库）
+.agents/
+.codex/
+.cursor/
+.superpowers/
+.claude/skills-disabled/
+
+# E2E 调试临时文件
+packages/e2e/%{http_code}
+packages/e2e/debug-e2e.mjs
+packages/e2e/inspection-screenshots/
+packages/e2e/reports/

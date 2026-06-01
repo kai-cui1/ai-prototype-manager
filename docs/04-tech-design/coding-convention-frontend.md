@@ -1,14 +1,16 @@
 # 前端编码细则
 
 > **文档编号**：docs/04-tech-design/coding-convention-frontend.md
-> **状态**：v1.2
-> **日期**：2026-05-07
+> **状态**：v2.0
+> **日期**：2026-05-25
 > **定位**：前端代码实施的详细编码约定（`coding-convention.md` §8 的展开）
 > **适用范围**：Phase 1~5 所有模块的 `packages/web/` 代码
 > **关联文档**：
 > - 编码规范总纲 → `coding-convention.md`
 > - 技术方案 → `phase1-design-tech.md`（UI 组件库 / 路由 / 状态管理决策）
-> - PRD（各模块）→ `docs/03-prd-ux/modules/*/`（页面交互设计 / AI Coding Hints）
+> - PRD（各模块）→ `docs/03-prd-ux/modules/*/`（业务规则 / 数据规格 / AI Coding Hints）
+> - 交互设计（各模块）→ `docs/03-prd-ux/modules/*/`（页面布局 / UI 元素 / 交互行为）
+> - 设计语言规范 → `design-language.md`（品牌颜色、字体、间距等全局视觉约束）
 > - 注释规范 → `.claude/skills/coding-with-comments`（R1-R5 强制注释规则）
 
 ---
@@ -21,7 +23,7 @@
 packages/web/src/
 ├── main.tsx                         # React 入口（ReactDOM.createRoot）
 ├── App.tsx                          # 路由配置（React Router v6 Routes）
-├── index.css                        # 全局样式（Tailwind directives + 自定义 CSS 变量）
+├── index.css                        # 全局样式（Tailwind directives + 自定义 CSS 变量 + sidebar token）
 ├── vite-env.d.ts                    # Vite 类型声明
 │
 ├── api/
@@ -42,7 +44,7 @@ packages/web/src/
 │   │   ├── dropdown-menu.tsx
 │   │   ├── separator.tsx
 │   │   ├── label.tsx
-│   │   ├── tooltip.tsx
+│   │   ├── tooltip.tsx              # @base-ui/react Tooltip（render prop 模式）
 │   │   ├── scroll-area.tsx
 │   │   ├── accordion.tsx / collapsible.tsx
 │   │   ├── alert.tsx / callout.tsx
@@ -50,7 +52,7 @@ packages/web/src/
 │   │
 │   ├── layout/                      # 布局组件
 │   │   ├── Layout.tsx               #   主布局（Sidebar + Content Area）
-│   │   └── Sidebar.tsx              #   侧边栏（菜单驱动渲染）
+│   │   └── Sidebar.tsx              #   侧边栏（菜单驱动渲染 + 项目上下文指示器）
 │   │
 │   └── [业务域]/                    # 业务组件（按模块组织）
 │       ├── project/                 #   项目管理相关组件
@@ -70,6 +72,9 @@ packages/web/src/
 │           ├── StatusBadge.tsx      #     状态标签（active/archived 等）
 │           └── PaginationComponent.tsx # 分页器（自定义封装）
 │
+├── contexts/                        # React Context（跨页面共享状态）
+│   └── ProjectContext.tsx           # 项目上下文（projectId + displayName + 导航）
+│
 ├── hooks/                           # 自定义 Hooks
 │   ├── useProjectList.ts            # 项目列表数据获取
 │   ├── useProjectDetail.ts          # 项目详情数据获取
@@ -81,9 +86,9 @@ packages/web/src/
 │   └── utils.ts                     # 工具函数（cn()、格式化等）
 │
 ├── pages/                           # 页面组件（对应路由）
-│   ├── ProjectList.tsx              # 项目列表页（F-M1-01）
+│   ├── Dashboard.tsx                # 仪表盘首页（项目卡片列表 + 激活跳转）
 │   ├── ProjectDetail.tsx            # 项目详情页（F-M1-03~05）
-│   ├── DomainModelEditor.tsx        # 领域模型编辑器（M2）
+│   ├── DomainModelEditor.tsx        # 预域模型编辑器（M2）
 │   ├── ProcessEditor.tsx            # 流程编辑器（M3）
 │   ├── OrganizationPanel.tsx        # 组织架构管理面板（F-M1-06~09）
 │   ├── ArchitectureView.tsx         # 业务架构视图（M5）
@@ -98,8 +103,9 @@ packages/web/src/
 
 | 类型 | 规则 | 示例 |
 |------|------|------|
-| 页面组件 | PascalCase + `.tsx` | `ProjectList.tsx`、`OrganizationPanel.tsx` |
+| 页面组件 | PascalCase + `.tsx` | `ProjectDetail.tsx`、`OrganizationPanel.tsx` |
 | 业务组件 | PascalCase + `.tsx` | `ProjectTable.tsx`、`ArchiveConfirmDialog.tsx` |
+| React Context | PascalCase + `Context` + `.tsx` | `ProjectContext.tsx` |
 | 自定义 Hook | camelCase + `use` 前缀 + `.ts` 或 `.tsx` | `useProjectList.ts`、`useDebouncedValue.ts` |
 | UI 组件（shadcn） | PascalCase + `.tsx` | `button.tsx`、`dialog.tsx`（CLI 生成，不改名） |
 | 类型定义 | camelCase + `.ts` | `api.ts`、`ui.ts` |
@@ -113,9 +119,10 @@ packages/web/src/
 
 | 类别 | 位置 | 职责 | 示例 |
 |------|------|------|------|
-| **页面组件** | `pages/` | 路由对应的数据组装层，调用 Hook + 组装业务组件 | `ProjectList.tsx` |
+| **页面组件** | `pages/` | 路由对应的数据组装层，调用 Hook + 组装业务组件 | `ProjectDetail.tsx` |
 | **业务组件** | `components/[业务域]/` | 可复用的功能单元，接收 props 渲染 UI | `ProjectTable.tsx`、`CompanyTable.tsx` |
-| **布局组件** | `components/layout/` | 页面框架结构，不含业务逻辑 | `Layout.tsx`、`Sidebar.tsx` |
+| **布局组件** | `components/layout/` | 页面框架结构，含 Sidebar 项目上下文指示器 | `Layout.tsx`、`Sidebar.tsx` |
+| **Context 组件** | `contexts/` | 跨页面共享状态的管理与分发 | `ProjectContext.tsx` |
 | **基础 UI** | `components/ui/` | 通用原子组件，shadcn/ui CLI 管理 | `Button.tsx`、`Dialog.tsx` |
 
 ### 2.2 组件拆分标准
@@ -132,110 +139,40 @@ packages/web/src/
 ```
 页面组件 (pages/)
   ├── 数据获取：调用自定义 Hook
-  ├── 状态管理：useState / useCallback（本地交互态）
+  ├── 状态管理：useState / useCallback（页面级本地交互态）
+  ├── 项目上下文：useProject() 获取当前项目 ID/名称（跨页面共享）
   └── UI 组装：组合业务组件 + 基础 UI 组件
 
 业务组件 (components/[domain]/)
   ├── 接收 props（数据 + 回调）
   ├── 渲染 UI（shadcn/ui 组件 + Tailwind 样式）
   └── 派发事件（onClick 等回调通知父组件）
+
+Context 组件 (contexts/)
+  ├── 管理跨页面共享状态（projectId, displayName 等）
+  ├── 提供 use[Name]() Hook 供消费组件使用
+  └── 与路由联动（项目激活时设置 context）
 ```
 
-### 2.3 组件结构模板
+### 2.3 组件结构模式
 
-```tsx
-/**
- * @module components/project/ProjectTable
- * @description 项目列表表格组件
- *              展示项目列表数据，支持行内操作（编辑/归档）
- *
- * @props data - 项目列表数据（来自 useProjectList Hook）
- * @props onEdit - 点击编辑行的回调
- * @props onArchive - 点击归档的回调
- * @props loading - 是否显示加载骨架屏
- */
+组件结构遵循以下架构模式（不提供完整代码模板，仅描述结构要点）：
 
-import { ProjectListItem } from '@apm/shared';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-// R1-R5 注释规范强制加载
+**业务组件模式**：
+1. R1-R5 注释规范的文件头
+2. Props 接口定义（明确数据 + 回调）
+3. 加载态分支（loading → Skeleton）
+4. 空数据分支（data.length === 0 → EmptyState）
+5. 正常渲染（shadcn/ui 基础组件 + Tailwind 布局）
+6. 事件处理（回调通知父组件）
 
-interface ProjectTableProps {
-  data: ProjectListItem[];
-  onEdit: (id: string) => void;
-  onArchive: (id: string, displayName: string) => void;
-  loading?: boolean;
-}
-
-export function ProjectTable({ data, onEdit, onArchive, loading = false }: ProjectTableProps) {
-  // R3: 分支注释 — 加载态显示骨架屏
-  if (loading) {
-    return <LoadingSkeleton rows={5} />;
-  }
-
-  // R3: 分支注释 — 空数据显示空状态占位
-  if (data.length === 0) {
-    return <EmptyState message="暂无项目" onCreateClick={() => {}} />;
-  }
-
-  return (
-    <div className="rounded-md border">
-      <Table>
-        {/* 表头 */}
-        <TableHeader>
-          <TableRow>
-            <TableHead>名称</TableHead>
-            <TableHead>标识符</TableHead>
-            <TableHead>状态</TableHead>
-            <TableHead>版本</TableHead>
-            <TableHead>更新时间</TableHead>
-            <TableHead className="w-[100px]">操作</TableHead>
-          </TableRow>
-        </TableHeader>
-
-        {/* 表体 */}
-        <TableBody>
-          {data.map((project) => (
-            <TableRow
-              key={project.id}
-              // R5 Why: cursor-pointer 提示可点击进入详情，
-              //        整行点击比仅点击名称列更符合用户直觉。
-              className="cursor-pointer hover:bg-muted/50"
-              onClick={() => onEdit(project.id)}
-            >
-              <TableCell className="font-medium">{project.displayName}</TableCell>
-              <TableCell><code className="text-sm text-muted-foreground">{project.name}</code></TableCell>
-              <TableCell>
-                <StatusBadge status={project.status} />
-              </TableCell>
-              <TableCell>v{project.version}</TableCell>
-              <TableCell>{formatDateTime(project.updatedAt)}</TableCell>
-              <TableCell>
-                {/* 行内操作按钮组 — 阻止冒泡避免触发行点击 */}
-                <div onClick={(e) => e.stopPropagation()} className="flex gap-1">
-                  <Button variant="ghost" size="sm" onClick={() => onEdit(project.id)}>
-                    编辑
-                  </Button>
-                  {project.status === 'active' && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => onArchive(project.id, project.displayName)}
-                    >
-                      归档
-                    </Button>
-                  )}
-                </div>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-    </div>
-  );
-}
-```
+**页面组件模式**：
+1. 路由参数获取（useParams / ProjectContext）
+2. 数据获取 Hook 调用
+3. 本地 UI 状态管理（useState）
+4. 事件处理函数（useCallback）
+5. 条件渲染（loading / error / normal）
+6. 业务组件组装
 
 ---
 
@@ -251,543 +188,87 @@ export function ProjectTable({ data, onEdit, onArchive, loading = false }: Proje
 - 便于缓存和请求去重
 - 测试时可 mock Hook 而非 mock fetch
 
-### 3.2 数据获取 Hook 模板（List 场景）
+### 3.2 Hook 分类与结构模式
 
-```typescript
-/**
- * @module hooks/useProjectList
- * @description 项目列表数据获取 Hook
- *              对应 F-M1-01：支持搜索、筛选、排序、分页
- */
+**数据获取 Hook（List 场景）**：
+- 状态：data / meta / loading / error / params
+- 方法：setParams（合并新参数并重置 page） / refresh（保持参数重新请求）
+- 防抖：搜索参数使用 useDebouncedValue 300ms 防抖
+- 生命周期：mount 自动请求 + params 变化自动请求
 
-import { useState, useCallback, useEffect } from 'react';
-import { api } from '@/api/client.js';
-import type { ApiResponse, ApiClientError } from '@/api/client.js';
-import type { ProjectListItem, PaginationMeta } from '@apm/shared';
+**数据获取 Hook（Detail 场景）**：
+- 状态：detail / summary / loading / error
+- 方法：refresh
+- 并行请求：detail + summary 使用 Promise.all（总耗时 = max(两者)）
+- 404 边界：返回错误信息，summary 不再请求
 
-/** 列表查询参数 */
-interface UseProjectListParams {
-  /** 初始搜索关键词 */
-  initialSearch?: string;
-  /** 初始状态筛选 */
-  initialStatus?: string;
-}
+**写操作 Hook（Mutation）**：
+- 状态：loading / error / data（共享三态）
+- 方法：create / update / archive（各操作独立 useCallback）
+- 通用执行器：execute() 统一三态管理
+- reset：清除状态，准备下一次操作
 
-/** 列表 Hook 返回值 */
-interface UseProjectListReturn {
-  /** 项目列表数据 */
-  data: ProjectListItem[];
-  /** 分页元信息 */
-  meta: PaginationMeta;
-  /** 是否正在加载 */
-  loading: boolean;
-  /** 错误信息 */
-  error: string | null;
-  /** 当前查询参数 */
-  params: ListParams;
-  /** 更新查询参数并重新请求 */
-  setParams: (params: Partial<ListParams>) => void;
-  /** 刷新当前列表（保持参数不变） */
-  refresh: () => void;
-}
+### 3.3 防抖 Hook
 
-/** 内部查询参数类型 */
-interface ListParams {
-  search: string;
-  status: string;
-  page: number;
-  pageSize: number;
-  sort: string;
-  order: 'asc' | 'desc';
-}
-
-/**
- * 项目列表数据获取 Hook
- *
- * @param options - 初始配置
- * @returns 列表数据 + 操作方法
- *
- * @example
- * const { data, loading, params, setParams, refresh } = useProjectList();
- * setParams({ search: 'station' }); // 自动触发重新请求
- *
- * R5 Why: 首次挂载时搜索框为空字符串，useDebouncedValue 会产生 300ms 延迟后才触发首次请求。
- *        这是可接受的 UX 权衡——避免首屏闪烁（先显示空列表再瞬间填充数据），
- *        且 300ms 对用户感知影响极小。如需零延迟首屏，可在 fetchData 中检测是否为首次渲染
- *        并跳过 debounce（增加 isInitialRender 标志位）。
- */
-export function useProjectList(options: UseProjectListParams = {}): UseProjectListReturn {
-  // R4: 段落注释 — 状态初始化
-  const [data, setData] = useState<ProjectListItem[]>([]);
-  const [meta, setMeta] = useState<PaginationMeta>({ total: 0, page: 1, pageSize: 20 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [params, setParamsState] = useState<ListParams>({
-    search: options.initialSearch ?? '',
-    status: options.initialStatus ?? '', // 空字符串表示"全部"
-    page: 1,
-    pageSize: 20,
-    sort: 'updatedAt',
-    order: 'desc',
-  });
-
-  // R4: 段落注释 — 数据获取核心逻辑
-  const fetchData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-
-    try {
-      // B-M1-02: "全部"状态不传 status 参数（前端映射转换）
-      const query: Record<string, string> = {
-        page: String(params.page),
-        pageSize: String(params.pageSize),
-        sort: params.sort,
-        order: params.order,
-      };
-
-      // R3: 分支注释 — 仅在有值时追加可选参数
-      if (params.search) query.search = params.search;
-      if (params.status) query.status = params.status;
-
-      const res: ApiResponse<ProjectListItem[]> = await api.get('/projects', query);
-
-      setData(res.data);
-      setMeta(res.meta as PaginationMeta);
-    } catch (err) {
-      // R5 Why: 区分网络错误和业务错误，
-      //        网络错误给通用提示，业务错误透传服务端消息。
-      const message = err instanceof ApiClientError ? err.message : '加载失败，请重试';
-      setError(message);
-    } finally {
-      setLoading(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params]);
-
-  // 首次挂载 + 参数变化时自动请求
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  // R4: 段落注释 — 参数更新方法（合并新参数到当前状态并重置 page=1）
-  const setParams = useCallback((newParams: Partial<ListParams>) => {
-    setParamsState((prev) => ({
-      ...prev,
-      ...newParams,
-      // 切换筛选条件时重置到第一页
-      page: (newParams.search !== undefined || newParams.status !== undefined) ? 1 : prev.page,
-    }));
-  }, []);
-
-  return { data, meta, loading, error, params, setParams, refresh: fetchData };
-}
-```
-
-### 3.3 数据获取 Hook 模板（Detail 场景）
-
-```typescript
-/**
- * @module hooks/useProjectDetail
- * @description 项目详情数据获取 Hook
- *              对应 F-M1-03：并行请求详情 + 摘要统计
- */
-
-import { useState, useEffect, useCallback } from 'react';
-import { api } from '@/api/client.js';
-import type { ApiClientError } from '@/api/client.js';
-import type { Project, ProjectSummary } from '@apm/shared';
-
-interface UseProjectDetailReturn {
-  /** 项目详情数据 */
-  project: Project | null;
-  /** 摘要统计数据 */
-  summary: ProjectSummary | null;
-  loading: boolean;
-  error: string | null;
-  /** 刷新详情数据 */
-  refresh: () => void;
-}
-
-/**
- * 项目详情数据获取 Hook
- *
- * R5 Why: 详情和摘要使用 Promise.all 并行请求（B-M1-16），
- *        总耗时 = max(详情耗时, 摘要耗时)，而非两者之和。
- *
- * @param projectId - 项目 UUID
- */
-export function useProjectDetail(projectId: string): UseProjectDetailReturn {
-  const [project, setProject] = useState<Project | null>(null);
-  const [summary, setSummary] = useState<ProjectSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchData = useCallback(async () => {
-    if (!projectId) return;
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      // B-M1-16: 并行发起详情和摘要请求
-      const [detailRes, summaryRes] = await Promise.all([
-        api.get<Project>(`/projects/${projectId}`),
-        api.get<ProjectSummary>(`/projects/${projectId}/summary`),
-      ]);
-
-      setProject(detailRes.data);
-      setSummary(summaryRes.data);
-    } catch (err) {
-      // R3: 分支注释 — 404 特殊处理（详情接口返回 404 时 summary 不再请求）
-      const apiErr = err instanceof ApiClientError ? err : null;
-      if (apiErr?.code === 'NOT_FOUND') {
-        setError('项目不存在或已被删除');
-      } else {
-        setError(apiErr?.message ?? '加载失败');
-      }
-      // R5 Why: summary 失败时不影响详情展示（B-M1-17 边界），
-      //        概要卡片区域显示降级 UI 而非整页报错。
-      if (project) setSummary(null); // 仅清除 summary，保留已加载的 detail
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId]); // project 不在依赖中（避免无限循环）
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  return { project, summary, loading, error, refresh: fetchData };
-}
-```
-
-### 3.4 写操作 Hook 模板（Mutation）
-
-```typescript
-/**
- * @module hooks/useProjectMutation
- * @description 项目写操作 Hook（创建 / 更新 / 归档）
- *              对应 F-M1-02 / F-M1-04 / F-M1-05
- */
-
-import { useState, useCallback } from 'react';
-import { api } from '@/api/client.js';
-import type { ApiClientError } from '@/api/client.js';
-import type { CreateProjectInput, UpdateProjectInput, Project } from '@apm/shared';
-
-interface MutationState<T> {
-  loading: boolean;
-  error: string | null;
-  data: T | null;
-}
-
-interface UseProjectMutationReturn {
-  create: (input: CreateProjectInput) => Promise<Project | null>;
-  update: (id: string, input: UpdateProjectInput) => Promise<Project | null>;
-  archive: (id: string) => Promise<Project | null>;
-  state: MutationState<Project>;
-  reset: () => void;
-}
-
-/**
- * 项目写操作 Hook
- *
- * @returns 写操作方法 + 共享状态
- */
-export function useProjectMutation(): UseProjectMutationReturn {
-  const [state, setState] = useState<MutationState<Project>>({
-    loading: false,
-    error: null,
-    data: null,
-  });
-
-  const reset = useCallback(() => setState({ loading: false, error: null, data: null }), []);
-
-  // R4: 段落注释 — 通用 mutation 执行器（统一 loading/error/data 三态管理）
-  const execute = useCallback(async <T>(
-    fn: () => Promise<ApiResponse<T>>,
-  ): Promise<T | null> => {
-    setState({ loading: true, error: null, data: null });
-    try {
-      const res = await fn();
-      setState({ loading: false, error: null, data: res.data });
-      return res.data;
-    } catch (err) {
-      const message = err instanceof ApiClientError ? err.message : '操作失败';
-      setState({ loading: false, error: message, data: null });
-      return null;
-    }
-  }, []);
-
-  const create = useCallback(
-    (input: CreateProjectInput) =>
-      execute(() => api.post<Project>('/projects', input)),
-    [execute],
-  );
-
-  const update = useCallback(
-    (id: string, input: UpdateProjectInput) =>
-      execute(() => api.put<Project>(`/projects/${id}`, input)),
-    [execute],
-  );
-
-  const archive = useCallback(
-    (id: string) =>
-      execute(() => api.delete<Project>(`/projects/${id}`)),
-    [execute],
-  );
-
-  return { create, update, archive, state, reset };
-}
-```
-
-### 3.5 防抖 Hook
-
-```typescript
-/**
- * @module hooks/useDebouncedValue
- * @description 防抖值 Hook
- *              用于搜索框输入防抖（B-M1-01: 300ms 防抖）
- */
-
-import { useState, useEffect } from 'react';
-
-/**
- * 返回一个防抖版本的值
- *
- * R5 Why: 用户快速输入时每个按键都触发请求会造成不必要的网络开销
- *        和 UI 闪烁。300ms 是经验值——太短浪费请求，太长感觉迟钝。
- *
- * 注意：首次 mount 时 value 从初始值变为实际值也会触发 delay 毫秒的等待，
- *       这意味着列表页首次加载数据会有 ~300ms 的额外延迟。这是有意为之的设计：
- *       避免首屏"先空白再闪现数据"的视觉跳跃。如果业务场景要求零延迟首屏，
- *       可在调用方（如 useProjectList）中增加 isInitialRender 标志跳过首次 debounce。
- *
- * @param value - 原始值（如搜索框的即时输入值）
- * @param delay - 防抖延迟（毫秒），默认 300
- * @returns 防抖后的值（仅在停止输入 delay 毫秒后更新）
- */
-export function useDebouncedValue<T>(value: T, delay: number = 300): T {
-  const [debouncedValue, setDebouncedValue] = useState<T>(value);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedValue(value);
-    }, delay);
-
-    return () => clearTimeout(timer);
-  }, [value, delay]);
-
-  return debouncedValue;
-}
-```
+useDebouncedValue：输入值防抖，默认 300ms。首次 mount 也有 300ms 延迟（有意设计，避免首屏闪烁）。
 
 ---
 
 ## 4. 页面组件组织模式
 
-### 4.1 列表页模板（以 ProjectList 为例）
+### 4.1 列表页模式（架构级）
 
-```tsx
-/**
- * @module pages/ProjectList
- * @description 项目列表页（F-M1-01）
- *              包含：搜索栏 + 状态筛选 + 新建按钮 + 数据表格 + 分页器 + 空状态
- */
+列表页结构要点：
+1. 顶部操作栏：搜索框 + 状态筛选 + 新建按钮
+2. 数据表格区域：ProjectTable 业务组件
+3. 分页器：PaginationComponent（前端计算 totalPages）
+4. 弹窗：ProjectFormDialog + ArchiveConfirmDialog
 
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ProjectTable } from '@/components/project/ProjectTable.js';
-import { ProjectFormDialog } from '@/components/project/ProjectFormDialog.js';
-import { ArchiveConfirmDialog } from '@/components/project/ArchiveConfirmDialog.js';
-import { useProjectList } from '@/hooks/useProjectList.js';
-import { useProjectMutation } from '@/hooks/useProjectMutation.js';
-import { useDebouncedValue } from '@/hooks/useDebouncedValue.js';
-import { Button } from '@/components/ui/button.js';
-import { Input } from '@/components/ui/input.js';
-import { Badge } from '@/components/ui/badge.js';
-// ... 其他 import
+**关键交互**：
+- 搜索框即时值 → useDebouncedValue → setParams({ search })
+- 状态筛选 → Badge tag group → setParams({ status })
+- 行点击 → navigate(`/p/${projectId}`)
+- 新建成功 → navigate(`/p/${newProject.id}`)
 
-export default function ProjectList() {
-  const navigate = useNavigate();
+### 4.2 详情页模式（架构级）
 
-  // R4: 段落注释 — 数据获取
-  const { data, meta, loading, params, setParams, refresh } = useProjectList();
-  const { create, state: mutationState, reset: resetMutation } = useProjectMutation();
+详情页结构要点：
+1. 顶部信息栏：面包屑 + 名称 + 状态 Tag + 操作按钮组
+2. 基本信息卡：可编辑模式切换
+3. 模块概要区域：2~3 列卡片网格（领域模型/业务流程/组织架构统计）
+4. 组织管理区域：OrganizationPanel
 
-  // R4: 段落注释 — 本地 UI 状态
-  const [searchInput, setSearchInput] = useState(''); // 搜索框即时值（未防抖）
-  const debouncedSearch = useDebouncedValue(searchInput); // 防抖后的值
-  const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const [archiveTarget, setArchiveTarget] = useState<{ id: string; displayName: string } | null>(null);
-
-  // R4: 段落注释 — 防抖值变化时更新查询参数
-  // 使用单独的 effect 避免每次渲染都触发 setParams
-  useEffect(() => {
-    setParams({ search: debouncedSearch });
-  }, [debouncedSearch, setParams]);
-
-  // R4: 段落注释 — 事件处理
-  const handleEdit = (id: string) => navigate(`/projects/${id}`);
-
-  const handleArchive = (id: string, displayName: string) => {
-    // B-M1-06: 归档前必须弹出确认弹窗，文案包含 display_name
-    setArchiveTarget({ id, displayName });
-  };
-
-  const handleConfirmArchive = async () => {
-    if (!archiveTarget) return;
-    const result = await archive(archiveTarget.id);
-    if (result) {
-      // B-M1-09: 归档成功后刷新列表
-      refresh();
-      setArchiveTarget(null);
-    }
-  };
-
-  const handleCreateSuccess = (project: { id: string }) => {
-    // B-M1-12: 创建成功后跳转到详情页
-    setShowCreateDialog(false);
-    resetMutation();
-    navigate(`/projects/${project.id}`);
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* ===== 顶部操作栏 ===== */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4 flex-1">
-          {/* 搜索框 */}
-          <Input
-            placeholder="搜索项目标识符..."
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            className="max-w-sm"
-          />
-
-          {/* 状态筛选 Tag 组 */}
-          <div className="flex gap-1">
-            {[
-              { label: '全部', value: '' },
-              { label: '活跃', value: 'active' },
-              { label: '已归档', value: 'archived' },
-            ].map((tag) => (
-              <Badge
-                key={tag.value}
-                variant={params.status === tag.value ? 'default' : 'outline'}
-                className="cursor-pointer"
-                onClick={() => setParams({ status: tag.value })}
-              >
-                {tag.label}
-              </Badge>
-            ))}
-          </div>
-        </div>
-
-        {/* 新建按钮 */}
-        <Button onClick={() => setShowCreateDialog(true)}>新建项目</Button>
-      </div>
-
-      {/* ===== 数据表格 ===== */}
-      <ProjectTable
-        data={data}
-        onEdit={handleEdit}
-        onArchive={handleArchive}
-        loading={loading}
-      />
-
-      {/* ===== 分页器 ===== */}
-      {!loading && data.length > 0 && (
-        <PaginationComponent
-          current={meta.page}
-          total={meta.total}
-          pageSize={meta.pageSize}
-          onPageChange={(page) => setParams({ page })}
-        />
-      )}
-
-      {/* ===== 弹窗 ===== */}
-      <ProjectFormDialog
-        open={showCreateDialog}
-        onOpenChange={setShowCreateDialog}
-        onSuccess={handleCreateSuccess}
-      />
-
-      <ArchiveConfirmDialog
-        open={!!archiveTarget}
-        target={archiveTarget}
-        onConfirm={handleConfirmArchive}
-        onCancel={() => setArchiveTarget(null)}
-        loading={mutationState.loading}
-      />
-    </div>
-  );
-}
-```
-
-### 4.2 详情页模板要点
-
-详情页的核心差异在于**并行请求 + 多区域组装**：
-
-```tsx
-export default function ProjectDetail() {
-  const { projectId } = useParams<{ projectId: string }>();
-
-  // B-M1-16: 并行请求详情 + 摘要
-  const { project, summary, loading, error } = useProjectDetail(projectId ?? '');
-
-  // 404 边界
-  if (error?.includes('不存在')) {
-    return <ErrorFallback message={error} onBack={() => navigate('/projects')} />;
-  }
-
-  if (loading) return <DetailPageSkeleton />;
-
-  if (!project) return null;
-
-  return (
-    <div className="space-y-6">
-      {/* 顶部信息栏：面包屑 + 名称 + 状态Tag + 操作按钮组 */}
-      <DetailHeader
-        project={project}
-        onEdit={() => setIsEditing(true)}
-        onArchive={() => setArchiveTarget({ id: project.id, displayName: project.displayName })}
-      />
-
-      {/* 基本信息卡 */}
-      <InfoCard project={project} isEditing={isEditing} onSave={handleSave} onCancel={handleCancel} />
-
-      {/* 模块概要区域：2~3 列卡片网格 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <SummaryCard title="领域模型" icon="Database" count={summary?.domainEntityCount ?? 0} />
-        <SummaryCard title="业务流程" icon="GitBranch" count={summary?.processCount ?? 0} />
-        <SummaryCard title="组织架构" icon="Building2" count={`${summary?.companyCount ?? 0} 家公司`} />
-      </div>
-
-      {/* 组织管理区域 */}
-      <OrganizationPanel projectId={projectId} />
-    </div>
-  );
-}
-```
+**关键交互**：
+- 并行请求详情 + 摘要（Promise.all）
+- 404 边界 → ErrorFallback + 返回按钮
+- 项目 ID 从 ProjectContext 或 useParams 获取
 
 ---
 
 ## 5. 状态管理策略
 
-### 5.1 Phase 1 状态管理决策
+### 5.1 状态管理决策
 
-**不引入 Redux / Zustand / Jotai 等状态管理库。**
+**采用 React Context + useState/useCallback 分层管理。**
 
-理由（tech design §2.2）：
-- Phase 1 数据量小，React `useState` + `useCallback` 足够
-- 减少依赖和学习成本
-- 后续 Phase 如需全局状态（如当前项目上下文），再评估引入
+| 状态层级 | 方案 | 适用场景 | 示例 |
+|---------|------|---------|------|
+| **跨页面共享状态** | React Context | 项目上下文（projectId + displayName）等需要多个页面共享的状态 | `ProjectContext` |
+| **页面级状态** | useState + useCallback | 弹窗开关、搜索框值、编辑模式等页面内部交互态 | 各页面组件内 |
+| **服务器状态** | Custom Hook 内部 useState | 列表数据、详情数据等从 API 获取的状态 | useProjectList 等 |
+| **URL 状态** | React Router useParams / useSearchParams | 当前项目 ID、查询参数 | 路由参数 |
+
+> **ProjectContext 架构**：
+> - 路由结构：`/p/:projectId/*` — 所有项目内页面以 `/p/:projectId` 为前缀
+> - Context 提供：projectId / displayName / setActiveProject / clearProject
+> - Sidebar 消费：根据是否处于项目上下文动态切换菜单项（项目内菜单 vs 全局菜单）
+> - 激活方式：Dashboard 卡片点击 → setActiveProject → navigate(`/p/${projectId}`)
 
 ### 5.2 状态分类与存放位置
 
 | 状态类型 | 存放位置 | 生命周期 | 示例 |
 |---------|---------|---------|------|
+| **跨页面共享状态** | React Context (`contexts/`) | 项目激活期间 | 当前项目 ID、项目名称 |
 | **服务器状态** | Custom Hook 内部 (`useState`) | 组件挂载期间 | 项目列表、项目详情 |
 | **UI 状态** | 页面组件内 (`useState`) | 组件存活期间 | 弹窗开/关、搜索框值、编辑模式 |
 | **URL 状态** | React Router `useParams` / `useSearchParams` | URL 中 | 当前项目 ID、查询参数 |
@@ -835,11 +316,6 @@ export default function ProjectDetail() {
 
 **默认移动优先**：先写移动端样式，再用 `md:` / `lg:` 等前缀增强桌面端。
 
-```tsx
-// ✅ 移动优先：默认单列，md 以上双列
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-```
-
 #### 6.2.2 常用布局模式
 
 | 场景 | Tailwind class | 说明 |
@@ -878,13 +354,7 @@ export default function ProjectDetail() {
 | `bg-card` | 卡片背景 | 内容卡片 |
 | `ring-ring` | 焦点环 | 输入框聚焦 |
 
-```tsx
-// ✅ 使用语义化 token
-<Button className="bg-destructive hover:bg-destructive/90">归档</Button>
-
-// ❌ 硬编码颜色
-<Button style={{ backgroundColor: '#ef4444' }}>归档</Button>
-```
+> **全局视觉约束**详见 `docs/04-tech-design/design-language.md`，品牌颜色、字体层级、间距节奏、圆角/阴影等统一在设计语言规范中定义。
 
 #### 6.3.1 Sidebar 主题适配规则
 
@@ -915,32 +385,12 @@ Sidebar 采用**主题自适应**设计（亮色浅底 / 暗色深底），所�
 | 分割线 | `border-sidebar-border` | `#e8e8e8` | 深色半透明 |
 | 分组标签 | `text-sidebar-group-label` | `#999` | `rgba(255,255,255,0.45)` |
 
-> 完整规格见 `ui-design-spec.md` §1.2.1。
-
 ### 6.4 cn() 工具函数
-
-```typescript
-// lib/utils.ts — 已有实现
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-/** 合并 Tailwind class 名，处理冲突 */
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-```
 
 **使用场景**：
 
-```tsx
-// 条件应用样式
-<div className={cn('px-4 py-2 rounded', isActive && 'bg-primary text-primary-foreground')} />
-
-// 合并外部 class 与默认 class
-const Button = forwardRef(({ className, ...props }, ref) => (
-  <button ref={ref} className={cn('base-button-styles', className)} {...props} />
-));
-```
+- 条件应用样式：`cn('px-4 py-2 rounded', isActive && 'bg-primary text-primary-foreground')`
+- 合并外部 class 与默认 class：shadcn/ui 组件的 `className` prop
 
 ---
 
@@ -954,13 +404,12 @@ const Button = forwardRef(({ className, ...props }, ref) => (
 npx shadcn add button
 npx shadcn add dialog
 npx shadcn add table
-npx shadcn add input
 # ... 按实际需求逐个添加
 ```
 
 ### 7.2 M1 预估需要的 shadcn/ui 组件清单
 
-基于 PRD 页面设计，M1 至少需要以下组件：
+基于交互设计文档，M1 至少需要以下组件：
 
 | 组件 | 类型 | 用途 | 对应功能点 |
 |------|------|------|-----------|
@@ -968,32 +417,30 @@ npx shadcn add input
 | `input` | CLI 可安装 | 文本输入框 | F-M1-02 / F-M1-04 |
 | `textarea` | CLI 可安装 | 多行文本输入 | F-M1-02 description |
 | `dialog` | CLI 可安装 | 创建/编辑/确认弹窗 | F-M1-02 / F-M1-04 / F-M1-05 |
-| `table` / `table-header` / `table-body` / `table-row` / `table-cell` | CLI 可安装 | 数据表格 | F-M1-01 / F-M1-06~09 |
+| `table` 系列 | CLI 可安装 | 数据表格 | F-M1-01 / F-M1-06~09 |
 | `badge` | CLI 可安装 | 基础标签容器 | F-M1-01 / F-M1-03 |
 | `card` | CLI 可安装 | 信息卡 / 概要卡片 | F-M1-03 |
-| `select` | CLI 可安装 | 下拉选择（pageSize / status 筛选） | F-M1-01 |
+| `select` | CLI 可安装 | 下拉选择 | F-M1-01 |
 | `skeleton` | CLI 可安装 | 加载骨架屏 | 全部 |
 | `sonner` | CLI 可安装（推荐） | 操作反馈 Toast 提示 | 全部 |
-| `dropdown-menu` | CLI 可安装 | 行内操作菜单（可选） | F-M1-01 |
+| `dropdown-menu` | CLI 可安装 | 行内操作菜单 | F-M1-01 |
 | `separator` | CLI 可安装 | 分隔线 | 布局 |
 | `accordion` / `collapsible` | CLI 可安装 | 公司展开查看部门/角色 | F-M1-03 / F-M1-06 |
 | `alert` / `callout` | CLI 可安装 | 说明文案提示框 | F-M1-03 |
 | `label` | CLI 可安装 | 表单标签 | F-M1-02 / F-M1-04 |
 | `tooltip` | CLI 可安装 | 图标/按钮提示 | 通用 |
 | `scroll-area` | CLI 可安装 | 可滚动容器 | Sidebar / 表格 |
-| `tabs` | CLI 可安装 | 详情页 Tab 切换（Phase 1 可能不需要） | F-M1-03 |
+| `tabs` | CLI 可安装 | 详情页 Tab 切换 | F-M1-03 |
 | **`StatusBadge`** | **自定义封装** | **状态标签（active=绿 / archived=灰）** | **F-M1-01 / F-M1-03** |
-| **`PaginationComponent`** | **自定义封装** | **分页器（前端计算 totalPages）** | **F-M1-01** |
+| **`PaginationComponent`** | **自定义封装** | **分页器** | **F-M1-01** |
 | **`EmptyState`** | **自定义封装** | **空数据占位** | **全部** |
-| **`LoadingSkeleton`** | **自定义封装** | **业务骨架屏（组合 skeleton）** | **全部** |
+| **`LoadingSkeleton`** | **自定义封装** | **业务骨架屏** | **全部** |
 | **`ErrorFallback`** | **自定义封装** | **错误降级 UI** | **全部** |
 | **`ArchiveConfirmDialog`** | **自定义封装** | **归档确认弹窗** | **F-M1-05** |
 
-> **Toast 方案说明**：shadcn/ui 提供两种 Toast 方案：
-> - **sonner**（推荐）：API 更简洁，`toast.success()` / `toast.error()` 一行调用，自动管理 Toaster 位置
-> - **toast + toaster + use-toast**：传统方案，需手动在布局中放置 `<Toaster />` 组件
->
-> M1 推荐使用 **sonner**，在 `Layout.tsx` 中放置 `<Sonner />` 即可全局生效。如团队更熟悉 toast 方案也可选用，但需保持一致性。
+> **Toast 方案**：推荐使用 **sonner**（API 简洁，`toast.success()` / `toast.error()` 一行调用），在 `Layout.tsx` 中放置 `<Sonner />` 即可全局生效。
+
+> **Tooltip 方案**：shadcn/ui 的 Tooltip 基于 @base-ui/react（非 Radix），使用 `render` prop 而非 `asChild`。详见组件源码和官方文档。
 
 ### 7.3 shadcn/ui 组件修改规则
 
@@ -1004,44 +451,13 @@ npx shadcn add input
 | **变体扩展** | 需要 shadcn/ui 不支持的变体时，用 `cv()` (class-variance-authority) 在业务组件中定义 |
 | **版本锁定** | 添加组件后检查 `components.json` 确保配置一致 |
 
-### 7.4 业务组件变体示例
+### 7.4 业务组件变体示例（架构级）
 
-```tsx
-/**
- * @module components/common/StatusBadge
- * @description 状态标签组件（active=绿色 / archived=灰色）
- *              基于 shadcn/ui Badge 的业务封装
- */
-
-import { Badge } from '@/components/ui/badge.js';
-import { cn } from '@/lib/utils.js';
-
-interface StatusBadgeProps {
-  status: 'active' | 'archived';
-  className?: string;
-}
-
-// R5 Why: 此处使用硬编码 Tailwind 颜色类而非 §6.3 语义化 token，原因如下：
-//        1. shadcn/ui Badge 组件没有内置 "status" 变体（仅有 default/secondary/destructive/outline），
-//           无法通过 variant 参数实现 active=绿 / archived=灰 的语义区分；
-//        2. green-100/green-800 和 gray-100/gray-500 是业界通用的状态色约定
-//           （绿色=正常/活跃，灰色=停用/归档），语义明确且无需额外 CSS 变量定义；
-//        3. 如后续需要主题切换能力，可将这些颜色提取为 CSS 自定义属性
-//           （如 --status-active-bg, --status-archived-bg）放入 index.css 的 :root 中。
-const STATUS_CONFIG = {
-  active: { label: '活跃', className: 'bg-green-100 text-green-800 border-green-200' },
-  archived: { label: '已归档', className: 'bg-gray-100 text-gray-500 border-gray-200' },
-} as const;
-
-export function StatusBadge({ status, className }: StatusBadgeProps) {
-  const config = STATUS_CONFIG[status];
-  return (
-    <Badge variant="outline" className={cn(config.className, className)}>
-      {config.label}
-    </Badge>
-  );
-}
-```
+StatusBadge 组件结构要点：
+1. 基于 shadcn/ui Badge 的 `variant="outline"` 封装
+2. STATUS_CONFIG 映射：active → green-100/green-800, archived → gray-100/gray-500
+3. 使用 cn() 合并配置 className 与外部 className
+4. R5 Why 注释：硬编码颜色的合理性（Badge 无 status 变体 + 状态色是通用约定）
 
 ---
 
@@ -1049,14 +465,11 @@ export function StatusBadge({ status, className }: StatusBadgeProps) {
 
 ### 8.1 ApiClient 使用规范
 
-ApiClient（`src/api/client.ts`）已封装了统一的 HTTP 请求和错误处理。前端代码的使用约定：
-
 ```typescript
 // ✅ 通过自定义 Hook 间接调用（推荐）
 const { data, loading, error } = useProjectList();
 
 // ❌ 直接在组件中调用 ApiClient（禁止）
-const [data, setData] = useState([]);
 useEffect(() => {
   api.get('/projects').then(res => setData(res.data)); // 不要这样做
 }, []);
@@ -1084,63 +497,13 @@ useEffect(() => {
 | 加载中 | Skeleton 骨架屏 | shadcn `skeleton` |
 | 空数据 | EmptyState 空状态占位 | `EmptyState.tsx` |
 
-### 8.4 Error Boundary 模式
+### 8.4 Error Boundary 模式（架构级）
 
-```tsx
-/**
- * @module components/ErrorBoundary
- * @description React 错误边界组件
- *              捕获子组件树中的未预期异常，展示友好的降级 UI
- */
-
-import { Component, type ReactNode, type ErrorInfo } from 'react';
-
-interface Props {
-  children: ReactNode;
-  fallback?: ReactNode;
-}
-
-interface State {
-  hasError: boolean;
-  error: Error | null;
-}
-
-export class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
-    super(props);
-    this.state = { hasError: false, error: null };
-  }
-
-  static getDerivedStateFromError(error: Error): State {
-    return { hasError: true, error };
-  }
-
-  componentDidCatch(error: Error, info: ErrorInfo) {
-    console.error('ErrorBoundary caught:', error, info);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return this.props.fallback ?? (
-        <div className="flex flex-col items-center justify-center min-h-[200px] space-y-4 p-8">
-          <p className="text-lg font-medium text-destructive">出现了意外错误</p>
-          <p className="text-sm text-muted-foreground">
-            {this.state.error?.message ?? '请稍后重试'}
-          </p>
-          <button
-            onClick={() => this.setState({ hasError: false, error: null })}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-          >
-            重试
-          </button>
-        </div>
-      );
-    }
-
-    return this.props.children;
-  }
-}
-```
+ErrorBoundary 结构要点：
+1. React class Component（getDerivedStateFromError + componentDidCatch）
+2. 降级 UI：错误信息 + 重试按钮
+3. 可选 fallback prop 允许自定义降级 UI
+4. 样式：flex 居中 + destructive 颜色 + primary 按钮
 
 ---
 
@@ -1154,66 +517,46 @@ export class ErrorBoundary extends Component<Props, State> {
 | **P1** | `types/` 目录 | 前端专用类型（shared 未覆盖的部分） |
 | **P2** | 就地定义 | 仅在单个文件内部使用的简单类型（interface / type） |
 
-### 9.2 类型复用示例
+### 9.2 类型复用原则
 
-```typescript
-// ✅ 优先使用 shared 类型
-import type { Project, ProjectListItem, CreateProjectInput } from '@apm/shared';
-
-// ❌ 重复定义已有类型
-interface MyProject {
-  id: string;
-  name: string; // shared 中已有！
-}
-```
-
-### 9.3 前端专用类型
-
-当 shared 类型不够用时（如表单状态、UI 特有 props），在 `types/` 中补充：
-
-```typescript
-// types/ui.ts — 前端 UI 相关类型
-
-/** 表单字段状态 */
-export interface FieldState<T> {
-  value: T;
-  error: string | null;
-  touched: boolean;
-}
-
-/** 分页组件 Props */
-export interface PaginationProps {
-  current: number;
-  total: number;
-  pageSize: number;
-  onPageChange: (page: number) => void;
-}
-```
+优先使用 `@apm/shared` 类型，禁止重复定义已有类型。前端专用类型（如表单状态、UI 特有 props）在 `types/` 中补充。
 
 ---
 
 ## 10. 路由与导航规范
 
-### 10.1 路由定义（硬编码）
+### 10.1 路由定义（ProjectContext 驱动）
 
-路由在 `App.tsx` 中硬编码定义，不从 API 动态获取（tech design PH1-25 决策）：
+路由采用**项目上下文驱动的导航架构**，所有项目内页面以 `/p/:projectId` 为前缀：
 
 ```tsx
 <Routes>
-  <Route path="/" element={<Navigate to="/projects" replace />} />
-  <Route path="/projects" element={<ProjectList />} />
-  <Route path="/projects/:projectId" element={<ProjectDetail />} />
+  <Route path="/" element={<Navigate to="/dashboard" replace />} />
+  <Route path="/dashboard" element={<Dashboard />} />
+  <Route path="/p/:projectId" element={<ProjectDetail />} />
+  <Route path="/p/:projectId/organization" element={<OrganizationPanel />} />
   <Route path="/menus" element={<MenuManagement />} />
 </Routes>
 ```
+
+**ProjectContext 导航架构**：
+
+| 特性 | 说明 |
+|------|------|
+| 路由前缀 | `/p/:projectId/*` — 项目内页面统一前缀 |
+| Context 管理 | `ProjectContext` 管理 projectId + displayName |
+| Sidebar 联动 | 项目上下文激活时切换为项目内菜单，顶部显示项目名称 + 退出按钮 |
+| 激活方式 | Dashboard 卡片点击 → setActiveProject → navigate(`/p/${projectId}`) |
+| 退出方式 | Sidebar 退出按钮 → clearProject → navigate(`/dashboard`) |
 
 ### 10.2 导航方式
 
 | 场景 | 方式 | 示例 |
 |------|------|------|
-| 编程式导航 | `useNavigate()` | `navigate('/projects/123')` |
-| 声明式导航 | `<Link>` | `<Link to="/projects/123">查看</Link>` |
+| 编程式导航 | `useNavigate()` | `navigate(`/p/${projectId}`)` |
+| 声明式导航 | `<Link>` | `<Link to={`/p/${projectId}`}>查看</Link>` |
 | 路由参数获取 | `useParams()` | `const { projectId } = useParams()` |
+| 项目上下文获取 | `useProject()` | `const { projectId, displayName } = useProject()` |
 
 ### 10.3 导航守卫
 
@@ -1233,35 +576,47 @@ Phase 1 无认证，无需路由守卫。后续 Phase 3 引入认证后在 Layou
 
 ## 12. 参考文档使用原则
 
-### 12.1 视觉呈现 vs 交互逻辑 — 参考来源不同
+### 12.1 视觉参考三层体系
 
-编码时需要同时参考 **PRD** 和 **高保真原型（HTML）**，但两者的参考职责不同：
+取消 HTML 高保真原型后，编码时的视觉参考来自以下三层：
 
-| 编码维度 | 主要参考 | 辅助参考 | 不参考 |
-|---------|---------|---------|--------|
-| **视觉呈现效果** | **高保真原型 HTML** + `ui-design-spec.md` | PRD 页面元素列表（布局结构） | — |
-| **交互逻辑实现** | **PRD 详细设计**（交互行为、业务规则）+ `ui-design-spec.md` 组件规格 | 原型中的 `[PRD 交互标注]` 注释 | 原型中的 JS 实现（如有） |
-| **数据模型与 API** | 技术方案（API 规范、数据库 Schema） | PRD 数据定义 | 原型（静态 mock 数据） |
+| 层级 | 参考来源 | 定位 | 文档路径 |
+|------|---------|------|---------|
+| **第一层：全局视觉约束** | 设计语言规范 | 品牌颜色、字体层级、间距节奏、圆角/阴影等全局 baseline | `docs/04-tech-design/design-language.md` |
+| **第二层：页面级规格** | S3 交互设计文档 | 各模块的页面布局、UI 元素清单、交互行为规格 | `docs/03-prd-ux/modules/[模块名]/[模块名]-interaction.md` |
+| **第三层：实际渲染验证** | browser-agent 截图自检 | AI 编码完成后通过 browser-agent 截图验证实际渲染效果 | 运行时验证 |
 
-### 12.2 具体规则
+### 12.2 编码维度与参考来源对照
 
-1. **视觉还原以原型为准**：页面布局、间距、颜色、圆角、字体大小、组件形态等视觉属性，以高保真原型 HTML 的实际渲染效果为基准进行还原。如果原型和 `ui-design-spec.md` 有冲突，以原型为准（原型是 spec 的实例化）。
+| 编码维度 | 主要参考 | 辅助参考 |
+|---------|---------|---------|
+| **视觉呈现效果** | **设计语言规范** + **S3 交互设计文档**（页面布局、元素规格） | browser-agent 截图自检 |
+| **交互逻辑实现** | **S3 交互设计文档**（交互行为、操作流程） + **PRD**（业务规则） | 设计语言规范（组件形态约束） |
+| **数据模型与 API** | **技术方案**（API 规范、数据库 Schema） | PRD 数据规格 |
+| **业务规则** | **PRD**（校验规则、业务约束、异常场景） | 技术方案 |
 
-2. **交互逻辑以 PRD 为准**：排序方向、分页联动、表单校验规则、弹窗关闭方式（Esc / 遮罩）、Loading 态触发时机、错误处理流程等行为逻辑，严格按 PRD 文档的"交互行为"章节实现。原型中即使有 JS 模拟了某些交互，也仅作视觉参考，不作为功能实现的依据。
+### 12.3 具体规则
 
-3. **原型不负责详细交互说明**：高保真原型的定位是「视觉规格原型」（路线 A），其 `[PRD 交互标注]` 注释是对 PRD 行为的索引指引，不是完整的行为规格。实现交互时必须回到 PRD 对应章节阅读完整描述。
+1. **全局视觉以设计语言规范为基准**：品牌颜色、字体层级、间距节奏、圆角、阴影等视觉属性，以 `design-language.md` 为权威来源。交互设计文档中的视觉规格是设计语言规范在具体页面的实例化，如有冲突以设计语言规范为准（全局约束优先）。
 
-4. **原型 mock 数据仅供参考**：原型中的示例数据（如"电商后台原型"、"v3" 等）仅用于展示 UI 样式，不代表真实数据的格式或边界情况。数据格式以 API 规范和 shared 类型定义为准。
+2. **页面布局以 S3 交互设计文档为准**：页面区域划分、元素清单、元素位置关系等，以交互设计文档的页面布局规格为基准实现。
 
-### 12.3 典型场景对照
+3. **交互行为以 S3 交互设计文档 + PRD 为准**：操作流程、弹窗触发方式、Loading 态时机、错误处理流程等行为逻辑，严格按交互设计文档 + PRD 实现。
 
-| 场景 | 看原型 | 看 PRD | 说明 |
-|------|--------|--------|------|
-| 表格列宽分配 | ✅ 列宽比例、max-width 值 | — | 按原型视觉效果还原 |
-| 表格列可拖拽调整宽度 | 仅看手柄样式（cursor:col-resize） | ✅ 拖拽交互完整规格（§6.3.1 规则3-4） | 原型只展示手柄视觉，不实现拖拽逻辑 |
-| 创建弹窗字段列表 | ✅ 字段名、label、placeholder | ✅ 校验规则、唯一性约束 | 两者结合，缺一不可 |
-| 归档确认弹窗警告文字 | ✅ 弹窗尺寸、按钮位置 | ✅ 警告文案措辞、红色强调 | PRD 定义内容，原型定义样式 |
-| 暗色模式配色 | ✅ 实际色值预览 | — | 直接从原型取色值 |
+4. **视觉验证通过 browser-agent 自检**：S6 代码实现完成后，AI 先通过 browser-agent 截图自检布局和交互是否符合预期，确认无明显问题后再截图给 PM 确认。
+
+5. **PRD 不定义交互细节**：PRD 只包含业务层内容（领域模型、业务动作、业务规则、数据规格），页面布局和交互行为在 S3 交互设计文档中定义。编码时需要同时参考 PRD（业务逻辑）和交互设计文档（交互规格），两者互补。
+
+### 12.4 典型场景对照
+
+| 场景 | 看设计语言规范 | 看交互设计文档 | 看 PRD | 说明 |
+|------|:-------------:|:------------:|:------:|------|
+| 品牌主色调 | ✅ 基准色值 | — | — | 全局约束，所有页面遵循 |
+| 页面区域划分 | ✅ 间距/布局节奏 | ✅ 页面布局图 | — | 交互设计定义具体页面，设计语言定义全局节奏 |
+| 表格列定义 | — | ✅ 元素清单 | ✅ 数据规格 | 交互设计定义列和布局，PRD 定义数据内容 |
+| 弹窗触发方式 | — | ✅ 交互行为 | ✅ 业务触发条件 | 交互设计定义 UI 行为，PRD 定义业务何时触发 |
+| 字段校验规则 | — | ✅ UI 错误展示 | ✅ 校验规则 | PRD 定义规则，交互设计定义 UI 展示方式 |
+| 状态标签配色 | ✅ 状态色定义 | ✅ 具体标签规格 | ✅ 状态枚举 | 三者结合 |
 
 ---
 
@@ -1269,6 +624,7 @@ Phase 1 无认证，无需路由守卫。后续 Phase 3 引入认证后在 Layou
 
 | 版本 | 日期 | 变更要点 |
 |------|------|---------|
-| v1.2 | 2026-05-11 | 新增 §12 参考文档使用原则：明确视觉呈现参考原型+ui-design-spec、交互逻辑参考PRD、原型不负责详细交互说明、mock数据仅供参考；含 4 条具体规则 + 5 个典型场景对照表 |
-| v1.0 | 2026-05-07 | 初版，基于总纲 §8 展开，涵盖目录结构/组件设计/Hook 模板库(4种)/状态管理/Tailwind规范/shadcn/ui指南/API错误处理/路由规范 |
-| v1.1 | 2026-05-07 | F-1: 组件清单表新增「类型」列区分 CLI 可安装 vs 自定义封装；移除不存在的 badge-status/pagination/form；Toast 方案明确推荐 sonner 并补充说明；新增 5 个自定义组件行（StatusBadge/PaginationComponent/EmptyState/LoadingSkeleton/ErrorFallback/ArchiveConfirmDialog）。F-2: StatusBadge 示例新增 R5 Why 注释解释硬编码颜色的合理性及未来升级路径。F-3: useDebouncedValue 新增首挂载延迟说明；useProjectList 新增 R5 Why 注释说明 300ms 首次请求延迟的 UX 权衡及跳过方案 |
+| v2.0 | 2026-05-25 | **重大重构 — 原型归档 + 状态管理更新 + 模板简化**：① §10.1 路由从 `/projects/:projectId` → `/p/:projectId/*` + ProjectContext 导航架构；② §5.1 状态管理从"不引入状态管理库" → React Context + useState/useCallback 分层管理，新增 ProjectContext 说明；③ §12 完全重写，从"参考原型+PRD"→"三层视觉参考体系"（设计语言规范→交互设计文档→browser-agent截图自检）；④ §3-§4 模板从代码级降为架构级（保留结构模式，删除完整代码实现）；⑤ §1.1 目录树新增 contexts/ 目录，页面组件调整（ProjectList→Dashboard）；⑥ §6.3 新增设计语言规范引用；⑦ §7.2 Tooltip 说明基于 @base-ui/react（render prop 模式）；⑧ §2.1 新增 Context 组件分类行；⑨ §4 页面组件模式新增 ProjectContext 引用 |
+| v1.2 | 2026-05-11 | 新增 §12 参考文档使用原则 |
+| v1.1 | 2026-05-07 | 组件清单表/StatusBadge/useDebouncedValue 优化 |
+| v1.0 | 2026-05-07 | 初版 |

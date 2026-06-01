@@ -26,6 +26,8 @@ export const domainEntities = pgTable('domain_entities', {
   description: text('description'),
   category: text('category'),
   sortOrder: integer('sort_order').notNull().default(0),
+  // R5 Why: config JSONB 存储 UI 元数据（如 canvas_position），避免频繁 DDL 变更
+  config: jsonb('config').default('{}'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
@@ -41,7 +43,7 @@ export const entityFields = pgTable('entity_fields', {
   name: text('name').notNull(),
   displayName: text('display_name').notNull(),
   description: text('description'),
-  fieldType: text('field_type').notNull(),
+  fieldType: text('field_type').notNull(), // Phase 1 支持 9 种基础类型：string/number/boolean/datetime/text/enum/email/url/phone（完整 26 种延后至 Phase 2+）
   // R5 Why: is_required 用 boolean 类型（非 text），与 DDL 定义和 shared type EntityField.isRequired 一致。
   isRequired: boolean('is_required').notNull().default(false),
   defaultValue: jsonb('default_value'),
@@ -61,10 +63,11 @@ export const entityRelations = pgTable('entity_relations', {
   projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   sourceEntityId: text('source_entity_id').notNull().references(() => domainEntities.id, { onDelete: 'cascade' }),
   targetEntityId: text('target_entity_id').notNull().references(() => domainEntities.id, { onDelete: 'cascade' }),
-  // R5 Why: relation_kind 限制为三种语义关系类型（dependency/aggregation/composition），
+  // R5 Why: relation_kind 限制为四种 UML 语义关系类型（association/dependency/aggregation/composition），
   //        拒绝 UML 双向关联——每条记录表达一个方向的关系语义。
   //        枚举值由 TypeBox Schema（P2）+ Service 层校验，不使用 DB 级 CHECK 约束。
-  relationKind: text('relation_kind').notNull(), // dependency | aggregation | composition
+  relationKind: text('relation_kind').notNull(), // association | dependency | aggregation | composition
+  sourceCardinality: text('source_cardinality').notNull().default('1'),
   targetCardinality: text('target_cardinality').notNull().default('*'),
   displayName: text('display_name'),
   description: text('description'),

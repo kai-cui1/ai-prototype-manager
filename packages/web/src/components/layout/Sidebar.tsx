@@ -1,13 +1,43 @@
-import { Link } from 'react-router-dom';
+/**
+ * @module Sidebar
+ * @description 侧边栏组件：支持动态菜单、项目切换器。
+ *
+ * 当处于项目上下文时，顶部显示项目名称和退出按钮。
+ */
+
+import { Link, useLocation } from 'react-router-dom';
 import { useState } from 'react';
-import { Folder, Settings, ListTree, type LucideIcon } from 'lucide-react';
+import {
+  Folder,
+  Settings,
+  ListTree,
+  LayoutDashboard,
+  Building2,
+  UserPlus,
+  Users,
+  Boxes,
+  FileText,
+  Network,
+  ArrowLeft,
+  Database,
+  type LucideIcon,
+} from 'lucide-react';
 import type { MenuItem } from '@apm/shared';
 import { cn } from '@/lib/utils';
 
+// 图标映射表
 const ICON_MAP: Record<string, LucideIcon> = {
   FolderKanban: Folder,
+  LayoutDashboard: LayoutDashboard,
   Settings: Settings,
   ListTree: ListTree,
+  Building2: Building2,
+  UserPlus: UserPlus,
+  Users: Users,
+  Boxes: Boxes,
+  FileText: FileText,
+  Network: Network,
+  Database: Database,
 };
 
 function MenuIcon({ name }: { name: string | null }) {
@@ -21,10 +51,21 @@ interface SidebarProps {
   menus: MenuItem[];
   collapsed: boolean;
   onToggle: () => void;
+  /** 当前激活的项目名称（项目上下文时显示） */
+  projectName?: string;
+  /** 退出项目上下文回调 */
+  onExitProject?: () => void;
 }
 
-export default function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
+export default function Sidebar({
+  menus,
+  collapsed,
+  onToggle,
+  projectName,
+  onExitProject,
+}: SidebarProps) {
   const [openMenus, setOpenMenus] = useState<Set<string>>(new Set());
+  const location = useLocation();
 
   const toggleSubmenu = (menuId: string) => {
     setOpenMenus((prev) => {
@@ -35,6 +76,30 @@ export default function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
     });
   };
 
+  // 从 URL 中提取当前 projectId（用于判断激活状态）
+  const currentProjectId = (() => {
+    const match = location.pathname.match(/^\/p\/([^/]+)/);
+    return match ? match[1] : null;
+  })();
+
+  // 判断菜单项是否激活（支持子路由前缀匹配）
+  const isActive = (path: string | null) => {
+    if (!path) return false;
+    // 非项目路由：精确匹配
+    if (!path.includes('/p/')) {
+      return location.pathname === path;
+    }
+    // 项目概览路由 /p/:id：仅当 URL 无子路径时匹配
+    if (currentProjectId && path === `/p/${currentProjectId}`) {
+      return location.pathname === path;
+    }
+    // 子路由 /p/:id/xxx：前缀匹配
+    return location.pathname.startsWith(path);
+  };
+
+  // 判断当前是否在项目上下文
+  const isProjectContext = location.pathname.startsWith('/p/');
+
   return (
     <aside
       className={cn(
@@ -43,7 +108,7 @@ export default function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
         collapsed ? 'w-[var(--sidebar-collapsed-width)]' : 'w-[var(--sidebar-width)]'
       )}
     >
-      {/* Header — §1.2.1: height 48px, padding 0 20px, border-bottom */}
+      {/* Header */}
       <div
         className={cn(
           'flex h-12 items-center border-b border-sidebar-border px-5',
@@ -55,7 +120,6 @@ export default function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
             APM
           </span>
         )}
-        {/* 折叠按钮 — 原型规格：font-size 16px, padding 4px, 圆角 4px, 无边框 */}
         <button
           onClick={onToggle}
           className={cn(
@@ -65,12 +129,39 @@ export default function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
           )}
           aria-label={collapsed ? '展开侧边栏' : '折叠侧边栏'}
         >
-          {/* 展开→◀(收起) / 折叠→▶(展开) — 对齐原型方向 */}
           {collapsed ? '\u25B6' : '\u25C0'}
         </button>
       </div>
 
-      {/* Menu items — §1.2.1: padding 12px 0 */}
+      {/* 项目上下文指示器（仅在项目上下文时显示） */}
+      {isProjectContext && projectName && !collapsed && (
+        <div className="mx-3 my-3 rounded-lg bg-primary/10 border border-primary/20 px-3 py-3">
+          {/* 标签行 */}
+          <div className="flex items-center gap-1.5 mb-1.5">
+            <span className="inline-block h-2 w-2 rounded-full bg-primary animate-pulse" />
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-primary">
+              当前项目
+            </span>
+          </div>
+          {/* 项目名 */}
+          <div className="flex items-center gap-2">
+            <Folder className="h-4 w-4 shrink-0 text-primary" />
+            <span className="text-sm font-bold text-text-primary truncate">{projectName}</span>
+          </div>
+          {/* 退出按钮 */}
+          {onExitProject && (
+            <button
+              onClick={onExitProject}
+              className="mt-2.5 flex items-center gap-1 text-xs text-sidebar-text hover:text-primary transition-colors cursor-pointer"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              退出项目
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Menu items */}
       <nav className="flex-1 overflow-y-auto py-3">
         {menus
           .filter((m) => m.visible)
@@ -83,17 +174,14 @@ export default function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
                 /* Directory with children */
                 <div>
                   {!collapsed && (
-                    /* §1.2.1 分组标签：11px / uppercase / tracking 1px / 35% 白色 */
                     <div className="px-6 pt-3 pb-1 text-[11px] uppercase tracking-widest text-sidebar-group-label">
                       {menu.displayName}
                     </div>
                   )}
-                  {/* 目录按钮 — 原型高度 40px */}
                   <button
                     onClick={() => toggleSubmenu(menu.id)}
                     className={cn(
                       'flex w-full items-center rounded-md transition-colors cursor-pointer',
-                      /* §1.2.1 菜单项：高度 40px, padding 0 20px, 文字 13px */
                       'h-10 py-2 text-[13px] text-sidebar-text',
                       'hover:bg-sidebar-hover hover:text-sidebar-text-active',
                       collapsed ? 'justify-center px-2' : 'px-5'
@@ -103,7 +191,6 @@ export default function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
                     {!collapsed && (
                       <>
                         <span className="ml-2.5 flex-1 text-left">{menu.displayName}</span>
-                        {/* 子菜单展开/收起箭头 */}
                         <span className="text-xs">
                           {openMenus.has(menu.id) ? '\u25BC' : '\u25B6'}
                         </span>
@@ -121,11 +208,10 @@ export default function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
                             to={child.path ?? '#'}
                             className={cn(
                               'flex items-center rounded-md transition-colors',
-                              /* §1.2.1 子菜单项：高度 36px, padding-left 32px, 文字 12px */
                               'h-9 py-1.5 text-xs text-sidebar-text',
                               'hover:bg-sidebar-hover hover:text-sidebar-text-active',
                               collapsed ? 'justify-center px-2' : 'pl-8',
-                              location.pathname === child.path &&
+                              isActive(child.path) &&
                                 '!bg-[#08979c] !text-white font-medium'
                             )}
                           >
@@ -137,17 +223,15 @@ export default function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
                   )}
                 </div>
               ) : (
-                /* Leaf menu item — 原型高度 40px */
+                /* Leaf menu item */
                 <Link
                   to={menu.path ?? '#'}
                   className={cn(
                     'flex items-center rounded-md transition-colors',
-                    /* §1.2.1 叶菜单项：高度 40px, padding 0 20px, 文字 13px */
                     'h-10 py-2 text-[13px] text-sidebar-text',
                     'hover:bg-sidebar-hover hover:text-sidebar-text-active',
                     collapsed ? 'justify-center px-2' : 'px-5',
-                    location.pathname === menu.path &&
-                      '!bg-[#08979c] !text-white font-medium'
+                    isActive(menu.path) && '!bg-[#08979c] !text-white font-medium'
                   )}
                 >
                   <MenuIcon name={menu.icon} />
@@ -158,10 +242,11 @@ export default function Sidebar({ menus, collapsed, onToggle }: SidebarProps) {
           ))}
       </nav>
 
-      {/* Footer — §1.2.1: padding 12px 20px, border-top, 11px 文字, 30% 白色 */}
+      {/* Footer */}
       <div className="border-t border-sidebar-border px-5 py-3 text-[11px] text-sidebar-footer-text">
         {!collapsed && 'APM v0.1.0'}
       </div>
     </aside>
   );
 }
+

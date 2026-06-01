@@ -1,0 +1,1 @@
+ALTER TABLE "domain_entities" ADD COLUMN "config" jsonb DEFAULT '{}';

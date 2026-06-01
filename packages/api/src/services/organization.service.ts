@@ -455,6 +455,15 @@ export async function createDepartment(
     }
   }
 
+  // B-M1-50: name 在同一项目内唯一
+  const [nameConflict] = await db
+    .select({ id: departments.id })
+    .from(departments)
+    .where(and(eq(departments.projectId, company.projectId), eq(departments.name, input.name as string)));
+  if (nameConflict) {
+    throw conflict(ERROR_CODES.NAME_CONFLICT, '该名称已被使用，请更换');
+  }
+
   const [inserted] = await db
     .insert(departments)
     .values({
@@ -653,6 +662,15 @@ export async function createRole(
     }
   }
 
+  // name 唯一性预检（避免依赖 DB 约束产生 500）
+  const [nameConflict] = await db
+    .select({ id: roles.id })
+    .from(roles)
+    .where(and(eq(roles.projectId, projectId), eq(roles.name, input.name as string)));
+  if (nameConflict) {
+    throw conflict(ERROR_CODES.NAME_CONFLICT, '该名称已被使用，请更换');
+  }
+
   const [inserted] = await db
     .insert(roles)
     .values({
@@ -709,6 +727,17 @@ export async function updateRole(
       );
     if (conflictRow) {
       throw conflict(ERROR_CODES.NAME_CONFLICT, '该名称已被使用，请更换');
+    }
+  }
+
+  // B-M1-64: 若提供 departmentId（非 null），校验存在且属于同一项目
+  if (input.departmentId !== undefined && input.departmentId !== null) {
+    const [dept] = await db
+      .select({ id: departments.id, projectId: departments.projectId })
+      .from(departments)
+      .where(eq(departments.id, input.departmentId as string));
+    if (!dept || dept.projectId !== existing.projectId) {
+      throw badRequest(ERROR_CODES.UNPROCESSABLE_ENTITY, '部门不存在或不属于该项目');
     }
   }
 
@@ -800,6 +829,20 @@ export async function createExternalEntity(
   input: Record<string, unknown>,
 ): Promise<ExternalEntity> {
   await assertProjectActive(db, projectId);
+
+  // name 唯一性预检（避免依赖 DB 约束产生 500）
+  const [nameConflict] = await db
+    .select({ id: externalEntities.id })
+    .from(externalEntities)
+    .where(
+      and(
+        eq(externalEntities.projectId, projectId),
+        eq(externalEntities.name, input.name as string),
+      ),
+    );
+  if (nameConflict) {
+    throw conflict(ERROR_CODES.NAME_CONFLICT, '该名称已被使用，请更换');
+  }
 
   const [inserted] = await db
     .insert(externalEntities)

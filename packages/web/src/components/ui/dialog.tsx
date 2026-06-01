@@ -2,7 +2,7 @@ import * as React from "react"
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog"
 
 import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
+import { buttonVariants } from "@/components/ui/button"
 import { XIcon } from "lucide-react"
 
 function Dialog({ ...props }: DialogPrimitive.Root.Props) {
@@ -72,16 +72,9 @@ function DialogContent({
         {showCloseButton && (
           <DialogPrimitive.Close
             data-slot="dialog-close"
-            render={
-              <Button
-                variant="ghost"
-                className="absolute top-2 right-2"
-                size="icon-sm"
-              />
-            }
+            className={cn(buttonVariants({ variant: "ghost", size: "icon-sm" }), "absolute top-2 right-2")}
           >
-            <XIcon
-            />
+            <XIcon />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
         )}
@@ -94,8 +87,8 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="dialog-header"
-      /* §6.6 Dialog Header：flex-row（原型 .dialog-header: display:flex; justify-content:space-between） */
-      className={cn("flex flex-row items-center justify-between border-b border-divider px-6 py-4", className)}
+      /* §6.6 Dialog Header：flex-col（title + description 垂直叠放），关闭按钮由 DialogContent 绝对定位负责 */
+      className={cn("flex flex-col gap-1 border-b border-divider px-6 py-4", className)}
       {...props}
     />
   )
@@ -121,7 +114,7 @@ function DialogFooter({
     >
       {children}
       {showCloseButton && (
-        <DialogPrimitive.Close render={<Button variant="outline" />}>
+        <DialogPrimitive.Close className={buttonVariants({ variant: "outline" })}>
           Close
         </DialogPrimitive.Close>
       )}

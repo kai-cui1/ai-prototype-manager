@@ -2,28 +2,45 @@
 
 > 定义 AI 工作流中使用的服务连接环境。**只有用户可以修改此目录下的文件**，AI 只读。
 
+## 核心原则：先指定环境，再启动服务
+
+**不允许任何隐式默认值绕过环境系统。** 启动服务、执行数据库操作前，必须先激活环境。
+
 ## 目录结构
 
 ```
 environments/
 ├── README.md           # 本文件
+├── set-env.sh          # 轻量级环境激活脚本（source 执行）
+├── restart-env.sh      # 完整重启脚本（清理进程+启动服务）
 ├── dev1.json           # 日常开发环境（默认）
 ├── dev2.json           # 隔离测试环境
-└── .active            # 当前激活的环境名
+├── uat.json            # UAT 测试环境
+└── .active             # 当前激活的环境名
 ```
 
 ## 使用方式
 
-### 1. 切换环境
+### 1. 激活环境（推荐）
 
-编辑 `.active` 文件，内容改为目标环境名：
+**轻量激活**（仅 export 环境变量，不启动服务）：
 
 ```bash
-# 切换到 dev2
-echo "dev2" > environments/.active
+# 使用 .active 记录的环境
+source environments/set-env.sh
 
-# 切回 dev1（默认）
-echo "dev1" > environments/.active
+# 指定环境名
+source environments/set-env.sh dev1
+source environments/set-env.sh dev2
+```
+
+> ⚠️ 必须用 `source`（或 `.`）执行，直接运行不会生效！
+
+**完整重启**（清理旧进程 + 启动新服务）：
+
+```bash
+./environments/restart-env.sh dev1
+./environments/restart-env.sh dev2
 ```
 
 ### 2. 声明当前环境（对 AI）
@@ -41,6 +58,8 @@ AI 收到后会：
 2. 加载对应 JSON 获取端口和连接参数
 3. 用 `curl` / `lsof` 验证服务可达性
 4. 如果不可达 → 暂停并提示你检查
+
+**AI 执行需要数据库的命令前，必须先 `source environments/set-env.sh` 激活环境。**
 
 ### 3. 新增环境
 
@@ -68,6 +87,7 @@ echo "dev3" > environments/.active
 |------|--------|------|
 | 读取 `.active` + `*.json` | ✅ | 获取环境配置 |
 | `curl` / `lsof` 检查端口 | ✅ | 验证服务状态 |
+| `source set-env.sh` 激活环境 | ✅ | AI 执行数据库命令前必须先激活 |
 | 编辑 `.active` 或 `*.json` | ❌ | 只有用户可以修改 |
 | 启动/停止/重启任何服务 | ❌ | 只有用户可以操作 |
 
@@ -75,7 +95,8 @@ echo "dev3" > environments/.active
 
 | 文件 | 关联方式 |
 |------|---------|
-| `CLAUDE.md`「全局端口约定」 | 环境定义中的端口值必须与 CLAUDE.md 一致（dev1 = CLAUDE.md 默认值）|
-| `.claude/skills/dev-test-loop/SKILL.md` | §0 环境管理铁律引用本目录 |
+| `AGENTS.md`/`CLAUDE.md`「环境优先铁律」 | DATABASE_URL 禁止硬编码或写死在 .env 中，未设置时抛错 |
+| `.env` | 不再包含 DATABASE_URL（由环境系统动态生成） |
+| `packages/api/src/db.ts` | `DATABASE_URL` 未设置时抛错，不再有 fallback |
+| `packages/api/drizzle/config.ts` | 同上 |
 | `playwright.config.ts` | `baseURL` 从环境 JSON 的 `web.url` 读取（当前硬编码为 dev1）|
-| `packages/api/src/db.ts` | DB 连接串从环境 JSON 的 `db` 字段推导 |

@@ -56,6 +56,7 @@ interface UseOrganizationReturn {
 
   // Active company ID (for department context)
   activeCompanyId: string | null;
+  clearActiveCompany: () => void;
 
   // Department tree UI
   expandedDeptIds: Set<string>;
@@ -92,7 +93,7 @@ export function useOrganization(projectId: string): UseOrganizationReturn {
     if (debouncedSearch) params.search = debouncedSearch;
     apiClient.get<ListResult<Company>>(
       `/projects/${projectId}/companies`,
-      Object.keys(params).length > 0 ? params : undefined,
+      Object.keys(params).length > 0 ? { params } : undefined,
     )
       .then((res) => setCompanies(res.data.data))
       .catch((err) => {
@@ -100,6 +101,13 @@ export function useOrganization(projectId: string): UseOrganizationReturn {
       })
       .finally(() => setCompaniesLoading(false));
   }, [projectId, debouncedSearch]);
+
+  // debouncedSearch 变化时自动重新拉取公司列表
+  useEffect(() => {
+    if (projectId) {
+      refetchCompanies();
+    }
+  }, [debouncedSearch, projectId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const createCompany = useCallback(async (data: Record<string, unknown>) => {
     const res = await apiClient.post<{ data: Company }>(`/projects/${projectId}/companies`, data);
@@ -130,28 +138,33 @@ export function useOrganization(projectId: string): UseOrganizationReturn {
   const refetchDepartments = useCallback((companyId: string) => {
     setActiveCompanyId(companyId);
     setDepartmentsLoading(true);
-    apiClient.get<ListResult<Department>>(`/companies/${companyId}/departments`)
+    apiClient.get<ListResult<Department>>(`/projects/${projectId}/companies/${companyId}/departments`)
       .then((res) => setDepartments(res.data.data))
       .catch(() => {})
       .finally(() => setDepartmentsLoading(false));
+  }, [projectId]);
+
+  const clearActiveCompany = useCallback(() => {
+    setActiveCompanyId(null);
+    setDepartments([]);
   }, []);
 
   const createDepartment = useCallback(async (companyId: string, data: Record<string, unknown>) => {
-    const res = await apiClient.post<{ data: Department }>(`/companies/${companyId}/departments`, data);
+    const res = await apiClient.post<{ data: Department }>(`/projects/${projectId}/companies/${companyId}/departments`, data);
     refetchDepartments(companyId);
     return res.data.data;
-  }, [refetchDepartments]);
+  }, [projectId, refetchDepartments]);
 
   const updateDepartment = useCallback(async (id: string, data: Record<string, unknown>) => {
-    const res = await apiClient.put<{ data: Department }>(`/departments/${id}`, data);
+    const res = await apiClient.put<{ data: Department }>(`/projects/${projectId}/departments/${id}`, data);
     if (activeCompanyId) refetchDepartments(activeCompanyId);
     return res.data.data;
-  }, [activeCompanyId, refetchDepartments]);
+  }, [projectId, activeCompanyId, refetchDepartments]);
 
   const deleteDepartment = useCallback(async (id: string) => {
-    await apiClient.delete(`/departments/${id}`);
+    await apiClient.delete(`/projects/${projectId}/departments/${id}`);
     if (activeCompanyId) refetchDepartments(activeCompanyId);
-  }, [activeCompanyId, refetchDepartments]);
+  }, [projectId, activeCompanyId, refetchDepartments]);
 
   // ---- Department tree operations ----
 
@@ -200,15 +213,15 @@ export function useOrganization(projectId: string): UseOrganizationReturn {
   }, [projectId, refetchRoles]);
 
   const updateRole = useCallback(async (id: string, data: Record<string, unknown>) => {
-    const res = await apiClient.put<{ data: Role }>(`/roles/${id}`, data);
+    const res = await apiClient.put<{ data: Role }>(`/projects/${projectId}/roles/${id}`, data);
     refetchRoles();
     return res.data.data;
-  }, [refetchRoles]);
+  }, [projectId, refetchRoles]);
 
   const deleteRole = useCallback(async (id: string) => {
-    await apiClient.delete(`/roles/${id}`);
+    await apiClient.delete(`/projects/${projectId}/roles/${id}`);
     refetchRoles();
-  }, [refetchRoles]);
+  }, [projectId, refetchRoles]);
 
   // ---- External Entities ----
   const [externalEntities, setExternalEntities] = useState<ExternalEntity[]>([]);
@@ -229,15 +242,15 @@ export function useOrganization(projectId: string): UseOrganizationReturn {
   }, [projectId, refetchExternalEntities]);
 
   const updateExternalEntity = useCallback(async (id: string, data: Record<string, unknown>) => {
-    const res = await apiClient.put<{ data: ExternalEntity }>(`/external-entities/${id}`, data);
+    const res = await apiClient.put<{ data: ExternalEntity }>(`/projects/${projectId}/external-entities/${id}`, data);
     refetchExternalEntities();
     return res.data.data;
-  }, [refetchExternalEntities]);
+  }, [projectId, refetchExternalEntities]);
 
   const deleteExternalEntity = useCallback(async (id: string) => {
-    await apiClient.delete(`/external-entities/${id}`);
+    await apiClient.delete(`/projects/${projectId}/external-entities/${id}`);
     refetchExternalEntities();
-  }, [refetchExternalEntities]);
+  }, [projectId, refetchExternalEntities]);
 
   return {
     companies, companiesLoading, refetchCompanies,
@@ -249,7 +262,7 @@ export function useOrganization(projectId: string): UseOrganizationReturn {
     createRole, updateRole, deleteRole,
     externalEntities, externalEntitiesLoading, refetchExternalEntities,
     createExternalEntity, updateExternalEntity, deleteExternalEntity,
-    activeCompanyId,
+    activeCompanyId, clearActiveCompany,
     expandedDeptIds, toggleExpandDept,
     expandAllDepts, collapseAllDepts,
     deptSearch, setDeptSearch,

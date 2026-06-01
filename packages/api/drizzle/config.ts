@@ -5,6 +5,6 @@ export default defineConfig({
   out: './drizzle/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL ?? 'postgresql://apm_dev:apm_dev_secret@localhost:5432/apm_prototype',
+    url: process.env.DATABASE_URL ?? (() => { throw new Error('DATABASE_URL is not set. Please activate an environment first:\n  source environments/set-env.sh          # use .active environment\n  source environments/set-env.sh dev1     # specify environment'); })(),
   },
 });

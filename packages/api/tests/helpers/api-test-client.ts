@@ -97,15 +97,17 @@ class ApiTestClient {
     };
   }
 
-  /** DELETE 请求 */
+  /** DELETE 请求（可能返回 204 No Content） */
   async delete<T = unknown>(url: string): Promise<InjectResponse<T>> {
     const resp = await this.getApp().inject({
       method: 'DELETE',
       url: `/api/v1${url}`,
     });
+    // 204 No Content 无 body，不可调用 resp.json()
+    const body = resp.statusCode === 204 ? null : resp.json() as T;
     return {
       statusCode: resp.statusCode,
-      body: resp.json() as T,
+      body,
       headers: resp.headers as Record<string, unknown>,
     };
   }

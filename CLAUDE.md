@@ -24,55 +24,56 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 4. **组件语义** — 元素的业务意图（是"提交"还是"取消"）
 
 ## 产品目标
-本系统要实现完整支持软件开发的工作流，参见文档：`docs/03-prd-ux/workflow/workflow.md`
+本系统要实现完整支持软件开发的工作流，参见文档：`docs/01-design-idea/workflow.md`
 
 ## 本项目工作规范 **必须遵守**
 
-对话过程中，涉及软件功能的讨论和实现，**切记一定** 检查是否经过了以下步骤  
+对话过程中，涉及软件功能的讨论和实现，**切记一定** 检查是否经过了以下步骤
 
-每个功能模块按以下 9 步（S0~S8）推进，**框定范围 → 走完 9 步 → 再进入下一模块**：
+每个功能模块按以下 8 步（S0~S7）推进，**框定范围 → 走完 8 步 → 再进入下一模块**：
 
 | 步骤 | 名称 | 产出物 | 对应 `docs/` 目录 |
 |------|------|--------|:-----------------:|
 | **S0** | 产品思路 & 想法 | 模糊方向、未被详细讨论的 idea | `01-design-idea/` |
-| **S1** | 领域模型 & 业务流程设计 | 实体关系、数据流、业务对象属性 | `02-domain-model/` |
-| **S2** | 产品 PRD 设计 | 功能结构、页面交互逻辑、业务规则 | `03-prd-ux/modules/` |
-| **S3** | 高保真原型设计 | HTML 交互原型 + PROTOTYPE-CONTRACT 契约 | `03-prd-ux/prototypes/` |
+| **S1** | 领域模型设计 | 领域对象、对象属性、对象关系（ER 图）、关键对象状态图 | `02-domain-model/` |
+| **S2** | 产品 PRD 设计（纯业务层） | 业务流程（跨对象操作序列）、业务规则、功能结构、数据规格（不涉及交互界面细节） | `03-prd-ux/modules/` |
+| **S3** | 交互设计 | 人-系统交互规格 + AI-系统交互规格（页面布局、操作流程、语义层设计） | `03-prd-ux/modules/`（与 PRD 并列） |
 | **S4** | 技术方案设计 | 技术选型、架构图、DB 设计规范、API 规范 | `04-tech-design/` + `05-data-design/` |
 | **S5** | 测试用例设计 | 测试方案 + 用例集（编码前先写） | `06-test-design/` |
 | **S6** | 代码实现 | 具体编程任务（接口/页面级颗粒度） | `packages/` (代码) |
-| **S7** | 测试代码编写 | API 单元测试 + E2E 测试代码 | `packages/api/tests/` + `packages/e2e/tests/` |
-| **S8** | 测试验证执行 | 运行全量测试 → 全绿闭环（Dev-Test Loop） | CI / 本地执行 |
+| **S7** | 测试编写与验证 | API 测试编写与验证 + 全绿闭环（E2E 由人工执行） | `packages/api/tests/` |
+
+> **S2 与 S3 的分离原则**（2026-05-25 决策）：
+> - **S2（PRD）只定义业务层**：业务流程（跨对象操作序列，只描述动作先后顺序和输入输出，不涉及交互界面）、业务规则、功能结构、数据规格
+> - **S3（交互设计）定义交互层**：人-系统交互（页面布局、UI 元素、操作流程）+ AI-系统交互（语义层设计、数据绑定、交互逻辑结构化表达）
+> - 分离的理由：面向 AI 的原型系统需要同时设计"人-系统交互"和"AI-系统交互"两个层面，这与传统软件只关注人机交互不同。将交互设计从 PRD 中剥离为独立步骤，可以让 PRD 聚焦业务本质，交互设计则可以在业务基础上独立演进。
 
 > 工程基础设施（技术选型/脚手架/编码规范/Design Token）为一次性投入，见 Phase 0 和 roadmap §1。部署方案在全部功能完成后统一实施。
 
-### S2.5 PRD↔原型一致性审查 **（必须遵守）**
+### 关于 HTML 高保真原型的决策（2026-05-20，2026-05-25 归档）
 
-**S2（PRD）完成后、S3（高保真原型）开始前，必须执行此交叉审查。**
+**原流程中的 HTML 高保真原型步骤已取消并归档。** 原因：
+1. AI 生成的 HTML 原型与 PM 预期存在偏差，原型本身成为额外的失真层
+2. 代码实现对原型的还原度不高，原型→代码又是一次失真
+3. 实践证明，AI 直接按 PRD + 交互设计文档写代码 + PM 通过截图确认 UI 的模式更高效
 
-**为什么需要这一步**：PRD 是功能规格（定义"系统做什么"），HTML 原型是视觉规格（定义"用户看到什么"）。两者对同一元素可能使用不同文案（如 PRD 写"编程标识符"，原型写"项目名称"）。如果不做交叉核对，开发者只能二选一，导致实现与原型视觉偏差。
+**归档处理**（2026-05-25）：原 `docs/03-prd-ux/prototypes/` 目录已归档至 `docs/99-archived/prototypes/`，所有规范文档中引用原型的地方已清理。
 
-**审查范围**：每个包含用户可见文案的 UI 元素（Dialog/Form/Button/Label/Placeholder/Hint）
+**UI 确认方式**：S6 代码实现完成后，**AI 先通过 browser-agent 截图自检布局和交互是否符合预期**，确认无明显问题后再截图给 PM 确认，PM 反馈修改点，AI 迭代调整。
 
-**裁决原则**：
-| 元素类型 | 以谁为准 | 理由 |
-|---------|---------|------|
-| 用户看到的文字（标题/标签/按钮/placeholder/hint） | **原型** | 原型是视觉规格，面向用户 |
-| 内部字段名 / 校验规则 / 错误提示 | **PRD** | PRD 是功能规格，面向开发 |
-| 交互行为（校验时机/提交逻辑/异常处理） | **PRD** | 属于功能行为，非纯视觉 |
-
-**审查方式**：AI 同时读取 PRD 对应章节 + 原型 HTML 文件，提取所有用户可见文案并生成 diff 报告，人工确认裁决。
-
-**触发条件**：S2 的 PRD 文件和 `docs/03-prd-ux/prototypes/` 下对应原型文件均已存在时自动触发。
+**视觉参考来源**：取消原型后，编码时的视觉参考来自以下三层：
+1. **设计语言规范** → `docs/04-tech-design/design-language.md`（全局视觉约束唯一权威来源：品牌色、字体、间距、组件、图标、动效等）
+2. **S3 交互设计文档** → 各模块的页面布局和元素规格
+3. **browser-agent 截图自检** → 实际渲染效果的验证
 
 ### S6~S7 编码规范 **（必须遵守）**
 
-**S6（代码实现）和 S7（测试代码编写）开始前，必须先阅读并遵循** `docs/04-tech-design/coding-convention.md`（总纲）+ 对应的**后端/前端编码细则子文件**。
+**S6（代码实现）和 S7（测试编写与验证）开始前，必须先阅读并遵循** `docs/04-tech-design/coding-convention.md`（总纲）+ 对应的**后端/前端编码细则子文件**。
 
 核心要求：
 - 以**功能点（F-Mx-NN）**为最小交付单元，每个功能点独立完成 Service → Route → 前端 → 测试 → Review 全流程
 - **TDD 模式**：功能点代码写完后立即编写测试，测试全通过才算完成
-- 代码必须源自已审核的 PRD + 技术方案 + 测试用例，禁止凭空编写
+- 代码必须源自已审核的 PRD + 交互设计 + 技术方案 + 测试用例，禁止凭空编写
 - 每个 F-Mx-NN 完成后触发 AI Code Review，Critical/Important 问题必须修复后才可继续
 
 ### 测试数据安全铁律 **（必须遵守 — 违反即导致用户数据丢失）**
@@ -104,7 +105,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **判断"某步骤是否已完成"时，必须用 Glob/ls 检查对应 `docs/` 子目录的实际文件，禁止仅凭记忆或推断下结论。**
 
 不同步骤的产出物本质不同，不可混同：
-- S2 PRD ≠ S4 技术方案 ≠ S1 领域模型 ≠ S3 高保真原型
+- S2 PRD ≠ S3 交互设计 ≠ S4 技术方案 ≠ S1 领域模型
 - "有技术文档"不代表"产品设计文档齐全"
 - memory 中记录的是历史快照，不是实时状态——**永远以磁盘上的实际文件为准**
 
@@ -135,7 +136,27 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 | `dev1`（默认） | **13181** | **13180** | **5432** | `apm_dev1` |
 | `dev2`（隔离） | 13281 | 13280 | 5433 | `apm_dev2` |
 
-**AI 环境操作铁律**：AI 只能读取 `environments/` 目录，不能修改其中任何文件，不能启停任何服务。用户通过命令声明当前环境（如 "当前在 dev1"），AI 从环境文件获取连接参数后执行只读检查。
+### 环境优先铁律 **（必须遵守 — 违反将导致连接错误数据库）**
+
+**核心原则：先指定环境，再启动服务。不允许任何隐式默认值绕过环境系统。**
+
+**事故记录（2026-06-01）**：`db.ts` 和 `drizzle/config.ts` 中硬编码 fallback `apm_prototype` 数据库，`.env` 中也写死了 `DATABASE_URL=...apm_prototype`。当 AI 直接执行命令（不走 `restart-env.sh`）时，连接到不在环境定义中的 `apm_prototype` 数据库，导致数据混乱。现已移除所有隐式默认值。
+
+| # | 规则 | 正确做法 | 错误做法（已修复） |
+|---|------|---------|-------------------|
+| 1 | **启动服务前必须激活环境** | `source environments/set-env.sh dev1` 或 `./environments/restart-env.sh dev1` | 直接 `pnpm dev`（DATABASE_URL 未设置 → 启动报错） |
+| 2 | **DATABASE_URL 禁止硬编码或写死在 .env 中** | 由环境系统动态生成 | `.env` 中 `DATABASE_URL=...apm_prototype` |
+| 3 | **代码中禁止 fallback 数据库连接串** | `DATABASE_URL` 未设置时抛错 | `process.env.DATABASE_URL ?? 'postgresql://...apm_prototype'` |
+| 4 | **AI 执行任何需要数据库的命令前，必须先激活环境** | `source environments/set-env.sh` | 直接 `drizzle-kit push` / `vitest run` |
+
+**环境激活方式**（二选一）：
+
+| 方式 | 命令 | 适用场景 |
+|------|------|---------|
+| 轻量激活（仅 export 变量） | `source environments/set-env.sh [env]` | AI 执行单次命令、手动切换环境 |
+| 完整重启（清理进程+启动服务） | `./environments/restart-env.sh <env>` | 人工日常开发 |
+
+**AI 环境操作约束**：AI 只能读取 `environments/` 目录，不能修改环境 JSON 文件，不能启停任何服务。用户通过命令声明当前环境（如 "当前在 dev1"），AI 从环境文件获取连接参数后执行只读检查。AI 执行需要数据库的命令前，必须先 `source environments/set-env.sh` 激活环境。
 
 ## 技术架构决策
 
@@ -155,7 +176,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - HTML 通过 `<script>` 标签引用语义层 JS 文件
 - 两者在数据库中关联存储，导出时保持引用关系
 
+### 项目导航架构（ProjectContext）
 
+前端采用 **项目上下文驱动的导航架构**：
+
+- 路由结构：`/p/:projectId/*` — 所有项目内页面以 `/p/:projectId` 为前缀
+- `ProjectContext`（React Context）管理当前项目 ID 和项目名称，跨页面共享
+- Sidebar 根据是否处于项目上下文动态切换菜单项（项目内菜单 vs 全局菜单）
+- 项目上下文指示器：Sidebar 顶部显示当前项目名称 + 退出按钮
+- 激活项目方式：Dashboard 卡片点击激活 → 自动跳转 `/p/:projectId`
 
 ## 远程仓库
 
@@ -177,22 +206,23 @@ ai-prototype-manager/
 │   │       ├── phase4.md      # Phase 4 下游 Coding AI 集成
 │   │       └── phase5.md      # Phase 5 AI 能力增强
 │   ├── 01-design-idea/        # 产品设计构想与讨论记录、未详细讨论的 idea
-│   │   └── 01-design-idea.md  # 所有产品设计决策的单一来源
-│   ├── 02-domain-model/       # 领域模型设计产物（实体、属性、关系、业务流程）
-│   ├── 03-prd-ux/                # 产品需求规格 + 交互原型
+│   │   ├── 01-design-idea.md  # 所有产品设计决策的单一来源
+│   │   └── workflow.md        # 系统使用工作流（用户 A→F 六阶段构想）
+│   ├── 02-domain-model/       # 领域模型设计产物（领域对象、对象属性、对象关系、关键状态图）
+│   ├── 03-prd-ux/             # 产品需求规格
 │   │   └── prd-convention.md  # **PRD 编写规范（模板 & 格式，写 PRD 前必读）**
-│   │   ├── modules/           # 各模块 PRD（按模块分文件夹）
+│   │   ├── modules/           # 各模块 PRD + 交互设计（按模块分文件夹）
 │   │   │   ├── project-management/
-│   │   │   │   └── project-management-prd.md
+│   │   │   │   ├── project-management-prd.md
+│   │   │   │   └── project-management-interaction.md  # 交互设计文档（与 PRD 并列）
 │   │   │   └── [模块名]/
-│   │   │       └── [模块名]-prd.md
-│   │   ├── workflow/          # 业务流程 / 工作流文档
-│   │   │   └── workflow.md    # PM-AI 协作 A→F 六阶段工作流
-│   │   └── prototypes/        # HTML 高保真交互原型（Phase 1 填充）
-│   ├── 04-tech-design/        # 技术方案设计 + 编码规范
-│   │   ├── coding-convention.md    # **编码实施规范总纲（Step 5~6 工作流，写代码前必读）**
-│   │   ├── coding-convention-backend.md  # **后端编码细则（待编写）**
-│   │   ├── coding-convention-frontend.md # **前端编码细则（待编写）**
+│   │   │       ├── [模块名]-prd.md
+│   │   │       └── [模块名]-interaction.md  # 交互设计文档
+│   ├── 04-tech-design/        # 技术方案设计 + 编码规范 + 设计语言
+│   │   ├── coding-convention.md    # **编码实施规范总纲（S6~S7 工作流，写代码前必读）**
+│   │   ├── coding-convention-backend.md  # **后端编码细则**
+│   │   ├── coding-convention-frontend.md # **前端编码细则**
+│   │   ├── design-language.md       # **设计语言规范（全局视觉约束唯一权威来源，含品牌色/字体/间距/组件/图标/动效/Token架构）**
 │   │   ├── validation-design.md
 │   │   ├── object-lifecycle.md
 │   │   ├── external-design-integration.md
@@ -203,8 +233,11 @@ ai-prototype-manager/
 │   ├── 06-test-design/        # 测试方案 + 测试用例（Phase 1 填充）
 │   ├── 07-deploy-design/       # 部署方案 + 部署架构图（Phase 1 填充）
 │   ├── 99-archived/           # 已归档的历史文件（原样保留）
-│   │   └── 2026-04-28-phase1-design.md  # Phase 1 Design Spec 原件
-│   └── 20-analyze-report/     # 分析报告（过程性产出，不纳入 07 步流程）
+│   │   ├── 2026-04-28-phase1-design.md  # Phase 1 Design Spec 原件
+│   │   ├── design-token-system.md       # Design Token 体系（原 03-prd-ux/，2026-05-25 归档，内容已整合至 design-language.md）
+│   │   ├── ui-design-spec.md            # 全局 UI 设计规范（原 03-prd-ux/，2026-05-25 归档，内容已整合至 design-language.md）
+│   │   └── prototypes/        # HTML 高保真原型（原 03-prd-ux/prototypes/，2026-05-25 归档）
+│   └── 20-analyze-report/     # 分析报告（过程性产出，不纳入 S0~S7 流程）
 ├── logs-important/            # 重要对话记录（按日期分文件）
 │   └── YYYY-MM-DD-conversation.md
 └── (Phase 1 起的代码目录，待初始化)
@@ -216,9 +249,11 @@ ai-prototype-manager/
 
 规则：
 - **产品设计决策** → `docs/01-design-idea/` 或对应编号文档
-- **领域模型/业务流程设计** → `docs/02-domain-model/`
-- **产品 PRD / 交互原型** → `docs/03-prd-ux/modules/[模块名]/`（按模块分文件夹，命名规则见下方）
+- **领域模型设计** → `docs/02-domain-model/`
+- **产品 PRD（纯业务层）** → `docs/03-prd-ux/modules/[模块名]/`（按模块分文件夹，命名规则见下方）
+- **交互设计** → `docs/03-prd-ux/modules/[模块名]/`（与 PRD 并列存放，命名 `[模块名]-interaction.md`）
 - **技术方案设计** → `docs/04-tech-design/`
+- **设计语言规范** → `docs/04-tech-design/design-language.md`（全局视觉约束唯一权威来源）
 - **数据设计（DDL / 前端数据）** → `docs/05-data-design/`
 - **测试设计** → `docs/06-test-design/`
 - **部署设计** → `docs/07-deploy-design/`
@@ -231,35 +266,36 @@ ai-prototype-manager/
 
 **❌ 不要创建 `superpowers/`、`specs/` 等非标准目录 **
 
-| 工作阶段 | 产出类型 | 必须放入 | 
+| 工作阶段 | 产出类型 | 必须放入 |
 |---------|---------|---------|
-| 产品思路/想法讨论 | 模糊方向、未详细讨论的 idea | `01-design-idea/` | 
-| 领域模型/业务流程设计 | 实体关系、数据流、对象属性 | `02-domain-model/` | 
-| 产品 PRD / 交互原型 | 功能规格、页面交互逻辑、HTML 原型 | `03-prd-ux/`（`modules/` 放各模块 PRD，`workflow/` 放工作流，`prototypes/` 放 HTML 原型） |
-| 技术方案设计 | 选型、架构图、DB 规范、API 设计、组件交互序列图 | `04-tech-design/` | 
-| 数据设计（细粒度） | 后端 DDL、前端数据方案 | `05-data-design/` | 
-| 测试设计 | 测试方案、测试用例 | `06-test-design/` | 
-| 部署设计 | 部署架构图、环境配置 | `07-deploy-design/` | 
+| 产品思路/想法讨论 | 模糊方向、未详细讨论的 idea | `01-design-idea/` |
+| 领域模型设计 | 领域对象、对象属性、对象关系（ER 图）、关键对象状态图 | `02-domain-model/` |
+| 产品 PRD（纯业务层） | 业务流程（跨对象操作序列）、业务规则、功能结构、数据规格 | `03-prd-ux/`（`modules/` 放各模块 PRD） |
+| 交互设计 | 人-系统交互规格 + AI-系统交互规格 | `03-prd-ux/modules/[模块名]/`（与 PRD 并列，命名 `[模块名]-interaction.md`） |
+| 技术方案设计 | 选型、架构图、DB 规范、API 设计、组件交互序列图 | `04-tech-design/` |
+| 数据设计（细粒度） | 后端 DDL、前端数据方案 | `05-data-design/` |
+| 测试设计 | 测试方案、测试用例 | `06-test-design/` |
+| 部署设计 | 部署架构图、环境配置 | `07-deploy-design/` |
 | 项目元数据 | Roadmap、整体规划 | `00-project/roadmap/`（主 README + phase0~5 明细文件） |
-| 归档 | 已被拆分/替代的历史版本 | `99-archived/` | 
+| 归档 | 已被拆分/替代的历史版本 | `99-archived/` |
 
 **违规示例（已发生并修正）**：
 - Phase 1 Design Spec 曾放在 `docs/superpowers/specs/` 下 → 已拆分归位到 `04-tech-design/` + `05-data-design/` + `01-design-idea/` + 原件归档到 `99-archived/`
 - Phase 0 设计文档曾散落在 `docs/` 根目录 → 已迁移到 `02-domain-model/` 和 `04-tech-design/`
 
-### PRD 文件组织规则
+### PRD & 交互设计文件组织规则
 
-PRD 文档按模块存放在 `docs/03-prd-ux/modules/` 下，每个模块一个独立文件夹：
+PRD 和交互设计文档按模块存放在 `docs/03-prd-ux/modules/` 下，每个模块一个独立文件夹：
 
 | 层级 | 命名规则 | 示例 |
 |------|---------|------|
 | 模块文件夹 | kebab-case（英文小写+连字符） | `project-management/` |
 | PRD 文件 | `[模块名]-prd.md` | `project-management-prd.md` |
+| 交互设计文件 | `[模块名]-interaction.md` | `project-management-interaction.md` |
 
 存放原则：
 - **prd-convention.md**（格式规范）始终放在 `03-prd-ux/` 根目录
-- **modules/** 放各模块的完整 PRD 文档
-- **prototypes/** 和 **workflow/** 有独立定位，不放 PRD 文档
+- **modules/** 放各模块的完整 PRD 文档 + 交互设计文档（并列存放）
 
 ### 对话归档规范
 
@@ -274,7 +310,7 @@ PRD 文档按模块存放在 `docs/03-prd-ux/modules/` 下，每个模块一个�
 
 ## 当前阶段
 
-**Phase 1：数据模型中心 + MVP（进行中）** — M1 模块 Step 0~4 完成（PRD ✅ + 技术方案 ✅ + 测试用例 315 个 ✅），准备进入 Step 5 编码实施。
+**Phase 1：数据模型中心 + MVP（进行中）** — M1 模块 S0~S5 完成（PRD ✅ + 交互设计待补充 + 技术方案 ✅ + 测试用例 315 个 ✅），准备进入 S6 编码实施。
 详细路线图见 `docs/00-project/roadmap/README.md`。
 Phase 1 Design Spec 已拆分为：
 - 数据库表定义 → `docs/05-data-design/phase1-database-schema.md`
@@ -292,6 +328,6 @@ Phase 1 Design Spec 已拆分为：
 | 校验方案 | TypeBox + Ajv |
 | 项目结构 | Monorepo (pnpm workspaces + Turborepo) |
 | 前端 | React + Vite + TypeScript |
-| 路由 | React Router v6（硬编码路由，菜单驱动 Sidebar） |
+| 路由 | React Router v6（硬编码路由，菜单驱动 Sidebar + ProjectContext 导航） |
 | UI 组件库 | shadcn/ui (Radix UI + Tailwind CSS) |
 | 图形/画布库 | ReactFlow |

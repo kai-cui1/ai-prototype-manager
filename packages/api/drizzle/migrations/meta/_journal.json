@@ -22,6 +22,20 @@
       "when": 1778138462141,
       "tag": "0002_far_whizzer",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1779866468855,
+      "tag": "0003_rare_darwin",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1779960893374,
+      "tag": "0004_add_domain_entities_config",
+      "breakpoints": true
     }
   ]
 }

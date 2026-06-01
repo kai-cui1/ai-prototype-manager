@@ -147,12 +147,15 @@ export async function listProjects(
       version: projects.version,
       updatedAt: projects.updatedAt,
       // B-M1-88: 关联子查询 — 每行内嵌 6 个模块计数，避免前端 N+1
-      domainEntityCount: sql<number>`(SELECT count(*) FROM ${domainEntities} WHERE ${domainEntities.projectId} = ${projects.id})`,
-      processCount: sql<number>`(SELECT count(*) FROM ${businessProcesses} WHERE ${businessProcesses.projectId} = ${projects.id})`,
-      companyCount: sql<number>`(SELECT count(*) FROM ${companies} WHERE ${companies.projectId} = ${projects.id})`,
-      departmentCount: sql<number>`(SELECT count(*) FROM ${departments} WHERE ${departments.projectId} = ${projects.id})`,
-      roleCount: sql<number>`(SELECT count(*) FROM ${roles} WHERE ${roles.projectId} = ${projects.id})`,
-      externalEntityCount: sql<number>`(SELECT count(*) FROM ${externalEntities} WHERE ${externalEntities.projectId} = ${projects.id})`,
+      // R5 Why: 使用 "projects".id 引用外层表，避免子查询中 "id" 歧义
+      //         (Drizzle sql template ${projects.id} 只生成 "id" 不带表前缀，
+      //          在子查询上下文被解析为子查询表的 id 列而非 projects.id)
+      domainEntityCount: sql<number>`(SELECT count(*) FROM ${domainEntities} WHERE ${domainEntities.projectId} = "projects".id)`,
+      processCount: sql<number>`(SELECT count(*) FROM ${businessProcesses} WHERE ${businessProcesses.projectId} = "projects".id)`,
+      companyCount: sql<number>`(SELECT count(*) FROM ${companies} WHERE ${companies.projectId} = "projects".id)`,
+      departmentCount: sql<number>`(SELECT count(*) FROM ${departments} WHERE ${departments.projectId} = "projects".id)`,
+      roleCount: sql<number>`(SELECT count(*) FROM ${roles} WHERE ${roles.projectId} = "projects".id)`,
+      externalEntityCount: sql<number>`(SELECT count(*) FROM ${externalEntities} WHERE ${externalEntities.projectId} = "projects".id)`,
     })
       .from(projects)
       .where(whereClause)

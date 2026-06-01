@@ -8,4 +8,5 @@
 export * from './base.js';
 export * from './project.schema.js';
 export * from './organization.schema.js';
+export * from './domain.schema.js';
 export * from './response.js';

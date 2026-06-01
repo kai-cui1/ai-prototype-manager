@@ -1,14 +1,15 @@
 # 编码实施规范
 
 > **文档编号**：docs/04-tech-design/coding-convention.md
-> **状态**：v1.1 approved
-> **日期**：2026-05-06
-> **定位**：本项目中所有模块 Step 5~6（代码实现 + 测试）的编码工作流与质量规范（总纲）
+> **状态**：v1.2 approved
+> **日期**：2026-05-25
+> **定位**：本项目中所有模块 S6~S7（代码实现 + 测试编写与验证）的编码工作流与质量规范（总纲）
 > **适用范围**：Phase 1~5 所有模块的代码实施阶段（M1/M2/M3/M4/M5/M6 及后续模块）
-> **前置依赖**：本模块的 Step 0~4 必须全部完成（PRD ✅ + 技术方案 ✅ + 测试用例 ✅）
+> **前置依赖**：本模块的 S0~S5 必须全部完成（PRD ✅ + 交互设计 ✅ + 技术方案 ✅ + 测试用例 ✅）
 > **关联文档**：
-> - PRD 编写规范 → `docs/03-prd-ux/prd-convention.md`（Step 2 产出物格式）
-> - 注释规范 → `.claude/skills/coding-with-comments`（R1-R5 强制注释规则，**写代码时强制加载**）
+> - PRD 编写规范 → `docs/03-prd-ux/prd-convention.md`（S2 产出物格式）
+> - 交互设计规范 → 各模块 `[模块名]-interaction.md`（S3 产出物，与 PRD 并列存放）
+> - 设计语言规范 → `docs/04-tech-design/design-language.md`（全局视觉约束）
 > - 后端编码细则 → `docs/04-tech-design/coding-convention-backend.md`（v1.1 — 后端分层/命名/模式等详细约定）
 > - 前端编码细则 → `docs/04-tech-design/coding-convention-frontend.md`（v1.1 — 前端组件/Hook/状态管理等详细约定）
 
@@ -16,7 +17,7 @@
 
 ## 0. 核心原则
 
-1. **输入驱动**：代码必须源自已审核的设计文档（PRD / 技术方案 / 测试用例），禁止凭空编写
+1. **输入驱动**：代码必须源自已审核的设计文档（PRD / 交互设计 / 技术方案 / 测试用例），禁止凭空编写
 2. **功能点原子化**：以功能点（F-Mx-NN）为最小交付单元，每个功能点可独立运行、独立验证
 3. **TDD 先行**：功能点代码完成后立即写测试，测试全通过才算该功能点完成
 4. **分层解耦**：Route 层（参数透传+响应组装）→ Service 层（业务逻辑）→ Model 层（数据访问），严禁跨层调用
@@ -33,11 +34,12 @@
 
 | 检查项 | 对应 SDLC 步骤 | 验证方式 |
 |--------|:-------------:|---------|
-| 领域模型设计 | Step 1 ✅ | `docs/02-domain-model/` 下有对应模块的实体定义 |
-| 产品 PRD | Step 2 ✅ | `docs/03-prd-ux/modules/[模块名]/` 下有完整 PRD（含 Data Specs + Business Rules） |
-| 技术方案设计 | Step 3 ✅ | `docs/04-tech-design/` 下有对应技术方案（含 API 端点清单 + 分层架构 + 错误处理） |
-| 数据库 Schema 设计 | Step 3 子产出 | `docs/05-data-design/` 下有 DDL 定义 |
-| 测试用例设计 | Step 4 ✅ | `docs/06-test-design/modules/[模块名]/` 下有完整的 api.md + e2e.md |
+| 领域模型设计 | S1 ✅ | `docs/02-domain-model/` 下有对应模块的实体定义 |
+| 产品 PRD（纯业务层） | S2 ✅ | `docs/03-prd-ux/modules/[模块名]/` 下有完整 PRD（含 Data Specs + Business Rules） |
+| 交互设计 | S3 ✅ | `docs/03-prd-ux/modules/[模块名]/` 下有 `[模块名]-interaction.md`（人-系统交互 + AI-系统交互规格） |
+| 技术方案设计 | S4 ✅ | `docs/04-tech-design/` 下有对应技术方案（含 API 端点清单 + 分层架构 + 错误处理） |
+| 数据库 Schema 设计 | S4 子产出 | `docs/05-data-design/` 下有 DDL 定义 |
+| 测试用例设计 | S5 ✅ | `docs/06-test-design/modules/[模块名]/` 下有完整的 api.md + e2e.md |
 
 > **违反后果**：若上述任一步骤未完成就进入编码，产生的代码将缺乏设计依据，后续返工概率极高。
 
@@ -72,28 +74,36 @@ P1-P2 完成后，**必须经人工确认**才能进入功能点编码循环：
 ① PRD 对应章节（§4.x Data Specs + Business Rules + AI Coding Hints）
    ↓ 提取：API 契约（请求/响应字段）、业务规则编号清单、实现陷阱
 
-② 技术方案对应章节（端点定义 + 分层约定 + 响应格式 + 错误码体系）
+② 交互设计文档（[模块名]-interaction.md）
+   ↓ 提取：页面布局结构、UI 元素清单、交互行为、语义层设计
+
+③ 技术方案对应章节（端点定义 + 分层约定 + 响应格式 + 错误码体系）
    ↓ 提取：路由注册方式、Service 函数签名模式、错误码映射
 
-③ 数据库 Schema DDL（本功能点涉及的表）
+④ 数据库 Schema DDL（本功能点涉及的表）
    ↓ 提取：字段类型、NOT NULL 约束、UNIQUE 约束、级联删除策略、默认值
 
-④ 共享类型定义（packages/shared/src/types/）
+⑤ 共享类型定义（packages/shared/src/types/）
    ↓ 确认：复用已有类型，避免重复定义；发现缺失则先补类型
 
-⑤ 测试用例（api.md + e2e.md）
+⑥ 测试用例（api.md + e2e.md）
    ↓ 提取：每条 TC 的断言预期 → 反推实现逻辑，作为编码时的逐项 checklist
+
+⑦ 设计语言规范（design-language.md）
+   ↓ 提取：品牌颜色、字体层级、间距节奏等全局视觉约束
 ```
 
 ### 各输入物的角色定位
 
 | 输入物 | 角色 | 编码时的使用方式 |
 |--------|------|----------------|
-| **PRD** | **需求权威** | 每个字段的约束、每条规则的逻辑都从这里来。遇到歧义以 PRD 为准 |
+| **PRD** | **业务需求权威** | 每个字段的约束、每条规则的逻辑都从这里来。遇到业务歧义以 PRD 为准 |
+| **交互设计** | **交互规格权威** | 页面布局、元素清单、操作流程、数据绑定、语义标注从这里来。遇到交互歧义以交互设计为准 |
 | **技术方案** | **实现指南** | 怎么注册路由、怎么组装响应、错误码用什么值——照着做 |
 | **DB DDL** | **持久化契约** | 字段名、类型、约束必须与之一致。Drizzle schema 是 DDL 的 TypeScript 翻译 |
 | **shared/types** | **类型复用层** | API 返回值的 TypeScript 类型。优先复用，不重复定义 |
 | **测试用例** | **验证清单** | 编码时逐条对照 TC 断言，确保实现覆盖了所有场景。是"有没有做对"的最终裁判 |
+| **设计语言规范** | **视觉约束基准** | 品牌颜色、字体层级、间距等全局视觉参数。页面组件的样式必须符合此规范 |
 
 ---
 
@@ -116,7 +126,7 @@ P1-P2 完成后，**必须经人工确认**才能进入功能点编码循环：
 │     产出：routes/[模块].ts                     │
 ├──────────────────────────────────────────────┤
 │  C3: 前端页面 / 组件                           │
-│     实现 UI 交互（按 E2E 用例的行为预期）        │
+│     实现 UI 交互（按交互设计文档 + E2E 用例）    │
 │     遵循前端编码细则（§8 + coding-convention-frontend.md）│
 │     产出：pages/*.tsx + components/*.tsx       │
 ├──────────────────────────────────────────────┤
@@ -127,8 +137,9 @@ P1-P2 完成后，**必须经人工确认**才能进入功能点编码循环：
 ├──────────────────────────────────────────────┤
 │  C5: Code Review（质量检查点）                  │
 │     触发 code-reviewer agent 自动审查           │
-│     按 §6 审查标准逐项检查                      │
+│     按 §4 审查标准逐项检查                      │
 │     Critical/Important 问题修复后才可继续       │
+│     前端完成后 browser-agent 截图自检视觉效果    │
 └──────────────────────────────────────────────┘
             ↓ C5 通过
       进入下一个 F-Mx-NN
@@ -156,7 +167,7 @@ P1-P2 完成后，**必须经人工确认**才能进入功能点编码循环：
 - 禁止跳过校验直接操作数据库
 - 禁止在 Service 中拼接 SQL 字符串（必须通过 Drizzle Query Builder）
 
-> **详细编码约定**（命名风格、函数组织、错误码使用、事务处理等）→ 见 `coding-convention-backend.md`（待编写）
+> **详细编码约定**（命名风格、函数组织、错误码使用、事务处理等）→ 见 `coding-convention-backend.md`
 
 ### 3.3 C2: Route 层
 
@@ -186,28 +197,28 @@ export async function getProjectHandler(request: FastifyRequest, reply: FastifyR
 }
 ```
 
-> **详细编码约定**（路由分组方式、中间件链、错误包装格式等）→ 见 `coding-convention-backend.md`（待编写）
+> **详细编码约定**（路由分组方式、中间件链、错误包装格式等）→ 见 `coding-convention-backend.md`
 
 ### 3.4 C3: 前端页面 / 组件
 
 **职责**：用户交互界面实现。
 
-**输入**：PRD 页面交互描述、E2E 测试用例的行为预期
+**输入**：S3 交互设计文档（页面布局、元素清单、交互行为）、设计语言规范、E2E 测试用例的行为预期
 **输出**：React 页面组件 + 自定义 Hooks
 
 **编码要点**：
 
 | 要点 | 规范 |
 |------|------|
-| 状态管理 | 使用 React `useState` / `useCallback`（不引入 Redux/Zustand） |
+| 状态管理 | React Context 管理跨页面共享状态（如 ProjectContext）；页面级状态使用 `useState` / `useCallback` |
 | 数据获取 | 封装自定义 Hook（如 `useProjectList`），内部调用 ApiClient |
 | Loading 态 | 异步操作期间显示 loading spinner + 禁用按钮（UI-Mx-02） |
 | 错误态 | API 错误通过 Toast / 内联提示展示，不白屏 |
 | 空状态 | 列表无数据时显示空状态 UI + 创建入口（UI-Mx-04） |
-| UI 约定 | 遵循 E2E 用例中定义的交互细节（debounce 时间、对话框类型等） |
+| UI 约定 | 遵循交互设计文档 + 设计语言规范 + E2E 用例中定义的交互细节 |
 | 注释规范 | 遵循 R1-R5（见 `.claude/skills/coding-with-comments`），**组件和 Hook 为最高优先级** |
 
-> **详细编码约定**（组件目录结构、Hook 设计模式、状态管理策略、样式组织、shadcn/ui 使用规范等）→ 见 `coding-convention-frontend.md`（待编写）
+> **详细编码约定**（组件目录结构、Hook 设计模式、状态管理策略、样式组织、shadcn/ui 使用规范等）→ 见 `coding-convention-frontend.md`
 
 ### 3.5 C4: TDD 测试介入
 
@@ -257,7 +268,7 @@ export async function getProjectHandler(request: FastifyRequest, reply: FastifyR
 |----|------|
 | **触发时机** | C1-C4 全部完成且测试全通过后 |
 | **执行方式** | AI Agent 自动审查（code-reviewer） |
-| **输入材料** | 功能点涉及的所有新增/修改文件 + PRD 对应章节 + 测试用例文件 |
+| **输入材料** | 功能点涉及的所有新增/修改文件 + PRD 对应章节 + 交互设计文档 + 测试用例文件 |
 | **输出产物** | Review 报告（含 Critical / Important / Minor / Suggestion 分级问题列表） |
 
 ### 4.2 五维审查模型
@@ -266,7 +277,7 @@ Review 从以下 5 个维度逐一检查，每个维度有明确的通过/不通
 
 #### 维度一：需求一致性（Requirement Conformance）
 
-**问题**：代码是否完整实现了 PRD 定义的功能？
+**问题**：代码是否完整实现了 PRD 和交互设计定义的功能？
 
 | 检查项 | 通过标准 | 不通过示例 |
 |--------|---------|-----------|
@@ -274,6 +285,7 @@ Review 从以下 5 个维度逐一检查，每个维度有明确的通过/不通
 | Data Specs 对齐 | API 请求/响应字段与 PRD Data Specs 逐一匹配 | 多余字段、缺少字段、字段类型不一致 |
 | 业务规则覆盖 | PRD 中每条 B-rule 都有对应的代码路径 | 某 B-rule 无 if/throw/return 分支 |
 | AC 验收达标 | 所有验收标准（AC-Mx-NN）都有对应的功能或测试支撑 | 某 AC 无任何代码或测试覆盖 |
+| 交互设计对齐 | 交互设计文档定义的页面布局、元素、交互行为均有对应实现 | 页面布局与交互设计不一致 |
 
 #### 维度二：规则覆盖完整性（Rule Coverage）
 
@@ -361,6 +373,8 @@ Review 从以下 5 个维度逐一检查，每个维度有明确的通过/不通
 |-----------|---------|--------|------|
 | **准备就绪确认** | P1-P2 Schema 工作完成 | 你审阅 + AI 展示 | Drizzle schema + TypeBox schemas |
 | **功能点 Review** | 每个 F-Mx-NN 的 C1-C5 完成 | AI agent 自动 review（按 §4 五维模型） | Review 报告（Critical/Important/Minor） |
+| **视觉自检** | 前端代码完成后 | AI 通过 browser-agent 截图 | 截图确认无明显布局/交互问题 |
+| **UI 交付确认** | C5 Review 通过后 | PM 确认截图 | PM 反馈修改点或确认通过 |
 | **里程碑确认** | 一组相关功能点全部完成 | 你决策 | 进度汇报 + 风险评估 |
 
 ### 5.2 里程碑划分示例
@@ -450,7 +464,7 @@ packages/api/src/
 
 ## 8. 前端编码细则（概要）
 
-> **详细内容** → `docs/04-tech-design/coding-convention-frontend.md`（v1.0 ✅）
+> **详细内容** → `docs/04-tech-design/coding-convention-frontend.md`（v1.1 ✅）
 >
 > 本节列出前端编码的核心约定要点。完整的组件设计模式、Hook 规范、状态管理、样式组织、shadcn/ui 使用指南等内容详见子文件。
 
@@ -466,6 +480,7 @@ packages/web/src/
 │   ├── ui/                    # shadcn/ui 基础组件（CLI 生成，不手改）
 │   ├── layout/                # 布局组件（Layout、Sidebar 等）
 │   └── [业务域]/              # 业务组件（按模块组织）
+├── contexts/                  # React Context（ProjectContext 等跨页面共享状态）
 ├── hooks/                     # 自定义 Hooks
 │   ├── use[Entity]List.ts     # 列表数据获取
 │   ├── use[Entity]Detail.ts   # 详情数据获取
@@ -473,7 +488,7 @@ packages/web/src/
 ├── lib/
 │   └── utils.ts               # 工具函数（cn() 等）
 ├── pages/                     # 页面组件（对应路由）
-│   ├── ProjectList.tsx
+│   ├── Dashboard.tsx
 │   └── ProjectDetail.tsx
 └── types/                     # 前端专用类型（shared 未覆盖的部分）
 ```
@@ -485,10 +500,11 @@ packages/web/src/
 | 文件命名 | PascalCase 组件：`ProjectTable.tsx`；camelCase hook：`useProjectList.ts` |
 | 组件拆分 | 单文件 < 200 行则保持单体；> 200 行则拆分子组件 |
 | Hook 封装 | 所有 API 调用封装为自定义 Hook，页面组件不直接调用 ApiClient |
-| 状态管理 | useState + useCallback（Phase 1 不引入状态管理库） |
+| 状态管理 | React Context 管理跨页面共享状态（ProjectContext）；页面级使用 useState + useCallback |
 | Loading 态 | Hook 返回 `{ data, loading, error }` 三态，UI 根据 loading 显示 spinner |
-| 样式方案 | Tailwind CSS utility classes + shadcn/ui 组件变体 |
+| 样式方案 | Tailwind CSS utility classes + shadcn/ui 组件变体 + 设计语言规范 |
 | UI 组件安装 | 按需 `npx shadcn add <component>`，不预装 |
+| 路由结构 | `/p/:projectId/*` 项目上下文路由 + ProjectContext 导航架构 |
 
 ---
 
@@ -503,9 +519,10 @@ packages/web/src/
 | 3 | 前端页面 | `packages/web/src/pages/*.tsx` | 用户界面 |
 | 4 | 前端组件 | `packages/web/src/components/**/*.tsx` | 可复用 UI 组件 |
 | 5 | 自定义 Hooks | `packages/web/src/hooks/*.tsx` | 数据获取/状态管理 |
-| 6 | API 测试 | `packages/api/src/__tests__/[模块].test.ts` 或类似路径 | API 集成测试 |
-| 7 | E2E 测试 | `packages/e2e/tests/[模块].spec.ts` | 端到端测试 |
-| 8 | shadcn/ui 组件 | `packages/web/src/components/ui/*` | 按需安装的 UI 基础组件 |
+| 6 | React Context | `packages/web/src/contexts/*.tsx` | 跨页面共享状态 |
+| 7 | API 测试 | `packages/api/src/__tests__/[模块].test.ts` 或类似路径 | API 集成测试 |
+| 8 | E2E 测试 | `packages/e2e/tests/[模块].spec.ts` | 端到端测试 |
+| 9 | shadcn/ui 组件 | `packages/web/src/components/ui/*` | 按需安装的 UI 基础组件 |
 
 ---
 
@@ -515,4 +532,5 @@ packages/web/src/
 |------|------|---------|
 | v1.0 | 2026-05-06 | 初版，基于 M1 编码前的讨论确定通用工作流 |
 | v1.1 | 2026-05-06 | ① 移至 docs/04-tech-design/ ② 新增 §7/§8 前后端编码细则引用 ③ 扩展 §4 Code Review 为五维审查模型 ④ 强化 R1-R5 注释强制要求 ⑤ 新增 Review 通过标准 checklist |
-| v1.2 | 2026-05-07 | ⑥ 后端编码细则 v1.0 完成（~500 行，含 Service/Route/Model 模板库 + 错误体系 + 分页/事务/排序）⑦ 前端编码细则 v1.0 完成（~550 行，含组件/Hook 模板库 + 状态管理 + Tailwind/shadcn/ui 规范） |
+| v1.2 | 2026-05-07 | ⑥ 后端编码细则 v1.0 完成 ⑦ 前端编码细则 v1.0 完成 |
+| v1.3 | 2026-05-25 | ⑧ S0~S6 → S0~S7 步骤编号更新（新增 S3 交互设计） ⑨ 输入物阅读顺序增加交互设计文档 + 设计语言规范 ⑩ 前端状态管理从"不引入状态管理库"改为"React Context + useState" ⑪ C3 输入从"PRD 页面交互描述"改为"S3 交互设计文档" ⑫ C5 增加 browser-agent 截图自检 + PM UI 确认环节 ⑬ §8.1 目录结构增加 contexts/ 目录 ⑭ §8.2 增加"路由结构"约定 ⑮ §9 产出物清单增加 React Context 行 ⑯ §4 维度一增加"交互设计对齐"检查项 |

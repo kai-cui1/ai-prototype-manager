@@ -66,10 +66,12 @@ CREATE TABLE entity_fields (
   name            TEXT NOT NULL,
   display_name    TEXT NOT NULL,
   description     TEXT,
-  -- 字段类型（26 种之一）：string / number / boolean / datetime /
-  -- text / enum / email / url / phone / currency / percentage /
-  -- coordinate / file / image / rich_text / json / array /
-  -- reference / formula / computed / color / rating / icon / duration / status
+  -- 字段类型（完整 26 种定义见 docs/02-domain-model/domain-model.md §5.3）：
+  -- Phase 1 仅支持 9 种基础类型：string / number / boolean / datetime /
+  -- text / enum / email / url / phone
+  -- Phase 2+ 扩展：currency / percentage / coordinate / file / image /
+  -- rich_text / json / array / reference / formula / computed /
+  -- color / rating / icon / duration / status
   field_type      TEXT NOT NULL,
   -- 是否必填
   is_required     BOOLEAN NOT NULL DEFAULT false,

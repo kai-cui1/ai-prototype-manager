@@ -445,6 +445,8 @@ Hook
 
 用户在项目中定义的业务领域模型。注意用 `Def` 后缀区分「元模型实体」和「用户数据」。
 
+> **Phase 1 扁平化决策**（2026-05-27 PM 确认）：Phase 1 跳过此中间层级，采用 `Project → Entity → Field` 两层结构。实体（domain_entities 表）直接归属于项目，无需先创建 DomainModelDef 容器。本定义保留供后续 Phase 参考。
+
 ```
 DomainModelDef
 ├── id: string                  // 如 "dm_ecommerce"
@@ -457,7 +459,14 @@ DomainModelDef
 │   └── 1:N → EntityDef
 ```
 
+> **实现映射**：Phase 1 实际层级为 `Project → domain_entities → entity_fields`，无 `domain_model_defs` 表。
+
 ### 5.2 EntityDef（实体定义）
+
+> **实现层简称**：代码中简称为 Entity（对应 `domain_entities` 表），省略 `Def` 后缀。
+> **Phase 1 扁平化**：实体直接归属于 Project（非 DomainModelDef），对应 `domain_entities.project_id` FK。
+> **关系归属**：实现层关系为项目级独立实体（`entity_relations` 表，有 `project_id` FK），非实体内嵌属性。此处 `relations: RelationDef[]` 为逻辑视图，物理存储为独立表。
+> **behaviors**：Phase 1 不实现 `behaviors: BehaviorDef[]`，延后至 Phase 2+。
 
 ```
 EntityDef
@@ -467,33 +476,71 @@ EntityDef
 ├── description?: string
 │
 ├── fields: FieldDef[]          // 字段定义
-├── relations: RelationDef[]     // 实体间关系
-├── behaviors: BehaviorDef[]    // 行为声明（非实现）
+├── relations: RelationDef[]     // 实体间关系（逻辑视图；实现为项目级独立表 entity_relations）
+├── behaviors: BehaviorDef[]    // 行为声明（非实现） ⚠️ Phase 1 不实现
 │
 ├── 关联关系：
-│   └── N:1 → DomainModelDef
+│   └── N:1 → DomainModelDef    // Phase 1 扁平化：实际 N:1 → Project
 ```
+
+#### RelationDef（关系定义）
+
+```
+RelationDef
+├── id: string
+├── kind: enum                  // 关系类型（UML 风格）：
+│                                //   "association"  — 普通关联：A 的数据结构中持久引用 B，无从属关系（如订单→用户）
+│                                //   "dependency"   — 依赖：A 临时使用 B，关系短暂，无持久引用
+│                                //   "aggregation"  — 聚合：A 包含 B（整体-部分），但 B 可独立存在
+│                                //   "composition"  — 组合：A 包含 B，B 随 A 生命周期结束（强拥有）
+├── targetEntityId: string      // 目标实体 ID
+├── targetCardinality: enum     // "one" | "many"（与 kind 正交分离）
+└── description?: string
+```
+
+**各类型语义对比**：
+
+| kind | 生命周期绑定 | 从属关系 | 持久引用 | 典型场景 |
+|------|------------|---------|---------|---------|
+| `association` | 无 | 无 | 有（结构性） | 订单→用户、商品→分类 |
+| `dependency` | 无 | 无 | 无（临时） | 服务A调用服务B |
+| `aggregation` | 弱 | 有（整体-部分） | 有 | 部门→员工 |
+| `composition` | 强（B 随 A 消亡） | 有（整体-部分） | 有 | 订单→订单明细 |
+
+> **Phase 1 说明**：4 种关系类型均已在 Phase 1 实现（`association` 为 v1.3 新增）。`behaviors` 延后至 Phase 2+。
 
 ### 5.3 FieldDef（字段定义）
 
-支持 26 种字段类型（详见 docs/04 §3）：
+> **Phase 1 字段类型**：仅实现 9 种基础类型（string / number / boolean / datetime / text / enum / email / url / phone）。完整 26 种类型（含 ref / array / formula / computed 等）延后至 Phase 2+。注意：文档用 `date`，实现用 `datetime`。
+> **constraints 术语**：文档用 `enumValues`，PRD/实现用 `options: { value, label }[]`。以 PRD 定义为准。
 
 ```
 FieldDef
 ├── id: string
 ├── name: string                // 编程标识符风格
 ├── displayName: string
-├── type: enum                  // string / number / boolean / enum / date /
-│                                // ref / array / ...
+├── type: enum                  // 完整 26 种；Phase 1 仅 9 种
+│                                // string / number / boolean / datetime / text /
+│                                // enum / email / url / phone
+│                                // Phase 2+: date / ref / array / ...
 ├── required?: boolean
-├── constraints?: object        // minLength / maxLength / pattern / format /
-│                                // min / max / integer / precision / enumValues
+├── constraints?: object        // Phase 1 按类型分化：
+│                                // string: { minLength, maxLength, pattern }
+│                                // number: { min, max, integer, precision }
+│                                // enum: { options: {value, label}[] }
+│                                // datetime: { format }
+│                                // text: { minLength, maxLength }
+│                                // url: { protocols }
+│                                // phone: { region }
+│                                // boolean / email: 无额外约束
 │
 └── 关联关系：
-    └── N:1 → EntityDef
+    └── N:1 → EntityDef          // Phase 1 扁平化：实际 N:1 → Entity (domain_entities)
 ```
 
 ### 5.4 Rule
+
+> **Phase 1 不实现**：Rule 无对应数据库表和 API，gap analysis 标记为 P1 待补。当前定义保留供后续 Phase 参考。
 
 ```
 Rule（业务规则 — 纯函数，无副作用）
@@ -506,6 +553,7 @@ Rule（业务规则 — 纯函数，无副作用）
 ```
 
 > **v1.1 变更**: Role 已移至 §2.6 域一（项目管理）, 因其本质是项目的业务参与者定义。此处仅保留 Rule。
+> **v1.2 变更**（2026-05-28）: 标注 Phase 1 不实现，保留定义供后续参考。
 
 ---
 
@@ -624,6 +672,7 @@ Project ════════════════════════
 │  │                           ► Convention [预留]                      │   │
 │  │                                                                  │   │
 │  ├─1:N──► DomainModelDef ◄────1:N──► EntityDef ◄────1:N──► FieldDef  │   │
+│  │        ⚠️ Phase 1 扁平化：跳过 DomainModelDef，Project 直连 Entity │   │
 │  │                                                                  │   │
 │  ├─1:N──► BusinessProcess ◄────1:N──► ProcessStep                   │   │
 │  │                    │                                            │   │
@@ -695,6 +744,28 @@ Project ════════════════════════
 ---
 
 ## 9. 架构变更记录
+
+### v1.3 变更（2026-06-01）
+
+| 变更项 | 内容 | 影响 |
+|--------|------|------|
+| **新增 `association` 关系类型** | §5.2 RelationDef.kind 新增 `"association"`（普通关联），与 dependency/aggregation/composition 并列，共 4 种 UML 风格关系类型 | 对齐 PRD + 代码实现 |
+| **RelationDef 完整定义** | §5.2 新增 RelationDef 完整字段定义（kind/targetEntityId/targetCardinality/description）+ 各类型语义对比表 | 领域模型文档首次明确 RelationDef 结构 |
+| **UML 关系类型决策记录** | 确认使用 UML 风格（非 ORM 风格），kind 与 targetCardinality 正交分离 | S1 文档正式记录该决策，替代此前仅在 PRD 中隐含的风格 |
+
+> **触发原因**：PM 确认在 Phase 1 新增 `association` 关系类型，同步补全 RelationDef 结构定义。
+
+### v1.2 变更（2026-05-28）
+
+| 变更项 | 内容 | 影响 |
+|--------|------|------|
+| **§5 DomainModelDef 扁平化标注** | 标注 Phase 1 扁平化决策：跳过 DomainModelDef 中间层级，Project 直连 Entity | 对齐 PRD 决策 + 代码实现（无 domain_model_defs 表）|
+| **§5.2 EntityDef 实现映射标注** | 标注代码简称为 Entity（domain_entities 表）、关系为项目级独立表（entity_relations）、behaviors 延后 | 消除文档与代码的术语断层 |
+| **§5.3 FieldDef 类型/约束术语对齐** | 标注 Phase 1 仅 9 种基础类型、date→datetime、enumValues→options 术语对齐 | 对齐 PRD §4.2 + 代码 VALID_FIELD_TYPES |
+| **§5.4 Rule 标注延后** | 标注 Phase 1 不实现，gap analysis 标记 P1 待补 | 避免误导 |
+| **§7 ER 图扁平化标注** | DomainModelDef 行加注 "Phase 1 扁平化：跳过 DomainModelDef，Project 直连 Entity" | 与 §5.1 标注对齐 |
+
+> **触发原因**: M2 代码实现审查中发现领域模型文档 §5 与 PRD/代码存在多处不一致，需同步文档避免后续开发混乱。
 
 ### v1.1 变更（2026-05-03）
 

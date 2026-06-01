@@ -13,7 +13,7 @@ export type FieldType =
   | 'reference' | 'formula' | 'computed' | 'color'
   | 'rating' | 'icon' | 'duration' | 'status';
 
-export type RelationKind = 'dependency' | 'aggregation' | 'composition';
+export type RelationKind = 'association' | 'dependency' | 'aggregation' | 'composition';
 
 export interface DomainEntity {
   id: string;
@@ -48,6 +48,7 @@ export interface EntityRelation {
   sourceEntityId: string;
   targetEntityId: string;
   relationKind: RelationKind;
+  sourceCardinality: string;
   targetCardinality: string;
   displayName: string | null;
   description: string | null;

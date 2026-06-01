@@ -6,6 +6,10 @@
 # 示例: ./environments/restart-env.sh dev1
 #       ./environments/restart-env.sh dev2
 #
+# 本脚本内部调用 set-env.sh 激活环境（设置 DATABASE_URL 等环境变量），
+# 然后执行进程清理和服务启动。如只需设置环境变量而不重启服务，请使用：
+#   source environments/set-env.sh <env-name>
+#
 # 注意：本脚本只负责清理旧进程和启动新进程，不会自动迁移数据。
 #       DB 数据库由外部管理（Docker / 本地 PostgreSQL），不在本脚本范围内。
 # =============================================================================
@@ -14,7 +18,6 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-ENVIRONMENTS_DIR="$PROJECT_ROOT/environments"
 
 # 颜色输出
 RED='\033[0;31m'
@@ -26,7 +29,7 @@ usage() {
   echo "用法: $0 <环境名>"
   echo ""
   echo "可用环境:"
-  for f in "$ENVIRONMENTS_DIR"/*.json; do
+  for f in "$SCRIPT_DIR"/*.json; do
     [ -f "$f" ] || continue
     local name="$(basename "$f" .json)"
     local web_port=$(python3 -c "import json; print(json.load(open('$f'))['web']['port'])" 2>/dev/null || echo "?")
@@ -43,29 +46,17 @@ log_err() { echo -e "${RED}[restart-env]${NC} $*"; }
 # 参数检查
 if [ $# -lt 1 ]; then usage; fi
 ENV_NAME="$1"
-ENV_FILE="$ENVIRONMENTS_DIR/${ENV_NAME}.json"
 
-if [ ! -f "$ENV_FILE" ]; then
-  log_err "环境定义不存在: $ENV_FILE"
-  echo "可用环境:"
-  ls "$ENVIRONMENTS_DIR"/*.json 2>/dev/null | xargs -I{} basename {} .json | sed 's/^/  /  /'
+# ---- Step 1: 通过 set-env.sh 激活环境（设置环境变量 + 更新 .active） ----
+# set-env.sh 会 export DATABASE_URL, API_PORT, WEB_PORT, DB_PORT
+if ! source "$SCRIPT_DIR/set-env.sh" "$ENV_NAME"; then
+  log_err "环境激活失败，终止重启"
   exit 1
 fi
 
-# 读取环境配置
-WEB_PORT=$(python3 -c "import json; print(json.load(open('$ENV_FILE'))['web']['port'])")
-API_PORT=$(python3 -c "import json; print(json.load(open('$ENV_FILE'))['api']['port'])")
-DB_PORT=$(python3 -c "import json; print(json.load(open('$ENV_FILE'))['db']['port'])")
-
+# 此时环境变量已由 set-env.sh 设置
 log "===== 环境 [$ENV_NAME] 服务清理 & 重启 ======"
-log "Web 端口 :$WEB_PORT"
-log "API 端口 :$API_PORT"
-log "DB 端口  :$DB_PORT"
 echo ""
-
-# ---- Step 1: 更新 .active ----
-echo "$ENV_NAME" > "$ENVIRONMENTS_DIR/.active"
-log "已激活环境: $ENV_NAME"
 
 # ---- Step 2: 清理占用目标端口的进程 ----
 cleanup_port() {
@@ -116,11 +107,8 @@ log "提示：如果启动后出现 EPERM 错误，可能是 macOS com.apple.pro
 log "      可尝试: xattr -cr $PROJECT_ROOT （需要 sudo 或关闭 SIP）"
 log ""
 
-# 在项目根目录启动 turbo/dev（注入环境端口变量）
+# 在项目根目录启动 turbo/dev（环境变量已由 set-env.sh export）
 cd "$PROJECT_ROOT"
-export WEB_PORT="$WEB_PORT"
-export API_PORT="$API_PORT"
-export DB_PORT="$DB_PORT"
 pnpm dev &
 DEV_PID=$!
 
@@ -166,4 +154,4 @@ log "  API: http://localhost:${API_PORT}/api/v1"
 log "  DB:  localhost:${DB_PORT}"
 log "============================================="
 log ""
-log "如需停止服务:  Ctrl+C 或 kill $DEV_PID"
+log "如需停止服务:  Ctrl+C 或 kill -- -$DEV_PID"

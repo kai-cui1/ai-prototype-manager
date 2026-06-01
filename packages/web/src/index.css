@@ -87,6 +87,12 @@
     --entity-role: 0 100% 62%;          /* #ff4d4f 红 */
     --entity-external: 177 58% 31%;     /* #08979c 青 */
 
+    /* ===== 领域模型 ER 图 — 实体 category 颜色（EntityNode 标题栏用） ===== */
+    --entity-color-core: #1677ff;       /* 核心实体 — 蓝色 */
+    --entity-color-supporting: #8c8c8c; /* 支撑实体 — 灰色 */
+    --entity-color-event: #fa8c16;      /* 事件实体 — 橙色 */
+    --entity-color-default: #08979c;    /* 无分类   — 品牌青色 */
+
     /* ===== §4.1 圆角规范 ===== */
     --radius: 0.625rem;             /* 默认圆角（shadcn 兼容） */
     --radius-btn: 6px;              /* 按钮 / 输入框 / Tooltip */

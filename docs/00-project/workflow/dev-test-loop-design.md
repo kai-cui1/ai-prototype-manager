@@ -1042,7 +1042,7 @@ open packages/e2e/reports/run-*.html  # 最新报告
 | E2E 测试用例 | `docs/06-test-design/modules/project-management/f-{fp}-e2e.md` |
 | 测试规范 | `docs/06-test-design/test-convention.md` |
 | 编码规范 | `docs/04-tech-design/coding-convention.md` |
-| 设计规范 | `docs/03-prd-ux/ui-design-spec.md` |
+| 设计规范 | `docs/04-tech-design/design-language.md` |
 | API 测试代码 | `packages/api/tests/project-management/f-{fp}.test.ts` |
 | E2E 测试代码 | `packages/e2e/tests/project-management/f-{fp}.spec.ts` |
 | API 原始结果 | `packages/api/test-results/api-results.json` |

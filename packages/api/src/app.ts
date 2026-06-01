@@ -39,6 +39,7 @@ await app.register(swagger, {
       { name: 'Health', description: '健康检查' },
       { name: 'Projects', description: '项目管理 (M1)' },
       { name: 'Organization', description: '组织管理 (M1 子模块)' },
+      { name: 'Domain', description: '领域模型管理 (M2)' },
     ],
     components: {
       securitySchemes: {
@@ -133,7 +134,9 @@ app.get('/api/v1/health', async () => {
 // M1: 项目管理（F-M1-01 列表 / F-M1-02 创建 / F-M1-03 详情 / F-M1-04 编辑 / F-M1-05 归档）
 import projectRoutes from './routes/projects.js';
 await app.register(projectRoutes, { prefix: '/api/v1/projects' });
-// TODO(M2): app.register(domainRoutes, { prefix: '/api/v1/projects/:projectId/domain' })
+// M2: 领域模型管理（F-M2-01 实体 / F-M2-02 字段 / F-M2-03 关系 / F-M2-04 ER 图）
+import domainRoutes from './routes/domain.js';
+await app.register(domainRoutes, { prefix: '/api/v1/projects/:projectId/domain' });
 // TODO(M3): app.register(processRoutes, { prefix: '/api/v1/projects/:projectId/processes' })
 // M4: 组织管理（F-M1-06 公司 / F-M1-07 部门 / F-M1-08 角色 / F-M1-09 外部实体）
 import organizationRoutes, { companyResourceRoutes } from './routes/organization.js';

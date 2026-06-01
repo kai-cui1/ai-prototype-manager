@@ -11,7 +11,7 @@
  */
 
 import { db } from '../../src/db.js';
-import { companies, projects } from '../../src/models/schema.js';
+import { companies, projects, departments, roles, externalEntities, domainEntities, entityFields, entityRelations } from '../../src/models/schema.js';
 import { eq, ilike, and } from 'drizzle-orm';
 
 /** 测试数据名称前缀，用于隔离和清理 */
@@ -118,15 +118,229 @@ export async function createTestCompany(
   return row!;
 }
 
+/** 创建测试部门的默认参数 */
+interface CreateDepartmentParams {
+  name?: string;
+  displayName?: string;
+  description?: string;
+  parentId?: string | null;
+}
+
+/**
+ * 创建一个测试部门（name 自动加 TEST_PREFIX 前缀）。
+ *
+ * @param projectId - 所属项目 ID
+ * @param companyId - 所属公司 ID
+ * @param overrides - 覆盖默认值的参数
+ * @returns 插入的数据库行
+ */
+export async function createTestDepartment(
+  projectId: string,
+  companyId: string,
+  overrides: CreateDepartmentParams = {},
+): Promise<typeof departments.$inferSelect> {
+  const name = `${TEST_PREFIX}${overrides.name ?? `dept-${Date.now()}`}`;
+  const [row] = await db
+    .insert(departments)
+    .values({
+      projectId,
+      companyId,
+      name,
+      displayName: overrides.displayName ?? `测试部门${name}`,
+      description: overrides.description ?? null,
+      parentId: overrides.parentId ?? null,
+    })
+    .returning();
+  return row!;
+}
+
+/** 创建测试角色的默认参数 */
+interface CreateRoleParams {
+  name?: string;
+  displayName?: string;
+  description?: string;
+  departmentId?: string | null;
+}
+
+/**
+ * 创建一个测试角色（name 自动加 TEST_PREFIX 前缀）。
+ *
+ * @param projectId - 所属项目 ID
+ * @param overrides - 覆盖默认值的参数
+ * @returns 插入的数据库行
+ */
+export async function createTestRole(
+  projectId: string,
+  overrides: CreateRoleParams = {},
+): Promise<typeof roles.$inferSelect> {
+  const name = `${TEST_PREFIX}${overrides.name ?? `role-${Date.now()}`}`;
+  const [row] = await db
+    .insert(roles)
+    .values({
+      projectId,
+      name,
+      displayName: overrides.displayName ?? `测试角色${name}`,
+      description: overrides.description ?? null,
+      departmentId: overrides.departmentId ?? null,
+    })
+    .returning();
+  return row!;
+}
+
+/** 创建测试外部实体的默认参数 */
+interface CreateExternalEntityParams {
+  name?: string;
+  displayName?: string;
+  description?: string;
+  entityType?: string;
+}
+
+/**
+ * 创建一个测试外部实体（name 自动加 TEST_PREFIX 前缀）。
+ *
+ * @param projectId - 所属项目 ID
+ * @param overrides - 覆盖默认值的参数
+ * @returns 插入的数据库行
+ */
+export async function createTestExternalEntity(
+  projectId: string,
+  overrides: CreateExternalEntityParams = {},
+): Promise<typeof externalEntities.$inferSelect> {
+  const name = `${TEST_PREFIX}${overrides.name ?? `ee-${Date.now()}`}`;
+  const [row] = await db
+    .insert(externalEntities)
+    .values({
+      projectId,
+      name,
+      displayName: overrides.displayName ?? `测试外部实体${name}`,
+      description: overrides.description ?? null,
+      entityType: overrides.entityType ?? 'system',
+    })
+    .returning();
+  return row!;
+}
+
+// ============================================================
+// M2 Domain Model — Entity / Field / Relation factories
+// ============================================================
+
+/** 创建测试实体的默认参数 */
+interface CreateDomainEntityParams {
+  name?: string;
+  displayName?: string;
+  description?: string;
+  category?: string;
+}
+
+/**
+ * 创建一个测试领域实体（name 自动加 TEST_PREFIX 前缀）。
+ *
+ * @param projectId - 所属项目 ID
+ * @param overrides - 覆盖默认值的参数
+ * @returns 插入的数据库行
+ */
+export async function createTestEntity(
+  projectId: string,
+  overrides: CreateDomainEntityParams = {},
+): Promise<typeof domainEntities.$inferSelect> {
+  const name = `${TEST_PREFIX}${overrides.name ?? `entity-${Date.now()}`}`;
+  const [row] = await db
+    .insert(domainEntities)
+    .values({
+      projectId,
+      name,
+      displayName: overrides.displayName ?? `测试实体${name}`,
+      description: overrides.description ?? null,
+      category: overrides.category ?? null,
+    })
+    .returning();
+  return row!;
+}
+
+/** 创建测试字段的默认参数 */
+interface CreateEntityFieldParams {
+  name?: string;
+  displayName?: string;
+  description?: string;
+  fieldType?: string;
+  isRequired?: boolean;
+  defaultValue?: unknown;
+  constraints?: unknown;
+}
+
+/**
+ * 创建一个测试字段（name 自动加 TEST_PREFIX 前缀）。
+ *
+ * @param entityId - 所属实体 ID
+ * @param overrides - 覆盖默认值的参数
+ * @returns 插入的数据库行
+ */
+export async function createTestField(
+  entityId: string,
+  overrides: CreateEntityFieldParams = {},
+): Promise<typeof entityFields.$inferSelect> {
+  const name = `${TEST_PREFIX}${overrides.name ?? `field-${Date.now()}`}`;
+  const [row] = await db
+    .insert(entityFields)
+    .values({
+      entityId,
+      name,
+      displayName: overrides.displayName ?? `测试字段${name}`,
+      description: overrides.description ?? null,
+      fieldType: overrides.fieldType ?? 'string',
+      isRequired: overrides.isRequired ?? false,
+      defaultValue: overrides.defaultValue !== undefined ? (overrides.defaultValue as object) : null,
+      constraints: (overrides.constraints as object) ?? {},
+    })
+    .returning();
+  return row!;
+}
+
+/** 创建测试关系的默认参数 */
+interface CreateEntityRelationParams {
+  sourceEntityId: string;
+  targetEntityId: string;
+  relationKind?: string;
+  targetCardinality?: string;
+  displayName?: string;
+  description?: string;
+}
+
+/**
+ * 创建一个测试关系。
+ * 注意：关系表无 name 字段，通过 projectId 隔离。
+ *
+ * @param projectId - 所属项目 ID
+ * @param overrides - 关系参数（sourceEntityId/targetEntityId 必填）
+ * @returns 插入的数据库行
+ */
+export async function createTestRelation(
+  projectId: string,
+  overrides: CreateEntityRelationParams,
+): Promise<typeof entityRelations.$inferSelect> {
+  const [row] = await db
+    .insert(entityRelations)
+    .values({
+      projectId,
+      sourceEntityId: overrides.sourceEntityId,
+      targetEntityId: overrides.targetEntityId,
+      relationKind: overrides.relationKind ?? 'dependency',
+      targetCardinality: overrides.targetCardinality ?? '*',
+      displayName: overrides.displayName ?? null,
+      description: overrides.description ?? null,
+    })
+    .returning();
+  return row!;
+}
+
 /**
  * 清理所有以 TEST_PREFIX 开头的测试数据。
- * 按 projects → 子表 的顺序删除（先删子表再删主表，避免 FK 约束冲突）。
- *
- * 注意：当前仅清理 projects 表，M2~M6 的表后续补充。
+ * 删除 projects 时 CASCADE FK 自动清理 domain_entities / entity_fields / entity_relations /
+ * companies / departments / roles / external_entities 等子表。
  */
 export async function cleanupTestData(): Promise<void> {
   // 删除所有 name 以 TEST_PREFIX 开头的项目
-  // CASCADE FK 会自动删除关联的 domain_entities / companies / departments / roles / external_entities 等
+  // CASCADE FK 会自动删除关联的所有子表数据
   await db
     .delete(projects)
     .where(ilike(projects.name, `${TEST_PREFIX}%`));

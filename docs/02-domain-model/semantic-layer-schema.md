@@ -175,12 +175,16 @@ App (根节点)
 
 #### Relation 关系类型
 
-| type | 说明 |
-|------|------|
-| hasOne | 一对一 |
-| hasMany | 一对多 |
-| belongsTo | 多对一 |
-| belongsToMany | 多对多 |
+> **v1.1 变更（2026-06-01）**：从 ORM 风格（hasOne/hasMany/belongsTo/belongsToMany）改为 UML 风格，与领域模型 domain-model.md §5.2 对齐。关系类型（kind）与基数（targetCardinality）正交分离。
+
+| kind | 语义 | 典型场景 |
+|------|------|---------|
+| `association` | 普通关联：A 持久引用 B，无从属关系 | 订单→用户、商品→分类 |
+| `dependency` | 依赖：A 临时使用 B，无持久引用 | 服务A调用服务B |
+| `aggregation` | 聚合：整体-部分，B 可独立存在 | 部门→员工 |
+| `composition` | 组合：整体-部分，B 随 A 生命周期结束 | 订单→订单明细 |
+
+> `targetCardinality: "one" | "many"` 与 kind 正交分离，单独表达基数。
 
 ---
 
