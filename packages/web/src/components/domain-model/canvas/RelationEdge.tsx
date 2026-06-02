@@ -8,6 +8,9 @@
  * - aggregation: 虚线蓝色 + 空心菱形 ◇（自定义 SVG marker）
  * - composition: 实线青色 + 实心菱形 ◆（自定义 SVG marker）
  *
+ * 箭头对齐：association/dependency 使用 SVG marker + orient="auto"，
+ * 确保箭头沿贝塞尔路径末端切线方向对齐，不出现半边箭头与线条重合的问题。
+ *
  * Hover 时显示 Tooltip（relationKind + cardinality + description）
  * showLabel prop 控制常驻标签的显示（由 F-M2-05 画布配置决定）
  */
@@ -85,26 +88,20 @@ function RelationEdge({
     targetPosition,
   });
 
-  // 菱形 marker 仅 aggregation / composition 使用自定义 SVG
+  // 菱形 marker 仅 aggregation / composition 使用
   const useDiamondMarker = kind === 'aggregation' || kind === 'composition';
   const isFilled = kind === 'composition';
   const diamondFill = isFilled ? (selected || hovered ? activeColor : strokeStyle.stroke) : 'white';
-
-  const markerEndRef = useDiamondMarker ? `url(#${markerId})` : undefined;
-
-  // 菱形 marker 的描边色（选中/Hover 时使用主色）
   const diamondStroke = (selected || hovered) ? activeColor : strokeStyle.stroke;
 
-  // 普通箭头（association / dependency）通过 inline path 实现，不依赖 ReactFlow markerEnd
-  // 以避免 markerEnd prop 和 defs 混用时的渲染问题
-  const arrowSize = 10;
-  const dx = targetX - sourceX;
-  const dy = targetY - sourceY;
-  const angle = Math.atan2(dy, dx);
-  const arrowX1 = targetX - arrowSize * Math.cos(angle - Math.PI / 7);
-  const arrowY1 = targetY - arrowSize * Math.sin(angle - Math.PI / 7);
-  const arrowX2 = targetX - arrowSize * Math.cos(angle + Math.PI / 7);
-  const arrowY2 = targetY - arrowSize * Math.sin(angle + Math.PI / 7);
+  // 普通箭头（association / dependency）使用 SVG marker
+  // orient="auto" 确保箭头沿贝塞尔路径末端切线方向旋转，解决与线条不对齐的问题
+  const arrowMarkerId = `arrow-${id}`;
+  const useArrowMarker = !useDiamondMarker;
+
+  const markerEndRef = useDiamondMarker
+    ? `url(#${markerId})`
+    : `url(#${arrowMarkerId})`;
 
   const displayText = edgeData.displayName || KIND_LABEL[kind];
 
@@ -117,10 +114,10 @@ function RelationEdge({
 
   return (
     <>
-      {/* SVG defs：菱形 marker */}
-      {useDiamondMarker && (
-        <svg style={{ position: 'absolute', width: 0, height: 0 }}>
-          <defs>
+      {/* SVG defs：菱形 marker（aggregation/composition）或箭头 marker（association/dependency） */}
+      <svg style={{ position: 'absolute', width: 0, height: 0 }}>
+        <defs>
+          {useDiamondMarker && (
             <marker
               id={markerId}
               markerWidth="20"
@@ -138,9 +135,30 @@ function RelationEdge({
                 strokeWidth="1.5"
               />
             </marker>
-          </defs>
-        </svg>
-      )}
+          )}
+          {useArrowMarker && (
+            <marker
+              id={arrowMarkerId}
+              markerWidth="10"
+              markerHeight="10"
+              refX="9"
+              refY="5"
+              orient="auto"
+              markerUnits="userSpaceOnUse"
+            >
+              {/* 开口箭头：orient="auto" 自动沿路径末端切线方向旋转，确保与线条对齐 */}
+              <path
+                d="M 1 1 L 9 5 L 1 9"
+                fill="none"
+                stroke={currentStroke}
+                strokeWidth={currentWidth}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </marker>
+          )}
+        </defs>
+      </svg>
 
       {/* 主路径 */}
       <BaseEdge
@@ -155,19 +173,6 @@ function RelationEdge({
         }}
         interactionWidth={12}
       />
-
-      {/* 普通箭头（association / dependency） */}
-      {!useDiamondMarker && (
-        <path
-          d={`M ${arrowX1} ${arrowY1} L ${targetX} ${targetY} L ${arrowX2} ${arrowY2}`}
-          fill="none"
-          stroke={currentStroke}
-          strokeWidth={currentWidth}
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          style={{ transition: 'stroke-width 150ms, stroke 150ms', pointerEvents: 'none' }}
-        />
-      )}
 
       {/* 鼠标悬停感应区（透明宽边） */}
       <path

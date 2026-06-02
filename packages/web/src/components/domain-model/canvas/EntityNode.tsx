@@ -56,12 +56,12 @@ interface EntityNodeData {
 
 const MAX_VISIBLE_FIELDS = 6;
 
-// 四方向 Handle 定义
+// 四方向 Handle 定义（不覆盖 inline style，由 ReactFlow 默认样式自动将圆点居中到边框上）
 const HANDLES = [
-  { id: 'top', position: Position.Top, style: { top: 0, left: '50%', transform: 'translateX(-50%)' } },
-  { id: 'bottom', position: Position.Bottom, style: { bottom: 0, left: '50%', transform: 'translateX(-50%)' } },
-  { id: 'left', position: Position.Left, style: { top: '50%', left: 0, transform: 'translateY(-50%)' } },
-  { id: 'right', position: Position.Right, style: { top: '50%', right: 0, transform: 'translateY(-50%)' } },
+  { id: 'top', position: Position.Top },
+  { id: 'bottom', position: Position.Bottom },
+  { id: 'left', position: Position.Left },
+  { id: 'right', position: Position.Right },
 ] as const;
 
 function EntityNode({ id, data, selected }: NodeProps) {
@@ -130,7 +130,6 @@ function EntityNode({ id, data, selected }: NodeProps) {
           position={h.position}
           id={h.id}
           className="!bg-primary/60 !w-3 !h-3"
-          style={h.style}
         />
       ))}
       {HANDLES.map((h) => (
@@ -140,7 +139,6 @@ function EntityNode({ id, data, selected }: NodeProps) {
           position={h.position}
           id={h.id}
           className="!bg-primary/60 !w-3 !h-3"
-          style={h.style}
         />
       ))}
     </div>
