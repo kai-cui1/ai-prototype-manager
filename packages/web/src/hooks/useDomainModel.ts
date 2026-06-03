@@ -58,11 +58,12 @@ export interface Relation {
   targetEntityId: string;
   targetEntityName: string;
   targetEntityDisplayName: string;
-  relationKind: 'association' | 'dependency' | 'aggregation' | 'composition';
+  relationKind: 'association' | 'dependency' | 'aggregation' | 'composition' | 'generalization';
   sourceCardinality: string;
   targetCardinality: string;
   displayName: string | null;
   description: string | null;
+  dimension: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -95,11 +96,12 @@ export interface EREdge {
   source: string;
   target: string;
   data: {
-    relationKind: 'association' | 'dependency' | 'aggregation' | 'composition';
+    relationKind: 'association' | 'dependency' | 'aggregation' | 'composition' | 'generalization';
     sourceCardinality: string;
     targetCardinality: string;
     displayName?: string;
     description?: string;
+    dimension?: string;
   };
 }
 
@@ -281,11 +283,12 @@ export function useDomainModel(projectId: string) {
     async (input: {
       sourceEntityId: string;
       targetEntityId: string;
-      relationKind: 'association' | 'dependency' | 'aggregation' | 'composition';
+      relationKind: 'association' | 'dependency' | 'aggregation' | 'composition' | 'generalization';
       sourceCardinality?: string;
       targetCardinality?: string;
       displayName?: string;
       description?: string;
+      dimension?: string;
     }) => {
       const res = await apiClient.post<{ data: Relation }>(
         `/projects/${projectId}/domain/relations`,
@@ -300,11 +303,12 @@ export function useDomainModel(projectId: string) {
     async (
       relationId: string,
       input: {
-        relationKind?: 'association' | 'dependency' | 'aggregation' | 'composition';
+        relationKind?: 'association' | 'dependency' | 'aggregation' | 'composition' | 'generalization';
         sourceCardinality?: string;
         targetCardinality?: string;
         displayName?: string | null;
         description?: string | null;
+        dimension?: string | null;
       }
     ) => {
       const res = await apiClient.put<{ data: Relation }>(

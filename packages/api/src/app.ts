@@ -143,6 +143,9 @@ import organizationRoutes, { companyResourceRoutes } from './routes/organization
 await app.register(organizationRoutes, { prefix: '/api/v1/projects/:projectId' });
 // Single-resource company routes (GET/PUT/DELETE /companies/:id) — no :projectId needed
 await app.register(companyResourceRoutes, { prefix: '/api/v1' });
+// M1 补充: 应用管理（F-M1-11 Application CRUD）
+import applicationRoutes from './routes/applications.js';
+await app.register(applicationRoutes, { prefix: '/api/v1/projects/:projectId' });
 // TODO(M5): app.register(architectureRoutes, { prefix: '/api/v1/projects/:projectId/business-architectures' })
 // TODO(M6): app.register(menuRoutes, { prefix: '/api/v1/menus' })
 

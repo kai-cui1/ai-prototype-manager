@@ -51,13 +51,15 @@ export const CardinalitySchema = Type.String({
 
 /**
  * Relation kind enum.
- * R5 Why: Enforces single-direction semantic model (UML-style: association/dependency/aggregation/composition).
+ * R5 Why: Enforces single-direction semantic model (UML-style: association/dependency/aggregation/composition/generalization).
+ *        generalization = 泛化（is-a），source=子类，target=父类，基数强制 1:1。
  */
 export const RelationKindSchema = Type.Union([
   Type.Literal('association'),
   Type.Literal('dependency'),
   Type.Literal('aggregation'),
   Type.Literal('composition'),
+  Type.Literal('generalization'),
 ]);
 
 /** Canvas position for node placement persistence. */
@@ -142,6 +144,7 @@ export const EREdgeSchema = Type.Object({
     targetCardinality: Type.String(),
     displayName: Type.Optional(Type.Union([Type.String(), Type.Null()])),
     description: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+    dimension: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   }),
 });
 
@@ -203,6 +206,8 @@ export const CreateRelationInput = Type.Object({
   targetCardinality: Type.Optional(CardinalitySchema),
   displayName: Type.Optional(Type.String({ maxLength: 128 })),
   description: DescriptionSchema,
+  // R5 Why: 泛化维度，仅 generalization 类型时有意义；其他类型传入会被忽略。
+  dimension: Type.Optional(Type.String({ minLength: 1, maxLength: 128 })),
 });
 
 /** PUT /relations/:relationId — update relation (partial) */
@@ -212,6 +217,8 @@ export const UpdateRelationInput = Type.Object({
   targetCardinality: Type.Optional(CardinalitySchema),
   displayName: Type.Optional(Type.Union([Type.String({ maxLength: 128 }), Type.Null()])),
   description: Type.Optional(Type.Union([Type.String({ maxLength: 2000 }), Type.Null()])),
+  // R5 Why: 泛化维度，null 表示清除，空字符串由 Service 层拒绝。
+  dimension: Type.Optional(Type.Union([Type.String({ minLength: 1, maxLength: 128 }), Type.Null()])),
 });
 
 /** GET /relations — list query params */

@@ -2,8 +2,8 @@
 
 > **模块**：M2-领域模型管理
 > **状态**：draft
-> **版本**：v1.0
-> **日期**：2026-05-27
+> **版本**：v1.2
+> **日期**：2026-06-03
 > **作者**：AI/PM
 > **关联文档**：
 >   - PRD → `domain-model-prd.md`
@@ -269,35 +269,44 @@ Phase 1 主要适配桌面端（`lg` 以上）。ER 图画布在较小屏幕上�
 
 ##### 线的外观
 
-| 属性 | association | dependency | aggregation | composition |
-|------|-------------|-----------|-------------|-------------|
-| 线型 | 实线 | 实线 | 虚线（5 3） | 实线 |
-| 线色 | `#4096ff`（蓝） | `#8c8c8c`（灰） | `#1677ff`（蓝） | `#08979c`（青） |
-| 线宽 | 1.5px | 1.5px | 1.5px | 1.5px |
-| 末端标记 | 普通箭头 ▶ | 普通箭头 ▶ | 空心菱形 ◇ | 实心菱形 ◆ |
-| 标签位置 | 线中部 | 线中部 | 线中部 | 线中部 |
+| 属性 | association | dependency | aggregation | composition | generalization |
+|------|-------------|-----------|-------------|-------------|----------------|
+| 线型 | 实线 | 实线 | 虚线（5 3） | 实线 | 实线 |
+| 线色 | `#4096ff`（蓝） | `#8c8c8c`（灰） | `#1677ff`（蓝） | `#08979c`（青） | `#722ed1`（紫） |
+| 线宽 | 1.5px | 1.5px | 1.5px | 1.5px | 1.5px |
+| 末端标记 | 普通箭头 ▶ | 普通箭头 ▶ | 空心菱形 ◇ | 实心菱形 ◆ | 空心三角 △ |
+| 标签位置 | 线中部 | 线中部 | 线中部 | 线中部 | 线中部 |
+| 基数标注 | 显示 | 显示 | 显示 | 显示 | **不显示**（固定 1:1）|
 
 **末端标记实现方式**：
-- `association` / `dependency`：使用 ReactFlow `MarkerType.ArrowClosed`（实心箭头）
+- `association` / `dependency`：使用 SVG `<marker>` + `orient="auto"` 自动对齐贝塞尔切线方向
 - `aggregation`：使用自定义内联 SVG `<defs>` 定义空心菱形（`<polygon>` 填充白色/描边色）
 - `composition`：使用自定义内联 SVG `<defs>` 定义实心菱形（`<polygon>` 填充线条色）
+- `generalization`：使用自定义内联 SVG `<defs>` 定义空心等腰三角形（`<polygon>` 填充白色/描边紫色）
 
 ##### 线上的标签
 
 **基数标注**（常驻显示，不受配置控制）：
 - `source_cardinality` 标注在靠近源实体的线段位置（约 22% 处）
 - `target_cardinality` 标注在靠近目标实体的线段位置（约 22% 处）
+- **generalization 不展示基数标注**（固定 1:1，无需展示）
 - 样式：`text-[10px] text-muted-foreground bg-background/80 px-1 rounded`
 - 符合 UML 标准：基数标注在靠近约束实体的一端
 
-**常驻标签**（由 F-M2-05 配置控制）：
+**generalization 常驻标签**（始终显示，不受 showLabel 开关影响）：
+- 单标签格式：`{display_name}(维度：{dimension})`（display_name 优先，否则"泛化"）
+- 若 `dimension` 为空，仅显示 `display_name` 或"泛化"
+- 样式：紫色主题 `text-[10px] text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded border border-purple-300`
+- 示例：`泛化(维度：支付方式)` / `继承(维度：角色类型)`
+
+**非 generalization 常驻标签**（由 F-M2-05 配置控制）：
 - 开启"展示关系名称"时，在线中部显示常驻标签
 - 内容：`display_name`（如有）优先，否则显示 `relation_kind` 中文映射
 - 样式：`text-[10px] bg-background/80 text-foreground px-1.5 py-0.5 rounded border border-border`
 - 默认关闭，关闭时不渲染标签元素
 
 **Hover Tooltip**（始终可用，不受配置影响）：
-- 中文映射：`association`→"关联"，`dependency`→"依赖"，`aggregation`→"聚合"，`composition`→"组合"
+- 中文映射：`association`→"关联"，`dependency`→"依赖"，`aggregation`→"聚合"，`composition`→"组合"，`generalization`→"泛化"
 - Tooltip 背景：`bg-card`，边框：1px solid `border`，字号：`text-[11px]`
 - Tooltip 位于线段中点，显示：关系名称 + 基数（sourceCardinality : targetCardinality）+ 描述
 
@@ -336,15 +345,16 @@ Phase 1 主要适配桌面端（`lg` 以上）。ER 图画布在较小屏幕上�
 
 **关系详情卡片内容**：
 
-| 字段 | 展示方式 | 样式 |
-|------|---------|------|
-| 关系方向 | 源实体名 → 目标实体名 | `text-xs font-medium text-foreground` |
-| 关系类型 | Badge（统一 outline 变体） | `variant="outline" text-[10px] px-1.5 py-0` |
-| 基数 | `sourceCardinality : targetCardinality` 文字 | `text-[11px] text-muted-foreground` |
-| 显示名称 | `display_name`（如有） | `text-[11px] text-muted-foreground` |
-| 描述 | `description`（如有） | `text-xs text-muted-foreground` |
-| 编辑按钮 | `Pencil` 图标 | 点击 → 打开 RelationDialog（编辑模式） |
-| 删除按钮 | `Trash2` 图标 | 点击 → 打开 DeleteRelationDialog |
+| 字段 | 展示方式 | 样式 | 条件 |
+|------|---------|------|------|
+| 关系方向 | 源实体名 → 目标实体名 | `text-xs font-medium text-foreground` | 始终显示 |
+| 关系类型 | Badge（统一 outline 变体） | `variant="outline" text-[10px] px-1.5 py-0`；generalization 加 `border-purple-300 text-purple-600` | 始终显示 |
+| 基数 | `sourceCardinality : targetCardinality` 文字 | `text-[11px] text-muted-foreground` | 非 generalization 显示 |
+| 泛化维度 | `{dimension}` 标签 | `text-[10px] text-purple-600 bg-purple-50 border border-purple-300 rounded px-1.5` | 仅 generalization 且 dimension 非空时显示 |
+| 显示名称 | `display_name`（如有） | `text-[11px] text-muted-foreground` | 非空时显示 |
+| 描述 | `description`（如有） | `text-xs text-muted-foreground` | 非空时显示 |
+| 编辑按钮 | `Pencil` 图标 | 点击 → 打开 RelationDialog（编辑模式） | 始终显示 |
+| 删除按钮 | `Trash2` 图标 | 点击 → 打开 DeleteRelationDialog | 始终显示 |
 
 **互斥规则**：
 - 点击关系线 → 取消实体选中，Inspector 切换为关系详情模式
@@ -360,7 +370,16 @@ Phase 1 主要适配桌面端（`lg` 以上）。ER 图画布在较小屏幕上�
 └─────────────────────────────┘
 ```
 
-说明行仅在 `description` 非空时显示，样式与基数行一致（`text-muted-foreground`）。
+**generalization Tooltip 格式**：
+```
+┌─────────────────────────────┐
+│  泛化: 左通道站 △── 换电站   │
+│  维度: 物理结构              │  ← dimension，紫色样式
+│  说明: 按物理通道方向分类     │  ← description（如有）
+└─────────────────────────────┘
+```
+
+说明行仅在 `description` 非空时显示。
 
 #### 3.2.4 画布导航
 
@@ -538,13 +557,34 @@ Inspector 从右侧滑出，宽度 360px，高度 100%（从 Toolbar 下方到�
 │  聚合: 订单 ──▶ 商品      *  ✏️ 🗑│
 │  ────────────────────────────────  │
 │  组合: 订单 ──▶ 物流      1  ✏️ 🗑│
+│  ────────────────────────────────  │
+│  泛化: 左通道站 △─▷ 换电站          │
+│        [物理结构]          ✏️ 🗑│  ← 第二行显示 dimension，无基数
 └────────────────────────────────────┘
 ```
 
-**关系行结构**：
-- 左侧：关系类型中文 + 源实体名 + 箭头 + 目标实体名
+**关系行结构（通用）**：
+- 左侧：关系类型中文 + 源实体名 + 箭头符号 + 目标实体名
 - 中间：sourceCardinality : targetCardinality
 - 右侧：编辑图标 + 删除图标
+
+**泛化关系行结构（特殊）**：
+
+泛化关系行采用**两行布局**，以突显 dimension 信息：
+
+```
+行1: [泛化类型 Badge]  子类名 △─▷ 父类名                   ✏️ 🗑
+行2:                   [dimension 标签]
+```
+
+| 元素 | 样式 | 说明 |
+|------|------|------|
+| 关系类型 Badge | `variant="outline"` 紫色边框，文字"泛化" | 替代普通文字标签 |
+| 箭头符号 | `△─▷`（空心三角）| 区别于其他关系的实心箭头 |
+| dimension 标签 | `[物理结构]`，`text-xs text-purple-600 bg-purple-50 px-1.5 rounded` | 第二行左对齐，与第一行 source 实体名对齐 |
+| 基数 | **不显示** | generalization 基数固定 1:1，无需展示 |
+
+> **为何使用两行布局**：dimension 是泛化关系的核心语义信息，与其他关系的"基数"处于同等地位。两行布局在视觉上给予 dimension 足够的展示空间，且与其他关系行形成清晰的视觉区分。
 
 **编辑关系**：点击编辑图标 → 弹出关系编辑 Dialog
 **删除关系**：点击删除图标 → 弹出删除确认 Dialog
@@ -654,20 +694,21 @@ Inspector 从右侧滑出，宽度 360px，高度 100%（从 Toolbar 下方到�
 
 **表单字段**：
 
-| 字段 | 组件 | 必填 | 说明 |
-|------|------|:----:|------|
-| 源实体 | Display | — | 当前实体，只读展示 |
-| 目标实体 | Select | ✅ | 下拉选择项目内其他实体（含自身，支持自引用）|
-| 关系类型 | Select | ✅ | association / dependency / aggregation / composition，带图标和说明 |
-| 源端基数 | Input + 预设快选 | ✅ | 标签格式 `源端基数 — {源实体显示名}`，支持手动输入或点击预设值，格式校验见下方 |
-| 目标端基数 | Input + 预设快选 | ✅ | 标签格式 `目标端基数 — {目标实体显示名}`，预设选项同上 |
-| 显示名称 | Input | — | 0-128 字符，如"包含"、"属于" |
-| 描述 | Textarea | — | 0-512 字符 |
+| 字段 | 组件 | 必填 | 条件 | 说明 |
+|------|------|:----:|------|------|
+| 源实体 | Display | — | 始终显示 | 当前实体，只读展示 |
+| 目标实体 | Select | ✅ | 始终显示 | 下拉选择项目内其他实体（含自身，支持自引用）|
+| 关系类型 | Select | ✅ | 始终显示 | 5 种类型，带图标和说明 |
+| 泛化维度 | Combobox | ✅ | 仅 generalization | 支持从父实体字段 displayName 中选择，或手动输入自定义文本 |
+| 源端基数 | Input + 预设快选 | — | 非 generalization | 标签格式 `源端基数 — {源实体显示名}`；generalization 时隐藏并自动设为 1 |
+| 目标端基数 | Input + 预设快选 | — | 非 generalization | 标签格式 `目标端基数 — {目标实体显示名}`；generalization 时隐藏并自动设为 1 |
+| 显示名称 | Input | — | 始终显示 | 0-128 字符，如"包含"、"属于" |
+| 描述 | Textarea | — | 始终显示 | 0-512 字符 |
 
 **关系类型选择器**：
 
 Select 下拉中每个选项包含：
-- 图标：association→实线箭头，dependency→灰色箭头，aggregation→空心菱形，composition→实心菱形
+- 图标：association→实线箭头，dependency→灰色箭头，aggregation→空心菱形，composition→实心菱形，generalization→空心三角
 - 中文名称 + 英文名称
 - 一行说明文字（caption 样式）
 
@@ -681,8 +722,33 @@ Select 下拉中每个选项包含：
 │    A 包含 B，B 可独立存在          │
 │  ◆ 组合 (composition)             │
 │    A 包含 B，B 随 A 消亡           │
+│  △ 泛化 (generalization)          │
+│    A 是 B 的子类型（is-a）         │
 └──────────────────────────────────┘
 ```
+
+**选择 generalization 后的表单变化**：
+
+```
+选择 generalization 前:                选择 generalization 后:
+┌───────────────────────────────┐      ┌───────────────────────────────┐
+│  目标实体  [换电站      ▼]    │      │  目标实体  [换电站      ▼]    │
+│  关系类型  [泛化       ▼]    │      │  关系类型  [泛化       ▼]    │
+│  源端基数  [1    ] 1 * [0,1] │      │  泛化维度  [物理结构  ▼] ✎  │ ← 新增，必填
+│  目标端基数[*    ] 1 * [1,*] │      │  ┌ 提示: 基数固定为 1:1 ────┐ │ ← 基数隐藏，提示代替
+│  显示名称  [____________]    │      │  └──────────────────────────┘ │
+│  描述      [____________]    │      │  显示名称  [____________]    │
+└───────────────────────────────┘      │  描述      [____________]    │
+                                       └───────────────────────────────┘
+```
+
+**泛化维度（dimension）Combobox 行为**：
+- 组件类型：Combobox（既可下拉选择，也可手动输入）
+- 下拉列表来源：目标实体（parent 实体）的所有字段的 `display_name`，如 `["通道方向", "充换电能力", "站型规格", ...]`
+- 用户选择后自动填入 Input；也可忽略下拉，直接键入任意文本
+- placeholder：`选择或输入泛化维度...`
+- 校验：非空，1-128 字符
+- 当目标实体改变时，下拉列表自动更新为新目标实体的字段列表
 
 **基数选择器**：
 
@@ -714,13 +780,38 @@ Select 下拉中每个选项包含：
 
 #### 3.6.2 表单校验
 
+**通用校验**：
 - 目标实体不能与源实体相同项目外（Select 已过滤，但后端仍需校验）
 - 同一项目内 (source, target, kind) 三元组唯一：后端返回 409，Dialog 内展示"该关系已存在"
+
+**generalization 特殊校验**：
+
+| 场景 | 前端行为 | 错误提示位置 |
+|------|---------|------------|
+| dimension 为空时点击保存 | 阻止提交，dimension Combobox 边框变红 | Combobox 下方显示"请填写泛化维度" |
+| dimension 超过 128 字符 | 实时截断或 blur 时提示 | Combobox 下方显示"维度名称不超过 128 字符" |
+| 后端返回 422（dimension 缺失） | Dialog 内顶部 Banner 展示错误 | "泛化维度不能为空" |
+
+**dimension 字段的条件显隐**：
+
+```
+relation_kind 改变时：
+  if kind === 'generalization':
+    显示 dimension Combobox（必填）
+    隐藏源端基数 + 目标端基数
+    显示"基数固定为 1:1"提示文本
+  else:
+    隐藏 dimension Combobox
+    显示源端基数 + 目标端基数
+    清空 dimension 字段值（静默）
+```
+
+切换回非 generalization 类型时，dimension 值**静默清空**，不提示用户。
 
 #### 3.6.3 提交行为
 
 - 保存成功：Dialog 关闭，Toast "关系已保存"
-- ER 图模式下：如果目标实体已在画布中，自动绘制新的关系线
+- ER 图模式下：如果目标实体已在画布中，自动绘制新的关系线（generalization 使用紫色空心三角线）
 - 列表模式下：无视觉变化（关系不在列表视图中展示）
 
 ---
@@ -876,15 +967,16 @@ AI Agent 通过结构化指令可执行以下操作：
 | Input | shadcn | 搜索框、表单输入 | 高度 32px，rounded-input |
 | Dialog | shadcn | 新建/编辑/删除确认 | rounded-dialog，shadow-dialog |
 | Select | shadcn | 类型选择、实体选择 | — |
+| Combobox | shadcn (Command + Popover) | dimension 泛化维度输入 | 同时支持下拉选择和自由输入 |
 | Switch | shadcn | 是否必填、是否整数 | — |
 | Textarea | shadcn | 描述输入 | 3 行默认高度 |
 | Button | shadcn | 各类按钮 | 按 design-language.md 规范 |
 | Table | shadcn | 实体列表 | 按 design-language.md 表格规范 |
-| Tag / Badge | shadcn | category、field_type | 按状态色规范 |
+| Tag / Badge | shadcn | category、field_type、relation_kind | 按状态色规范；generalization 使用紫色 |
 | EmptyState | 自定义 | 各类空状态 | 图标 64px + 标题 + 描述 |
 | Inspector | 自定义 | 右滑详情面板 | 宽度 360px，滑出动画 |
 | EntityNode | ReactFlow + 自定义 | ER 图实体节点 | 字段列表、category 染色 |
-| RelationEdge | ReactFlow + 自定义 | ER 图关系线 | 不同 marker + 标签 |
+| RelationEdge | ReactFlow + 自定义 | ER 图关系线 | 不同 marker + 标签；generalization 空心三角 + dimension 标签 |
 | Minimap | ReactFlow 自带 | 画布小地图 | 节点颜色映射 |
 | FieldConstraintsForm | 自定义 | 动态约束配置 | 9 种类型的条件渲染 |
 | EnumOptionsEditor | 自定义 | 枚举选项编辑 | 动态增删行 |
@@ -939,6 +1031,45 @@ flowchart TD
     S3 --> U4[节点停留在新位置]
 ```
 
+### 7.4 创建泛化关系流程（含 dimension 填写）
+
+> 泛化关系创建与普通关系的核心区别：选择 generalization 后，表单动态切换为"维度输入模式"（隐藏基数，显示 dimension Combobox）。
+
+```mermaid
+flowchart TD
+    U1[在 Inspector 关系 Tab 点击添加关系] --> D1[弹出关系 Dialog]
+    D1 --> U2[选择目标实体-父类]
+    U2 --> U3[选择关系类型 = generalization]
+    U3 --> S1[表单联动\n隐藏基数输入\n显示 dimension Combobox\n显示基数固定1:1提示]
+    S1 --> U4[填写 dimension]
+    U4 --> C1{输入方式}
+    C1 --> |从父类字段选择| U5[下拉选择父实体字段 displayName]
+    C1 --> |手动输入| U6[直接键入自定义维度文本]
+    U5 --> U7[点击保存]
+    U6 --> U7
+    U7 --> V1{dimension 非空?}
+    V1 --> |否| E1[Combobox 标红\n提示 请填写泛化维度]
+    E1 --> U4
+    V1 --> |是| V2{三元组唯一?}
+    V2 --> |重复| E2[Dialog 内提示 该关系已存在]
+    E2 --> D1
+    V2 --> |唯一| S2[API 创建关系\n后端强制 cardinality=1\n存储 dimension]
+    S2 --> S3[Dialog 关闭]
+    S3 --> S4[Inspector 关系列表刷新\n泛化行两行布局+dimension 标签]
+    S4 --> S5[画布绘制紫色空心三角关系线\n线上显示 dimension 标签]
+    S5 --> U8[Toast: 关系已保存]
+```
+
+**与普通关系创建流程的差异对比**：
+
+| 步骤 | 普通关系 | generalization |
+|------|---------|---------------|
+| 选类型后 | 表单不变，基数输入可用 | 基数隐藏，dimension Combobox 出现 |
+| 必填项 | 源端/目标端基数 | dimension（1-128 字符）|
+| 后端强制逻辑 | 无 | cardinality 强制覆盖为 `"1"` |
+| 关系列表展示 | 单行（类型 + 方向 + 基数）| 双行（类型 + 方向 / dimension 标签）|
+| ER 图线型 | 各自颜色 + 对应箭头/菱形 | 紫色 + 空心三角 + dimension 标签 |
+
 ---
 
 ## 8. 版本历史
@@ -946,3 +1077,5 @@ flowchart TD
 | 版本 | 日期 | 变更要点 |
 |------|------|---------|
 | v1.0 | 2026-05-27 | 初版：8 个交互模块完整设计，涵盖布局、ER 图画布、Inspector、字段/关系管理、AI 交互规格 |
+| v1.1 | 2026-06-02 | 新增泛化关系（generalization）交互规格：RelationEdge 空心三角箭头（紫色）、维度标签常驻显示、Inspector 关系详情模式新增维度行（无基数）、RelationDialog 新增 dimension Combobox 和 generalization 选型时的条件渲染（隐藏基数输入/显示维度输入）；Inspector 关系 Tab 泛化行采用双行布局展示 dimension；§3.6.2 补充 generalization 校验规则和字段条件显隐逻辑；§6 组件清单新增 Combobox；§7.4 新增创建泛化关系完整流程图 |
+| v1.2 | 2026-06-03 | Bug 修复（3 项）：① §3.2 Canvas 泛化关系标签修正为"常驻关系名称 + 维度标签（可选）"双层布局，非泛化关系恢复常驻名称标签；② §3.5 关系详情面板 RelationDetailPanel 补充 generalization 的 KIND_LABEL 条目（紫色 Badge）和 dimension 标签展示（替代基数显示）；③ 后端 service 层修复 createRelation/updateRelation 对 dimension 字段的持久化逻辑（已在 v1.1 实现但未完整联调） |

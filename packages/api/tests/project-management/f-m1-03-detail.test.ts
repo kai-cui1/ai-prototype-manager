@@ -10,7 +10,11 @@
 
 import { describe, test, expect, beforeAll, afterAll } from 'vitest';
 import { apiClient } from '../helpers/api-test-client.js';
-import { cleanupTestData, createTestProject } from '../helpers/test-factory.js';
+import {
+  cleanupTestData,
+  createTestProject,
+  createTestApplication,
+} from '../helpers/test-factory.js';
 
 describe('F-M1-03 查看项目详情', () => {
   beforeAll(async () => {
@@ -78,13 +82,20 @@ describe('F-M1-03 查看项目详情', () => {
 
     const data = resp.body.data as Record<string, unknown>;
 
-    // B-M1-15: 6 个计数字段必须全部返回，零计数显示为 0（不省略字段）
+    // B-M1-15: 各计数字段必须全部返回，零计数显示为 0（不省略字段）
     expect(data.domainEntityCount).toBe(0);
     expect(data.processCount).toBe(0);
     expect(data.companyCount).toBe(0);
     expect(data.departmentCount).toBe(0);
     expect(data.roleCount).toBe(0);
     expect(data.externalEntityCount).toBe(0);
+
+    // applicationCount 零计数
+    expect(data.applicationCount).toBe(0);
+    // applicationTypeBreakdown 无应用时返回空对象
+    expect(data.applicationTypeBreakdown).toBeDefined();
+    expect(typeof data.applicationTypeBreakdown).toBe('object');
+    expect(Object.keys(data.applicationTypeBreakdown as object)).toHaveLength(0);
 
     // 摘要中也包含基础信息
     expect(data.id).toBe(project.id);
@@ -228,5 +239,41 @@ describe('F-M1-03 查看项目详情', () => {
     expect(detail.id).toBe(summary.id);
     expect(detail.name).toBe(summary.name);
     expect(detail.status).toBe(summary.status);
+  });
+
+  test('TC-API-M1-03-011: Summary 接口 — 有应用数据时 applicationTypeBreakdown 按类型正确分组', async () => {
+    // Arrange: 创建项目 + 多个不同类型的应用
+    const project = await createTestProject({
+      name: 'summary-app-breakdown',
+      displayName: '应用类型分布测试',
+    });
+
+    // 创建 2 个 web + 1 个 api + 1 个 service
+    await createTestApplication(project.id, { name: 'app-web-1', type: 'web' });
+    await createTestApplication(project.id, { name: 'app-web-2', type: 'web' });
+    await createTestApplication(project.id, { name: 'app-api-1', type: 'api' });
+    await createTestApplication(project.id, { name: 'app-svc-1', type: 'service' });
+
+    // Act
+    const resp = await apiClient.get(`/projects/${project.id}/summary`);
+
+    // Assert
+    expect(resp.statusCode).toBe(200);
+    const data = resp.body.data as Record<string, unknown>;
+
+    // 总数 = 4
+    expect(data.applicationCount).toBe(4);
+
+    // 类型分布：web=2, api=1, service=1；其他类型不出现（数量=0 不返回）
+    const breakdown = data.applicationTypeBreakdown as Record<string, number>;
+    expect(breakdown.web).toBe(2);
+    expect(breakdown.api).toBe(1);
+    expect(breakdown.service).toBe(1);
+    expect(Object.keys(breakdown)).toHaveLength(3);
+    // 数量为 0 的类型不应包含在 breakdown 中
+    expect(breakdown.wxapp).toBeUndefined();
+    expect(breakdown.android).toBeUndefined();
+    expect(breakdown.ios).toBeUndefined();
+    expect(breakdown.pc).toBeUndefined();
   });
 });

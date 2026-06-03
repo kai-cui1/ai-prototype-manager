@@ -305,6 +305,7 @@ export default async function domainRoutes(app: FastifyInstance) {
       targetCardinality?: string;
       displayName?: string;
       description?: string;
+      dimension?: string;
     };
     const relation = await domainService.createRelation(db, projectId, body);
     return reply.code(201).send({ data: relation });
@@ -322,11 +323,12 @@ export default async function domainRoutes(app: FastifyInstance) {
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { projectId, relationId } = request.params as { projectId: string; relationId: string };
     const body = request.body as {
-      relationKind?: 'association' | 'dependency' | 'aggregation' | 'composition';
+      relationKind?: 'association' | 'dependency' | 'aggregation' | 'composition' | 'generalization';
       sourceCardinality?: string;
       targetCardinality?: string;
       displayName?: string | null;
       description?: string | null;
+      dimension?: string | null;
     };
     const relation = await domainService.updateRelation(db, projectId, relationId, body);
     return reply.code(200).send({ data: relation });

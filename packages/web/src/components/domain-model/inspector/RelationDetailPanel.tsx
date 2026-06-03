@@ -17,6 +17,7 @@ const KIND_LABEL: Record<string, string> = {
   dependency: '依赖',
   aggregation: '聚合',
   composition: '组合',
+  generalization: '泛化',
 };
 
 interface Props {
@@ -26,6 +27,8 @@ interface Props {
 export default function RelationDetailPanel({ relation }: Props) {
   const [relationDialogOpen, setRelationDialogOpen] = useState(false);
   const [deleteRelation, setDeleteRelation] = useState<Relation | null>(null);
+
+  const isGeneralization = relation.relationKind === 'generalization';
 
   return (
     <>
@@ -44,10 +47,24 @@ export default function RelationDetailPanel({ relation }: Props) {
               </span>
             </div>
             <div className="flex items-center gap-1.5">
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+              <Badge
+                variant="outline"
+                className={`text-[10px] px-1.5 py-0 ${isGeneralization ? 'border-purple-300 text-purple-600' : ''}`}
+              >
                 {KIND_LABEL[relation.relationKind]}
               </Badge>
-              <span className="text-[11px] text-muted-foreground">{relation.sourceCardinality} : {relation.targetCardinality}</span>
+              {isGeneralization ? (
+                relation.dimension && (
+                  <span
+                    className="text-[10px] px-1.5 py-0 rounded"
+                    style={{ color: '#722ed1', backgroundColor: '#f9f0ff', border: '1px solid #d3adf7' }}
+                  >
+                    {relation.dimension}
+                  </span>
+                )
+              ) : (
+                <span className="text-[11px] text-muted-foreground">{relation.sourceCardinality} : {relation.targetCardinality}</span>
+              )}
               {relation.displayName && (
                 <span className="text-[11px] text-muted-foreground truncate">{relation.displayName}</span>
               )}

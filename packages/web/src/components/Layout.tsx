@@ -92,6 +92,21 @@ function getProjectMenus(projectId: string): MenuItem[] {
       updatedAt: new Date().toISOString(),
     },
     {
+      id: 'proj-applications',
+      parentId: null,
+      name: 'project-applications',
+      displayName: '应用管理',
+      icon: 'Layers',
+      path: `/p/${projectId}/applications`,
+      menuType: 'menu',
+      sortOrder: 2,
+      visible: true,
+      roles: [],
+      permissions: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
       id: 'proj-organization',
       parentId: null,
       name: 'project-organization',
@@ -99,7 +114,7 @@ function getProjectMenus(projectId: string): MenuItem[] {
       icon: 'Building2',
       path: `/p/${projectId}/organization`,
       menuType: 'menu',
-      sortOrder: 2,
+      sortOrder: 3,
       visible: true,
       roles: [],
       permissions: [],
@@ -114,7 +129,7 @@ function getProjectMenus(projectId: string): MenuItem[] {
       icon: 'UserPlus',
       path: `/p/${projectId}/external-entities`,
       menuType: 'menu',
-      sortOrder: 3,
+      sortOrder: 4,
       visible: true,
       roles: [],
       permissions: [],
@@ -129,7 +144,7 @@ function getProjectMenus(projectId: string): MenuItem[] {
       icon: 'Users',
       path: `/p/${projectId}/roles`,
       menuType: 'menu',
-      sortOrder: 4,
+      sortOrder: 5,
       visible: true,
       roles: [],
       permissions: [],
@@ -144,7 +159,7 @@ function getProjectMenus(projectId: string): MenuItem[] {
       icon: 'Boxes',
       path: `/p/${projectId}/domain-model`,
       menuType: 'menu',
-      sortOrder: 5,
+      sortOrder: 6,
       visible: true,
       roles: [],
       permissions: [],
@@ -159,7 +174,7 @@ function getProjectMenus(projectId: string): MenuItem[] {
       icon: 'FileText',
       path: `/p/${projectId}/business-processes`,
       menuType: 'menu',
-      sortOrder: 6,
+      sortOrder: 7,
       visible: true,
       roles: [],
       permissions: [],
@@ -174,7 +189,7 @@ function getProjectMenus(projectId: string): MenuItem[] {
       icon: 'Network',
       path: `/p/${projectId}/business-architecture`,
       menuType: 'menu',
-      sortOrder: 7,
+      sortOrder: 8,
       visible: true,
       roles: [],
       permissions: [],
@@ -189,7 +204,7 @@ function getProjectMenus(projectId: string): MenuItem[] {
       icon: null,
       path: null,
       menuType: 'separator',
-      sortOrder: 8,
+      sortOrder: 9,
       visible: true,
       roles: [],
       permissions: [],
@@ -249,6 +264,8 @@ function useBreadcrumbs(activeProjectId: string | null) {
 
     if (!subPath || subPath === '') {
       labels.push('概览');
+    } else if (subPath === 'applications') {
+      labels.push('应用管理');
     } else if (subPath === 'organization') {
       labels.push('组织管理');
     } else if (subPath === 'external-entities') {

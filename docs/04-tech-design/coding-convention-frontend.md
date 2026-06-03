@@ -451,7 +451,51 @@ npx shadcn add table
 | **变体扩展** | 需要 shadcn/ui 不支持的变体时，用 `cv()` (class-variance-authority) 在业务组件中定义 |
 | **版本锁定** | 添加组件后检查 `components.json` 确保配置一致 |
 
-### 7.4 业务组件变体示例（架构级）
+### 7.4 Dialog 内容区 padding 规范（高频踩坑 ⚠️）
+
+**本项目 `DialogContent` 的 padding 是 `p-0`（无内边距），与 shadcn/ui 官方默认（`p-6`）不同。**
+
+`dialog.tsx` 中的分区域布局设计：
+- `DialogHeader`：内置 `px-6 py-4`（标题区）
+- `DialogFooter`：内置 `px-6 py-3`（按钮区）
+- **中间内容区（body）：无默认 padding，使用方必须自己加 `p-6`**
+
+❌ **错误写法**（内容贴近弹窗边界）：
+```tsx
+<DialogContent>
+  <DialogHeader><DialogTitle>标题</DialogTitle></DialogHeader>
+  <div className="space-y-4 py-1">  {/* ← py-1 仅 4px，且无左右 padding！ */}
+    <Label>字段名</Label>
+    <Input />
+  </div>
+  <DialogFooter>...</DialogFooter>
+</DialogContent>
+```
+
+✅ **正确写法**（与 DialogHeader/DialogFooter 水平对齐）：
+```tsx
+<DialogContent>
+  <DialogHeader><DialogTitle>标题</DialogTitle></DialogHeader>
+  <div className="space-y-4 p-6 overflow-y-auto">  {/* ← p-6 四边 24px */}
+    <Label>字段名</Label>
+    <Input />
+  </div>
+  <DialogFooter>...</DialogFooter>
+</DialogContent>
+```
+
+**尺寸使用 `size` prop，不要传 `className="max-w-xxx"`**：
+```tsx
+// ✅ 使用 size prop（sm=400px / default=520px / lg=720px）
+<DialogContent size="lg">
+
+// ❌ 不要用 className 覆盖（会与内置 minW 产生冲突）
+<DialogContent className="max-w-2xl">
+```
+
+> **根本原因**（事故记录 3 次，2026-06-02）：AI 编写弹窗时默认参照 shadcn/ui 官方文档的 `p-6` 行为，但本项目 `dialog.tsx` 定制为 `p-0`，导致每次新写弹窗的中间内容区缺少左右 padding。
+
+### 7.5 业务组件变体示例（架构级）
 
 StatusBadge 组件结构要点：
 1. 基于 shadcn/ui Badge 的 `variant="outline"` 封装
@@ -624,6 +668,7 @@ Phase 1 无认证，无需路由守卫。后续 Phase 3 引入认证后在 Layou
 
 | 版本 | 日期 | 变更要点 |
 |------|------|---------|
+| v2.1 | 2026-06-02 | 新增 §7.4 Dialog 内容区 padding 规范（高频踩坑），记录 `p-0` 定制与 shadcn/ui 默认 `p-6` 的差异，防止重复踩坑 |
 | v2.0 | 2026-05-25 | **重大重构 — 原型归档 + 状态管理更新 + 模板简化**：① §10.1 路由从 `/projects/:projectId` → `/p/:projectId/*` + ProjectContext 导航架构；② §5.1 状态管理从"不引入状态管理库" → React Context + useState/useCallback 分层管理，新增 ProjectContext 说明；③ §12 完全重写，从"参考原型+PRD"→"三层视觉参考体系"（设计语言规范→交互设计文档→browser-agent截图自检）；④ §3-§4 模板从代码级降为架构级（保留结构模式，删除完整代码实现）；⑤ §1.1 目录树新增 contexts/ 目录，页面组件调整（ProjectList→Dashboard）；⑥ §6.3 新增设计语言规范引用；⑦ §7.2 Tooltip 说明基于 @base-ui/react（render prop 模式）；⑧ §2.1 新增 Context 组件分类行；⑨ §4 页面组件模式新增 ProjectContext 引用 |
 | v1.2 | 2026-05-11 | 新增 §12 参考文档使用原则 |
 | v1.1 | 2026-05-07 | 组件清单表/StatusBadge/useDebouncedValue 优化 |

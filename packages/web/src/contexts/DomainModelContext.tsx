@@ -138,20 +138,22 @@ interface DomainModelContextValue {
   createRelation: (input: {
     sourceEntityId: string;
     targetEntityId: string;
-    relationKind: 'association' | 'dependency' | 'aggregation' | 'composition';
+    relationKind: 'association' | 'dependency' | 'aggregation' | 'composition' | 'generalization';
     sourceCardinality?: string;
     targetCardinality?: string;
     displayName?: string;
     description?: string;
+    dimension?: string;
   }) => Promise<Relation>;
   updateRelation: (
     relationId: string,
     input: {
-      relationKind?: 'association' | 'dependency' | 'aggregation' | 'composition';
+      relationKind?: 'association' | 'dependency' | 'aggregation' | 'composition' | 'generalization';
       sourceCardinality?: string;
       targetCardinality?: string;
       displayName?: string | null;
       description?: string | null;
+      dimension?: string | null;
     }
   ) => Promise<Relation>;
   deleteRelation: (relationId: string) => Promise<void>;
@@ -248,11 +250,12 @@ export function DomainModelProvider({ projectId, children }: DomainModelProvider
     const targetEntity = hook.entities.find((e) => e.id === edge.target);
     if (!sourceEntity || !targetEntity) return null;
     const data = edge.data as {
-      relationKind: 'association' | 'dependency' | 'aggregation' | 'composition';
+      relationKind: 'association' | 'dependency' | 'aggregation' | 'composition' | 'generalization';
       sourceCardinality: string;
       targetCardinality: string;
       displayName?: string;
       description?: string;
+      dimension?: string;
     };
     return {
       id: edge.id,
@@ -268,6 +271,7 @@ export function DomainModelProvider({ projectId, children }: DomainModelProvider
       targetCardinality: data.targetCardinality,
       displayName: data.displayName ?? null,
       description: data.description ?? null,
+      dimension: data.dimension ?? null,
       createdAt: '',
       updatedAt: '',
     };

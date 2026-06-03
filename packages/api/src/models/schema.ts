@@ -66,9 +66,12 @@ export const entityRelations = pgTable('entity_relations', {
   // R5 Why: relation_kind 限制为四种 UML 语义关系类型（association/dependency/aggregation/composition），
   //        拒绝 UML 双向关联——每条记录表达一个方向的关系语义。
   //        枚举值由 TypeBox Schema（P2）+ Service 层校验，不使用 DB 级 CHECK 约束。
-  relationKind: text('relation_kind').notNull(), // association | dependency | aggregation | composition
+  relationKind: text('relation_kind').notNull(), // association | dependency | aggregation | composition | generalization
   sourceCardinality: text('source_cardinality').notNull().default('1'),
   targetCardinality: text('target_cardinality').notNull().default('*'),
+  // R5 Why: 泛化维度，仅 generalization 类型使用；其他类型存 null。
+  //        表示泛化的分类轴（如"物理结构"/"充换电能力"），同一父类可沿不同维度有多个泛化子类组。
+  dimension: text('dimension'),
   displayName: text('display_name'),
   description: text('description'),
   config: jsonb('config').default('{}'),

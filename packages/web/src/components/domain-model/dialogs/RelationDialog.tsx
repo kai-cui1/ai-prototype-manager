@@ -2,6 +2,7 @@
  * @module RelationDialog
  * @description 新建/编辑实体关系 Dialog。
  * 字段：targetEntityId + relationKind + sourceCardinality + targetCardinality + displayName + description
+ * generalization 类型额外字段：dimension（必填）；隐藏基数输入（强制 1:1）
  */
 
 import { useState, useEffect } from 'react';
@@ -21,13 +22,14 @@ import { Button } from '@/components/ui/button';
 import { useDomainModelContext } from '@/contexts/DomainModelContext';
 import type { Relation } from '@/hooks/useDomainModel';
 
-type RelationKind = 'association' | 'dependency' | 'aggregation' | 'composition';
+type RelationKind = 'association' | 'dependency' | 'aggregation' | 'composition' | 'generalization';
 
 const KIND_OPTIONS: Array<{ value: RelationKind; label: string; desc: string }> = [
   { value: 'association', label: '关联（association）', desc: '源实体持久引用目标实体，无从属关系' },
   { value: 'dependency', label: '依赖（dependency）', desc: '源实体临时使用目标实体，无持久引用' },
   { value: 'aggregation', label: '聚合（aggregation）', desc: '源实体聚合目标实体（弱拥有）' },
   { value: 'composition', label: '组合（composition）', desc: '源实体组合目标实体（强拥有）' },
+  { value: 'generalization', label: '泛化（generalization）', desc: '源实体是目标实体的子类（is-a），基数固定 1:1' },
 ];
 
 const CARDINALITY_PRESETS = ['1', '*', '[0,1]', '[1,*]'];
@@ -62,19 +64,24 @@ export default function RelationDialog({ open, onOpenChange, sourceEntityId, rel
   const [targetCardinality, setTargetCardinality] = useState('*');
   const [displayName, setDisplayName] = useState('');
   const [description, setDescription] = useState('');
+  const [dimension, setDimension] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [sourceCardinalityError, setSourceCardinalityError] = useState('');
   const [targetCardinalityError, setTargetCardinalityError] = useState('');
+  const [dimensionError, setDimensionError] = useState('');
+
+  const isGeneralization = relationKind === 'generalization';
 
   // 初始化
   useEffect(() => {
     if (relation) {
       setTargetEntityId(relation.targetEntityId);
-      setRelationKind(relation.relationKind);
+      setRelationKind(relation.relationKind as RelationKind);
       setSourceCardinality(relation.sourceCardinality);
       setTargetCardinality(relation.targetCardinality);
       setDisplayName(relation.displayName ?? '');
       setDescription(relation.description ?? '');
+      setDimension(relation.dimension ?? '');
     } else {
       setTargetEntityId('');
       setRelationKind('dependency');
@@ -82,9 +89,11 @@ export default function RelationDialog({ open, onOpenChange, sourceEntityId, rel
       setTargetCardinality('*');
       setDisplayName('');
       setDescription('');
+      setDimension('');
     }
     setSourceCardinalityError('');
     setTargetCardinalityError('');
+    setDimensionError('');
   }, [relation, open]);
 
   // 目标实体列表（排除自身）
@@ -105,20 +114,33 @@ export default function RelationDialog({ open, onOpenChange, sourceEntityId, rel
       return;
     }
 
-    // 基数格式校验
-    const srcError = isValidCardinality(sourceCardinality) ? '' : '基数格式无效';
-    const tgtError = isValidCardinality(targetCardinality) ? '' : '基数格式无效';
-    setSourceCardinalityError(srcError);
-    setTargetCardinalityError(tgtError);
-    if (srcError || tgtError) return;
+    // generalization 必填 dimension
+    if (isGeneralization && !dimension.trim()) {
+      setDimensionError('泛化关系必须指定泛化维度');
+      return;
+    }
+
+    // 基数格式校验（仅非 generalization 类型）
+    if (!isGeneralization) {
+      const srcError = isValidCardinality(sourceCardinality) ? '' : '基数格式无效';
+      const tgtError = isValidCardinality(targetCardinality) ? '' : '基数格式无效';
+      setSourceCardinalityError(srcError);
+      setTargetCardinalityError(tgtError);
+      if (srcError || tgtError) return;
+    }
 
     setSubmitting(true);
     try {
       if (isEdit) {
         await updateRelation(relation!.id, {
           relationKind,
-          sourceCardinality,
-          targetCardinality,
+          ...(isGeneralization
+            ? { dimension: dimension.trim() }
+            : {
+                sourceCardinality,
+                targetCardinality,
+                dimension: null,
+              }),
           displayName: displayName.trim() || null,
           description: description.trim() || null,
         });
@@ -128,8 +150,9 @@ export default function RelationDialog({ open, onOpenChange, sourceEntityId, rel
           sourceEntityId,
           targetEntityId,
           relationKind,
-          sourceCardinality,
-          targetCardinality,
+          ...(isGeneralization
+            ? { dimension: dimension.trim() }
+            : { sourceCardinality, targetCardinality }),
           displayName: displayName.trim() || undefined,
           description: description.trim() || undefined,
         });
@@ -186,7 +209,12 @@ export default function RelationDialog({ open, onOpenChange, sourceEntityId, rel
             <Label className="text-sm">
               关系类型 <span className="text-red-500">*</span>
             </Label>
-            <Select value={relationKind} onValueChange={(v) => setRelationKind((v ?? "dependency") as RelationKind)}>
+            <Select value={relationKind} onValueChange={(v) => {
+              setRelationKind((v ?? "dependency") as RelationKind);
+              setDimensionError('');
+              setSourceCardinalityError('');
+              setTargetCardinalityError('');
+            }}>
               <SelectTrigger className="h-9 text-sm">
                 <SelectValue />
               </SelectTrigger>
@@ -203,71 +231,100 @@ export default function RelationDialog({ open, onOpenChange, sourceEntityId, rel
             </Select>
           </div>
 
-          {/* 源端基数 */}
-          <div className="space-y-1">
-            <Label className="text-sm">源端基数 — {sourceEntityDisplayName}</Label>
-            <Input
-              value={sourceCardinality}
-              onChange={(e) => { setSourceCardinality((e.target as HTMLInputElement).value); setSourceCardinalityError(''); }}
-              onBlur={() => {
-                if (sourceCardinality && !isValidCardinality(sourceCardinality)) setSourceCardinalityError('基数格式无效');
-              }}
-              placeholder="如 1、*、[0,1]、[1,*]"
-              className={`h-9 text-sm ${sourceCardinalityError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
-            />
-            <div className="flex items-center gap-1">
-              {CARDINALITY_PRESETS.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => { setSourceCardinality(preset); setSourceCardinalityError(''); }}
-                  className={`px-2 py-0.5 text-xs rounded border transition-colors ${
-                    sourceCardinality === preset
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background text-muted-foreground border-border hover:bg-accent'
-                  }`}
-                >
-                  {preset}
-                </button>
-              ))}
+          {/* 泛化维度（仅 generalization 显示） */}
+          {isGeneralization && (
+            <div className="space-y-1">
+              <Label className="text-sm">
+                泛化维度 <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                value={dimension}
+                onChange={(e) => {
+                  setDimension((e.target as HTMLInputElement).value);
+                  setDimensionError('');
+                }}
+                placeholder="如：物理结构、充换电能力、服务类型"
+                className={`h-9 text-sm ${dimensionError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+              />
+              {dimensionError && (
+                <p className="text-xs text-red-500">{dimensionError}</p>
+              )}
+              <p className="text-xs text-muted-foreground">
+                泛化的分类轴，同一父类可沿不同维度进行泛化
+              </p>
             </div>
-            {sourceCardinalityError && (
-              <p className="text-xs text-red-500">{sourceCardinalityError}</p>
-            )}
-          </div>
+          )}
 
-          {/* 目标端基数 */}
-          <div className="space-y-1">
-            <Label className="text-sm">目标端基数 — {targetEntityDisplayName}</Label>
-            <Input
-              value={targetCardinality}
-              onChange={(e) => { setTargetCardinality((e.target as HTMLInputElement).value); setTargetCardinalityError(''); }}
-              onBlur={() => {
-                if (targetCardinality && !isValidCardinality(targetCardinality)) setTargetCardinalityError('基数格式无效');
-              }}
-              placeholder="如 1、*、[0,1]、[1,*]"
-              className={`h-9 text-sm ${targetCardinalityError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
-            />
-            <div className="flex items-center gap-1">
-              {CARDINALITY_PRESETS.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => { setTargetCardinality(preset); setTargetCardinalityError(''); }}
-                  className={`px-2 py-0.5 text-xs rounded border transition-colors ${
-                    targetCardinality === preset
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background text-muted-foreground border-border hover:bg-accent'
-                  }`}
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
-            {targetCardinalityError && (
-              <p className="text-xs text-red-500">{targetCardinalityError}</p>
-            )}
-          </div>
+          {/* 基数（仅非 generalization 显示） */}
+          {!isGeneralization && (
+            <>
+              {/* 源端基数 */}
+              <div className="space-y-1">
+                <Label className="text-sm">源端基数 — {sourceEntityDisplayName}</Label>
+                <Input
+                  value={sourceCardinality}
+                  onChange={(e) => { setSourceCardinality((e.target as HTMLInputElement).value); setSourceCardinalityError(''); }}
+                  onBlur={() => {
+                    if (sourceCardinality && !isValidCardinality(sourceCardinality)) setSourceCardinalityError('基数格式无效');
+                  }}
+                  placeholder="如 1、*、[0,1]、[1,*]"
+                  className={`h-9 text-sm ${sourceCardinalityError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                />
+                <div className="flex items-center gap-1">
+                  {CARDINALITY_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => { setSourceCardinality(preset); setSourceCardinalityError(''); }}
+                      className={`px-2 py-0.5 text-xs rounded border transition-colors ${
+                        sourceCardinality === preset
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background text-muted-foreground border-border hover:bg-accent'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+                {sourceCardinalityError && (
+                  <p className="text-xs text-red-500">{sourceCardinalityError}</p>
+                )}
+              </div>
+
+              {/* 目标端基数 */}
+              <div className="space-y-1">
+                <Label className="text-sm">目标端基数 — {targetEntityDisplayName}</Label>
+                <Input
+                  value={targetCardinality}
+                  onChange={(e) => { setTargetCardinality((e.target as HTMLInputElement).value); setTargetCardinalityError(''); }}
+                  onBlur={() => {
+                    if (targetCardinality && !isValidCardinality(targetCardinality)) setTargetCardinalityError('基数格式无效');
+                  }}
+                  placeholder="如 1、*、[0,1]、[1,*]"
+                  className={`h-9 text-sm ${targetCardinalityError ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+                />
+                <div className="flex items-center gap-1">
+                  {CARDINALITY_PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => { setTargetCardinality(preset); setTargetCardinalityError(''); }}
+                      className={`px-2 py-0.5 text-xs rounded border transition-colors ${
+                        targetCardinality === preset
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background text-muted-foreground border-border hover:bg-accent'
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+                {targetCardinalityError && (
+                  <p className="text-xs text-red-500">{targetCardinalityError}</p>
+                )}
+              </div>
+            </>
+          )}
 
           {/* 显示名 */}
           <div className="space-y-1">

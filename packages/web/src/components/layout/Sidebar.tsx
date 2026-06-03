@@ -20,6 +20,7 @@ import {
   Network,
   ArrowLeft,
   Database,
+  Layers,
   type LucideIcon,
 } from 'lucide-react';
 import type { MenuItem } from '@apm/shared';
@@ -38,6 +39,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
   FileText: FileText,
   Network: Network,
   Database: Database,
+  Layers: Layers,
 };
 
 function MenuIcon({ name }: { name: string | null }) {

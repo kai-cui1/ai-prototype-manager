@@ -8,7 +8,7 @@
 import type { Db } from '../db.js';
 import { eq, ne, ilike, and, desc, asc, count } from 'drizzle-orm';
 import { sql } from 'drizzle-orm';
-import { projects, domainEntities, businessProcesses, companies, departments, roles, externalEntities } from '../models/schema.js';
+import { projects, domainEntities, businessProcesses, companies, departments, roles, externalEntities, applications } from '../models/schema.js';
 import {
   AppError,
   ERROR_CODES,
@@ -193,7 +193,7 @@ export async function getProjectById(db: Db, id: string): Promise<Project> {
  * 统计 6 个关联模块的记录数：领域实体 / 业务流程 / 公司 / 部门 / 角色 / 外部实体。
  *
  * B-M1-15: 零计数必须返回 0（不省略字段）
- * B-M1-16: 6 个 COUNT 查询并行执行（Promise.all）
+ * B-M1-16: 8 个 COUNT 查询并行执行（Promise.all），含按 type 分组的应用统计
  */
 export async function getProjectSummary(
   db: Db,
@@ -206,7 +206,7 @@ export async function getProjectSummary(
     throw notFound('Project', id);
   }
 
-  // B-M1-16: 6 个 COUNT 并行查询，减少 RTT
+  // B-M1-16: 8 个查询并行执行（含 applicationTypeBreakdown GROUP BY），减少 RTT
   const [
     domainCount,
     processCount,
@@ -214,6 +214,8 @@ export async function getProjectSummary(
     departmentCount,
     roleCount,
     externalEntityCount,
+    applicationCount,
+    appTypeRows,
   ] = await Promise.all([
     db.select({ count: count() }).from(domainEntities).where(eq(domainEntities.projectId, id)),
     db.select({ count: count() }).from(businessProcesses).where(eq(businessProcesses.projectId, id)),
@@ -221,9 +223,21 @@ export async function getProjectSummary(
     db.select({ count: count() }).from(departments).where(eq(departments.projectId, id)),
     db.select({ count: count() }).from(roles).where(eq(roles.projectId, id)),
     db.select({ count: count() }).from(externalEntities).where(eq(externalEntities.projectId, id)),
+    db.select({ count: count() }).from(applications).where(eq(applications.projectId, id)),
+    // 按 type 分组统计，仅返回数量 > 0 的类型
+    db.select({ type: applications.type, count: count() })
+      .from(applications)
+      .where(eq(applications.projectId, id))
+      .groupBy(applications.type),
   ]);
 
-  // 组装摘要响应：基础信息 + 6 个模块计数
+  // 将 GROUP BY 结果转换为 Record<string, number>，无应用时返回 {}
+  const applicationTypeBreakdown: Record<string, number> = {};
+  for (const row of appTypeRows) {
+    applicationTypeBreakdown[row.type] = row.count;
+  }
+
+  // 组装摘要响应：基础信息 + 7 个模块计数 + 应用类型分布
   return {
     id: project.id,
     name: project.name,
@@ -235,6 +249,8 @@ export async function getProjectSummary(
     departmentCount: departmentCount[0]?.count ?? 0,
     roleCount: roleCount[0]?.count ?? 0,
     externalEntityCount: externalEntityCount[0]?.count ?? 0,
+    applicationCount: applicationCount[0]?.count ?? 0,
+    applicationTypeBreakdown,
   };
 }
 

@@ -16,6 +16,7 @@ const KIND_LABEL: Record<string, string> = {
   dependency: '依赖',
   aggregation: '聚合',
   composition: '组合',
+  generalization: '泛化',
 };
 
 interface Props {
@@ -63,10 +64,24 @@ export default function RelationsTab({ entity }: Props) {
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] px-1.5 py-0 ${rel.relationKind === 'generalization' ? 'border-purple-300 text-purple-600' : ''}`}
+                    >
                       {KIND_LABEL[rel.relationKind]}
                     </Badge>
-                    <span className="text-[11px] text-muted-foreground">{rel.sourceCardinality} : {rel.targetCardinality}</span>
+                    {rel.relationKind === 'generalization' ? (
+                      rel.dimension && (
+                        <span
+                          className="text-[10px] px-1.5 py-0 rounded"
+                          style={{ color: '#722ed1', backgroundColor: '#f9f0ff', border: '1px solid #d3adf7' }}
+                        >
+                          {rel.dimension}
+                        </span>
+                      )
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground">{rel.sourceCardinality} : {rel.targetCardinality}</span>
+                    )}
                     {rel.displayName && (
                       <span className="text-[11px] text-muted-foreground truncate">{rel.displayName}</span>
                     )}

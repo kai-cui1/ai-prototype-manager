@@ -1,8 +1,8 @@
 # ai-prototype-manager 领域模型
 
 > **文档编号**：docs/02-domain-model
-> **状态**：✅ v1.1 完成
-> **日期**：2026-04-27（v1.0）/ 2026-05-03（v1.1）
+> **状态**：✅ v1.4 完成
+> **日期**：2026-04-27（v1.0）/ 2026-05-03（v1.1）/ 2026-05-28（v1.2）/ 2026-06-01（v1.3）/ 2026-06-02（v1.4）
 > **定位**：本系统自身的领域模型，作为「元模型」供参考，也是未来用户使用时定义其项目领域模型的范例
 
 ---
@@ -489,25 +489,48 @@ EntityDef
 RelationDef
 ├── id: string
 ├── kind: enum                  // 关系类型（UML 风格）：
-│                                //   "association"  — 普通关联：A 的数据结构中持久引用 B，无从属关系（如订单→用户）
-│                                //   "dependency"   — 依赖：A 临时使用 B，关系短暂，无持久引用
-│                                //   "aggregation"  — 聚合：A 包含 B（整体-部分），但 B 可独立存在
-│                                //   "composition"  — 组合：A 包含 B，B 随 A 生命周期结束（强拥有）
+│                                //   "association"    — 普通关联：A 的数据结构中持久引用 B，无从属关系（如订单→用户）
+│                                //   "dependency"     — 依赖：A 临时使用 B，关系短暂，无持久引用
+│                                //   "aggregation"    — 聚合：A 包含 B（整体-部分），但 B 可独立存在
+│                                //   "composition"    — 组合：A 包含 B，B 随 A 生命周期结束（强拥有）
+│                                //   "generalization" — 泛化：A 是 B 的子类型（is-a），source=子类，target=父类
+├── sourceEntityId: string      // 源实体 ID
 ├── targetEntityId: string      // 目标实体 ID
-├── targetCardinality: enum     // "one" | "many"（与 kind 正交分离）
-└── description?: string
+├── sourceCardinality?: string  // 源端基数（generalization 不适用，固定为 "1"）
+├── targetCardinality?: string  // 目标端基数（generalization 不适用，固定为 "1"）
+├── dimension?: string          // 【仅 generalization】泛化维度（必填）：
+│                                //   描述"从哪个角度/标准进行分类"，如"物理结构"、"充换电能力"、"客户类型"
+│                                //   可从父类（target）的字段 displayName 快速填入，也可手动输入
+│                                //   同一父类可从不同维度被多次泛化，产生不同子类族群
+├── displayName?: string        // 可选关系显示名
+└── description?: string        // 可选描述
 ```
 
 **各类型语义对比**：
 
-| kind | 生命周期绑定 | 从属关系 | 持久引用 | 典型场景 |
-|------|------------|---------|---------|---------|
-| `association` | 无 | 无 | 有（结构性） | 订单→用户、商品→分类 |
-| `dependency` | 无 | 无 | 无（临时） | 服务A调用服务B |
-| `aggregation` | 弱 | 有（整体-部分） | 有 | 部门→员工 |
-| `composition` | 强（B 随 A 消亡） | 有（整体-部分） | 有 | 订单→订单明细 |
+| kind | 语义 | 基数 | 生命周期绑定 | 从属关系 | 典型场景 |
+|------|------|:----:|------------|---------|---------|
+| `association` | A 持久引用 B | 可配置 | 无 | 无 | 订单→用户、商品→分类 |
+| `dependency` | A 临时使用 B | 可配置 | 无 | 无 | 服务A调用服务B |
+| `aggregation` | A 包含 B（弱） | 可配置 | 弱 | 有（整体-部分） | 部门→员工 |
+| `composition` | A 包含 B（强） | 可配置 | 强（B 随 A 消亡） | 有（整体-部分） | 订单→订单明细 |
+| `generalization` | A 是 B 的子类型 | 固定 1:1 | 无 | 无 | 企业客户→客户、左通道站→换电站 |
 
-> **Phase 1 说明**：4 种关系类型均已在 Phase 1 实现（`association` 为 v1.3 新增）。`behaviors` 延后至 Phase 2+。
+**泛化维度（dimension）说明**：
+
+同一个父类可以从不同业务维度被泛化，产生语义上互不干扰的子类族群：
+
+```
+换电站（父类）
+├── [物理结构维度]    ← 左通道站、右通道站
+└── [充换电能力维度]  ← 换电站（纯换电）、充换一体站
+```
+
+`dimension` 字段的两种填写方式：
+1. **选取父类字段**：从父类实体的字段列表中选一个 `displayName`（如"类型"），快速填入
+2. **手动输入**：直接描述维度名称（如"充换电能力"）
+
+> **Phase 1 说明**：5 种关系类型均已在 Phase 1 实现（`generalization` 为 v1.4 新增）。`behaviors` 延后至 Phase 2+。
 
 ### 5.3 FieldDef（字段定义）
 
@@ -744,6 +767,17 @@ Project ════════════════════════
 ---
 
 ## 9. 架构变更记录
+
+### v1.4 变更（2026-06-02）
+
+| 变更项 | 内容 | 影响 |
+|--------|------|------|
+| **新增 `generalization` 关系类型** | §5.2 RelationDef.kind 新增 `"generalization"`（泛化），表达 is-a 关系，source=子类，target=父类，共 5 种 UML 风格关系类型 | 扩展领域建模能力，支持业务实体分类体系建模 |
+| **新增 `dimension` 字段** | §5.2 RelationDef 新增 `dimension?: string`，仅 generalization 使用，必填，描述泛化维度 | 区分同一父类从不同业务维度产生的多组子类族群 |
+| **RelationDef 补全 sourceEntityId** | §5.2 RelationDef 补全 `sourceEntityId` 字段定义（此前隐含），与代码实现对齐 | 文档完整性 |
+| **语义对比表重构** | §5.2 关系类型语义对比表新增"基数"列，新增 generalization 行 | 更清晰地表达各类型差异 |
+
+> **触发原因**：PM 决策引入泛化关系，支持业务实体的"is-a"分类体系建模。核心设计决策：① 泛化维度必填，强制明确"按什么标准分类"；② 基数固定 1:1，界面不展示基数输入；③ 同一父类可从多个维度泛化，产生互不干扰的子类族群。
 
 ### v1.3 变更（2026-06-01）
 

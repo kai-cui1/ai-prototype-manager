@@ -11,7 +11,7 @@
  */
 
 import { db } from '../../src/db.js';
-import { companies, projects, departments, roles, externalEntities, domainEntities, entityFields, entityRelations } from '../../src/models/schema.js';
+import { companies, projects, departments, roles, externalEntities, domainEntities, entityFields, entityRelations, applications } from '../../src/models/schema.js';
 import { eq, ilike, and } from 'drizzle-orm';
 
 /** 测试数据名称前缀，用于隔离和清理 */
@@ -304,6 +304,7 @@ interface CreateEntityRelationParams {
   targetCardinality?: string;
   displayName?: string;
   description?: string;
+  dimension?: string;
 }
 
 /**
@@ -328,6 +329,46 @@ export async function createTestRelation(
       targetCardinality: overrides.targetCardinality ?? '*',
       displayName: overrides.displayName ?? null,
       description: overrides.description ?? null,
+      dimension: overrides.dimension ?? null,
+    })
+    .returning();
+  return row!;
+}
+
+// ============================================================
+// M1 Supplement: Application factory
+// ============================================================
+
+/** 创建测试应用的默认参数 */
+interface CreateApplicationParams {
+  name?: string;
+  displayName?: string;
+  description?: string;
+  type?: 'web' | 'wxapp' | 'android' | 'ios' | 'pc' | 'api' | 'service';
+}
+
+/**
+ * 创建一个测试应用（name 自动加 TEST_PREFIX 前缀）。
+ *
+ * @param projectId - 所属项目 ID
+ * @param overrides - 覆盖默认值的参数
+ * @returns 插入的数据库行
+ */
+export async function createTestApplication(
+  projectId: string,
+  overrides: CreateApplicationParams = {},
+): Promise<typeof applications.$inferSelect> {
+  const name = `${TEST_PREFIX}${overrides.name ?? `app-${Date.now()}`}`;
+  const type = overrides.type ?? 'web';
+  const [row] = await db
+    .insert(applications)
+    .values({
+      projectId,
+      name,
+      displayName: overrides.displayName ?? `测试应用${name}`,
+      description: overrides.description ?? null,
+      type,
+      icon: type === 'service' ? 'cog' : 'globe',
     })
     .returning();
   return row!;

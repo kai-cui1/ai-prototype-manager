@@ -191,6 +191,9 @@ export const ProjectSummary = Type.Object(
     departmentCount: Type.Number({ minimum: 0 }),
     roleCount: Type.Number({ minimum: 0 }),
     externalEntityCount: Type.Number({ minimum: 0 }),
+    applicationCount: Type.Number({ minimum: 0 }),
+    /** 按 type 分组计数；仅包含数量 > 0 的类型，无应用时为 {} */
+    applicationTypeBreakdown: Type.Record(Type.String(), Type.Number({ minimum: 1 })),
   },
   { description: '项目子模块统计摘要' },
 );

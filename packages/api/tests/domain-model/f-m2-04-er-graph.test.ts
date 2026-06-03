@@ -86,6 +86,13 @@ describe('F-M2-04 ER 图数据端点', () => {
       relationKind: 'dependency',
       targetCardinality: '1',
     });
+    // 泛化关系（用于验证 dimension 在 ER 图边中正确返回）
+    await createTestRelation(projectId, {
+      sourceEntityId: itemId,
+      targetEntityId: userId,
+      relationKind: 'generalization',
+      dimension: '业务角色分类',
+    });
   });
 
   afterAll(async () => {
@@ -111,14 +118,14 @@ describe('F-M2-04 ER 图数据端点', () => {
     expect(entityData.displayName).toBeDefined();
     expect(Array.isArray(entityData.fields)).toBe(true);
 
-    expect(data.relations.length).toBe(3);
+    expect(data.relations.length).toBe(4);
     const firstRel = data.relations[0] as Record<string, unknown>;
     expect(firstRel.id).toBeDefined();
     expect(firstRel.source).toBeDefined();
     expect(firstRel.target).toBeDefined();
     expect(firstRel.type).toBe('relation');
     const relData = firstRel.data as Record<string, unknown>;
-    expect(['dependency', 'aggregation', 'composition']).toContain(relData.relationKind);
+    expect(['dependency', 'aggregation', 'composition', 'generalization']).toContain(relData.relationKind);
     expect(relData.targetCardinality).toBeDefined();
   });
 
@@ -192,6 +199,30 @@ describe('F-M2-04 ER 图数据端点', () => {
     });
   });
 
+  test('TC-API-M2-04-006a: 全量 ER 图 — generalization 边包含 dimension', async () => {
+    const resp = await apiClient.get(`/projects/${projectId}/domain/er-graph`);
+
+    expect(resp.statusCode).toBe(200);
+    const data = (resp.body as { data: { relations: Array<Record<string, unknown>> } }).data;
+    const genEdge = data.relations.find(
+      (e) => (e.data as Record<string, unknown>).relationKind === 'generalization',
+    );
+    expect(genEdge).toBeDefined();
+    expect((genEdge!.data as Record<string, unknown>).dimension).toBe('业务角色分类');
+  });
+
+  test('TC-API-M2-04-006b: 实体级局部 ER 图 — generalization 边包含 dimension', async () => {
+    const resp = await apiClient.get(`/projects/${projectId}/domain/entities/${itemId}/er-graph`);
+
+    expect(resp.statusCode).toBe(200);
+    const data = (resp.body as { data: { relations: Array<Record<string, unknown>> } }).data;
+    const genEdge = data.relations.find(
+      (e) => (e.data as Record<string, unknown>).relationKind === 'generalization',
+    );
+    expect(genEdge).toBeDefined();
+    expect((genEdge!.data as Record<string, unknown>).dimension).toBe('业务角色分类');
+  });
+
   // ============================================================
   // 实体级局部 ER 图（TC 007 ~ 008）
   // ============================================================
@@ -218,10 +249,10 @@ describe('F-M2-04 ER 图数据端点', () => {
     expect(resp.statusCode).toBe(200);
     const data = (resp.body as { data: { entities: Array<Record<string, unknown>>; relations: Array<Record<string, unknown>> } }).data;
 
-    // Item 直接关联：Order（入边）+ Product（出边）
-    expect(data.entities.length).toBe(3);
+    // Item 直接关联：Order（入边）+ Product（出边 dependency）+ User（出边 generalization）
+    expect(data.entities.length).toBe(4);
     expect(data.entities[0].id).toBe(itemId);
-    expect(data.relations.length).toBe(2);
+    expect(data.relations.length).toBe(3);
   });
 
   // ============================================================

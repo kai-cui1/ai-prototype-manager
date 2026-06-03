@@ -275,4 +275,89 @@ describe('F-M2-03 实体关系管理', () => {
 
     expect(resp.statusCode).toBe(400);
   });
+
+  // ============================================================
+  // 泛化关系（AC-M2-15a / 15b / 15c）
+  // ============================================================
+
+  test('AC-M2-15a: 创建 generalization — 基数自动设为 1:1，忽略前端传入值', async () => {
+    // 创建父子类实体
+    const parentEntity = await createTestEntity(projectId, { name: 'entity_animal' });
+    const childEntity = await createTestEntity(projectId, { name: 'entity_dog' });
+
+    const resp = await apiClient.post(`/projects/${projectId}/domain/relations`, {
+      sourceEntityId: childEntity.id,      // 子类
+      targetEntityId: parentEntity.id,     // 父类
+      relationKind: 'generalization',
+      sourceCardinality: '*',              // 应被忽略，强制设为 '1'
+      targetCardinality: '[0,*]',          // 应被忽略，强制设为 '1'
+      dimension: '生物分类',
+    });
+
+    expect(resp.statusCode).toBe(201);
+    const data = resp.body.data as Record<string, unknown>;
+    expect(data.relationKind).toBe('generalization');
+    expect(data.sourceCardinality).toBe('1');   // 强制 1:1
+    expect(data.targetCardinality).toBe('1');    // 强制 1:1
+    expect(data.dimension).toBe('生物分类');
+    expect(data.sourceEntityId).toBe(childEntity.id);
+    expect(data.targetEntityId).toBe(parentEntity.id);
+  });
+
+  test('AC-M2-15b: 创建 generalization — 缺少 dimension 返回 422', async () => {
+    const parentEntity = await createTestEntity(projectId, { name: 'entity_vehicle' });
+    const childEntity = await createTestEntity(projectId, { name: 'entity_car' });
+
+    const resp = await apiClient.post(`/projects/${projectId}/domain/relations`, {
+      sourceEntityId: childEntity.id,
+      targetEntityId: parentEntity.id,
+      relationKind: 'generalization',
+      // dimension 未传
+    });
+
+    expect(resp.statusCode).toBe(422);
+    const error = resp.body as { error?: { code?: string; message?: string } };
+    expect(error.error?.code).toBe('UNPROCESSABLE_ENTITY');
+    expect(error.error?.message).toMatch(/dimension|泛化维度/);
+  });
+
+  test('AC-M2-15c: dimension 正确存储并返回；更新 dimension；非 generalization 类型不返回 dimension', async () => {
+    // 1. 创建泛化关系，验证 dimension 正确存储
+    const parentEntity = await createTestEntity(projectId, { name: 'entity_shape' });
+    const childEntity = await createTestEntity(projectId, { name: 'entity_circle' });
+
+    const createResp = await apiClient.post(`/projects/${projectId}/domain/relations`, {
+      sourceEntityId: childEntity.id,
+      targetEntityId: parentEntity.id,
+      relationKind: 'generalization',
+      dimension: '几何形状分类',
+    });
+    expect(createResp.statusCode).toBe(201);
+    const created = createResp.body.data as Record<string, unknown>;
+    expect(created.dimension).toBe('几何形状分类');
+    const relationId = created.id as string;
+
+    // 2. 更新 dimension
+    const updateResp = await apiClient.put(
+      `/projects/${projectId}/domain/relations/${relationId}`,
+      { dimension: 'e2e-几何形状分类（已更新）' },
+    );
+    expect(updateResp.statusCode).toBe(200);
+    const updated = updateResp.body.data as Record<string, unknown>;
+    expect(updated.dimension).toBe('e2e-几何形状分类（已更新）');
+
+    // 3. 验证列表中 dimension 字段正确存在
+    const listResp = await apiClient.get(`/projects/${projectId}/domain/relations`);
+    const relations = (listResp.body as { data: Array<Record<string, unknown>> }).data;
+    const found = relations.find((r) => r.id === relationId);
+    expect(found).toBeDefined();
+    expect(found!.dimension).toBe('e2e-几何形状分类（已更新）');
+
+    // 4. 非 generalization 类型的关系，dimension 应为 null
+    const nonGenRelation = relations.find(
+      (r) => r.relationKind !== 'generalization' && r.sourceEntityId === orderId,
+    );
+    expect(nonGenRelation).toBeDefined();
+    expect(nonGenRelation!.dimension).toBeNull();
+  });
 });

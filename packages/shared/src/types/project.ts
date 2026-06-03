@@ -72,4 +72,7 @@ export interface ProjectSummary {
   departmentCount: number;
   roleCount: number;
   externalEntityCount: number;
+  applicationCount: number;
+  /** 按 type 分组的应用数量，仅包含数量 > 0 的类型；无应用时为 {} */
+  applicationTypeBreakdown: Record<string, number>;
 }

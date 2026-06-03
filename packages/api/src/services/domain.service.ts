@@ -105,6 +105,7 @@ function toRelation(row: Record<string, unknown>) {
     targetCardinality: row.targetCardinality as string,
     displayName: (row.displayName as string) ?? null,
     description: (row.description as string) ?? null,
+    dimension: (row.dimension as string) ?? null,
     createdAt: toISOString(row.createdAt),
     updatedAt: toISOString(row.updatedAt),
   };
@@ -183,10 +184,12 @@ export async function listEntities(
       createdAt: domainEntities.createdAt,
       updatedAt: domainEntities.updatedAt,
       fieldCount: sql<number>`(
-        SELECT COUNT(*) FROM entity_fields WHERE entity_fields.entity_id = ${domainEntities.id}
+        SELECT COUNT(*) FROM entity_fields WHERE entity_fields.entity_id = domain_entities.id
       )`,
       relationCount: sql<number>`(
-        SELECT COUNT(*) FROM entity_relations WHERE entity_relations.source_entity_id = ${domainEntities.id}
+        SELECT COUNT(*) FROM entity_relations
+        WHERE entity_relations.source_entity_id = domain_entities.id
+           OR entity_relations.target_entity_id = domain_entities.id
       )`,
     })
     .from(domainEntities)
@@ -616,6 +619,7 @@ export async function listRelations(
       er.target_cardinality as "targetCardinality",
       er.display_name as "displayName",
       er.description,
+      er.dimension,
       er.created_at as "createdAt",
       er.updated_at as "updatedAt"
     FROM entity_relations er
@@ -656,11 +660,19 @@ export async function createRelation(
     targetCardinality?: string;
     displayName?: string;
     description?: string;
+    dimension?: string;
   }
 ) {
   // 自关联检查
   if (input.sourceEntityId === input.targetEntityId) {
     throw unprocessableEntity('自关联不被支持：sourceEntityId 不能等于 targetEntityId');
+  }
+
+  // B-M2-F03-02: generalization 类型必须提供 dimension（非空字符串）
+  if (input.relationKind === 'generalization') {
+    if (!input.dimension || input.dimension.trim() === '') {
+      throw unprocessableEntity('泛化关系必须指定泛化维度（dimension）');
+    }
   }
 
   // 验证两个实体均属于当前项目
@@ -703,6 +715,13 @@ export async function createRelation(
     throw conflict('CONFLICT', `相同方向和类型的关系已存在`);
   }
 
+  // B-M2-F03-03: generalization 基数强制 1:1，忽略前端传入值
+  const isGeneralization = input.relationKind === 'generalization';
+  const sourceCardinality = isGeneralization ? '1' : (input.sourceCardinality ?? '1');
+  const targetCardinality = isGeneralization ? '1' : (input.targetCardinality ?? '*');
+  // generalization 以外的类型忽略 dimension
+  const dimension = isGeneralization ? input.dimension : undefined;
+
   const [relation] = await db
     .insert(entityRelations)
     .values({
@@ -710,10 +729,11 @@ export async function createRelation(
       sourceEntityId: input.sourceEntityId,
       targetEntityId: input.targetEntityId,
       relationKind: input.relationKind,
-      sourceCardinality: input.sourceCardinality ?? '1',
-      targetCardinality: input.targetCardinality ?? '*',
+      sourceCardinality,
+      targetCardinality,
       displayName: input.displayName,
       description: input.description,
+      dimension,
     })
     .returning();
 
@@ -730,6 +750,7 @@ export async function createRelation(
       er.target_cardinality as "targetCardinality",
       er.display_name as "displayName",
       er.description,
+      er.dimension,
       er.created_at as "createdAt",
       er.updated_at as "updatedAt"
     FROM entity_relations er
@@ -742,18 +763,19 @@ export async function createRelation(
 }
 
 /**
- * 更新关系（允许更新 relationKind / sourceCardinality / targetCardinality / displayName / description）。
+ * 更新关系（允许更新 relationKind / sourceCardinality / targetCardinality / displayName / description / dimension）。
  */
 export async function updateRelation(
   db: Db,
   projectId: string,
   relationId: string,
   input: {
-    relationKind?: 'association' | 'dependency' | 'aggregation' | 'composition';
+    relationKind?: 'association' | 'dependency' | 'aggregation' | 'composition' | 'generalization';
     sourceCardinality?: string;
     targetCardinality?: string;
     displayName?: string | null;
     description?: string | null;
+    dimension?: string | null;
   }
 ) {
   const [existing] = await db
@@ -763,6 +785,21 @@ export async function updateRelation(
     .limit(1);
 
   if (!existing) throw notFound('关系', relationId);
+
+  // 确定更新后的 relationKind（用于 generalization 特殊逻辑判断）
+  const newKind = input.relationKind ?? existing.relationKind;
+
+  // B-M2-F03-02: 更新后若为 generalization，dimension 不能为 null/空
+  if (newKind === 'generalization') {
+    // 若明确传了 dimension，校验非空
+    if ('dimension' in input && (input.dimension === null || input.dimension === '')) {
+      throw unprocessableEntity('泛化关系必须指定泛化维度（dimension）');
+    }
+    // 若没传 dimension，检查现有值是否已经有
+    if (!('dimension' in input) && !existing.dimension) {
+      throw unprocessableEntity('泛化关系必须指定泛化维度（dimension）');
+    }
+  }
 
   // 如果 relationKind 变更，需校验新三元组唯一性
   if (input.relationKind !== undefined && input.relationKind !== existing.relationKind) {
@@ -785,10 +822,21 @@ export async function updateRelation(
 
   const updateData: Partial<typeof entityRelations.$inferInsert> = { updatedAt: new Date() };
   if (input.relationKind !== undefined) updateData.relationKind = input.relationKind;
-  if (input.sourceCardinality !== undefined) updateData.sourceCardinality = input.sourceCardinality;
-  if (input.targetCardinality !== undefined) updateData.targetCardinality = input.targetCardinality;
+  // B-M2-F03-03: generalization 基数强制 1:1，忽略前端传入值
+  if (newKind === 'generalization') {
+    updateData.sourceCardinality = '1';
+    updateData.targetCardinality = '1';
+  } else {
+    if (input.sourceCardinality !== undefined) updateData.sourceCardinality = input.sourceCardinality;
+    if (input.targetCardinality !== undefined) updateData.targetCardinality = input.targetCardinality;
+    // 非 generalization 类型清除 dimension
+    updateData.dimension = null;
+  }
   if ('displayName' in input) updateData.displayName = input.displayName as string | null;
   if ('description' in input) updateData.description = input.description as string | null;
+  if ('dimension' in input && newKind === 'generalization') {
+    updateData.dimension = input.dimension as string | null;
+  }
 
   await db
     .update(entityRelations)
@@ -807,6 +855,7 @@ export async function updateRelation(
       er.target_cardinality as "targetCardinality",
       er.display_name as "displayName",
       er.description,
+      er.dimension,
       er.created_at as "createdAt",
       er.updated_at as "updatedAt"
     FROM entity_relations er
@@ -908,6 +957,7 @@ export async function getFullERGraph(db: Db, projectId: string) {
       targetCardinality: r.targetCardinality,
       displayName: r.displayName ?? undefined,
       description: r.description ?? undefined,
+      dimension: r.dimension ?? undefined,
     },
   }));
 
@@ -1010,6 +1060,7 @@ export async function getEntityERGraph(db: Db, projectId: string, entityId: stri
       targetCardinality: r.targetCardinality,
       displayName: r.displayName ?? undefined,
       description: r.description ?? undefined,
+      dimension: r.dimension ?? undefined,
     },
   }));
 
@@ -1041,6 +1092,7 @@ async function getRelationsWithNames(
       er.target_cardinality as "targetCardinality",
       er.display_name as "displayName",
       er.description,
+      er.dimension,
       er.created_at as "createdAt",
       er.updated_at as "updatedAt"
     FROM entity_relations er
