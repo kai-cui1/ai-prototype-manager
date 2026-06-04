@@ -1,8 +1,8 @@
 # ai-prototype-manager 领域模型
 
 > **文档编号**：docs/02-domain-model
-> **状态**：✅ v1.4 完成
-> **日期**：2026-04-27（v1.0）/ 2026-05-03（v1.1）/ 2026-05-28（v1.2）/ 2026-06-01（v1.3）/ 2026-06-02（v1.4）
+> **状态**：✅ v1.5 完成
+> **日期**：2026-04-27（v1.0）/ 2026-05-03（v1.1）/ 2026-05-28（v1.2）/ 2026-06-01（v1.3）/ 2026-06-02（v1.4）/ 2026-06-04（v1.5）
 > **定位**：本系统自身的领域模型，作为「元模型」供参考，也是未来用户使用时定义其项目领域模型的范例
 
 ---
@@ -20,10 +20,10 @@
 | 1 | **项目管理** | 6 | 项目本身、成员、组织架构（公司/部门）、角色、外部实体 |
 | 2 | **应用与页面** | 5 | 应用框架、页面、组件、分区、设计稿 |
 | 3 | **流程与交互** | 4 | 业务流程、步骤、触发器、钩子 |
-| 4 | **数据与规则** | 3 | 领域模型定义、实体、字段、规则 |
+| 4 | **数据与规则** | 4 | 领域边界、领域模型定义、实体、字段、规则 |
 | 5 | **程序服务** | 4 | API 端点、业务行为、计划任务、全局行为 |
 
-**总计：~22 个核心实体**（v1.1 新增 Company / Department / ExternalEntity；Role 从域四移至域一）
+**总计：~23 个核心实体**（v1.1 新增 Company / Department / ExternalEntity；Role 从域四移至域一；v1.5 新增 DomainBoundary）
 
 ---
 
@@ -441,7 +441,49 @@ Hook
 
 ## 5. 域四：数据与规则
 
-### 5.1 DomainModelDef（领域模型定义）
+### 5.1 DomainBoundary（领域边界）
+
+> **v1.5 新增**（2026-06-04 PM 确认）：用户在项目中定义业务子域的分组容器，用于将若干实体归类到同一个业务子域下。
+
+```
+DomainBoundary
+├── id: string                  // UUID
+├── name: string                // 领域名称（项目内唯一）
+├── description?: string        // 领域描述
+├── config?: object             // canvas_position: { x, y, width, height } — 画布位置与尺寸
+├── createdAt: datetime
+├── updatedAt: datetime
+│
+├── 关联关系：
+│   ├── N:1 → Project           // 所属项目
+│   └── 1:N → EntityDef[]       // 归属此领域的实体（通过 EntityDef.domainId）
+│
+└── 业务行为：
+    └── 创建 / 编辑 / 删除（SET NULL 级联 — 实体的 domainId 置 null）
+```
+
+**与 DomainModelDef 的区别**：
+
+| 维度 | DomainModelDef | DomainBoundary |
+|------|---------------|----------------|
+| 定位 | 领域模型定义的容器层（元模型中间层） | 业务子域的分组容器 |
+| Phase 1 状态 | **跳过**（扁平化决策） | **实现** |
+| 语义 | "这个项目有一个领域模型" | "这些实体属于同一个业务子域" |
+| DDD 对应 | 无直接对应 | Bounded Context / Sub-domain |
+
+**核心约束**：
+
+| # | 规则 | 说明 |
+|---|------|------|
+| 1 | 实体最多归属一个领域 | EntityDef.domainId 为可空 FK，不为 null 时唯一指向一个 DomainBoundary |
+| 2 | 领域可包含 0 个实体 | 允许空领域存在 |
+| 3 | 实体删除不级联删除领域 | 领域生命周期独立 |
+| 4 | 领域删除时实体 domainId 置 null | SET NULL 级联，实体保留 |
+| 5 | Canvas 上领域框不允许重叠 | 两个领域框的矩形区域不能相交 |
+
+> **实现映射**：对应 `domain_boundaries` 表，`domain_entities.domain_id` 为可空 FK → `domain_boundaries.id`（ON DELETE SET NULL）。
+
+### 5.2 DomainModelDef（领域模型定义）
 
 用户在项目中定义的业务领域模型。注意用 `Def` 后缀区分「元模型实体」和「用户数据」。
 
@@ -474,6 +516,7 @@ EntityDef
 ├── name: string                // 如 "Order"
 ├── displayName: string         // 如 "订单"
 ├── description?: string
+├── domainId?: string           // 归属的领域边界 ID（v1.5 新增；可空，FK → DomainBoundary）
 │
 ├── fields: FieldDef[]          // 字段定义
 ├── relations: RelationDef[]     // 实体间关系（逻辑视图；实现为项目级独立表 entity_relations）
@@ -481,6 +524,7 @@ EntityDef
 │
 ├── 关联关系：
 │   └── N:1 → DomainModelDef    // Phase 1 扁平化：实际 N:1 → Project
+│   └── N:1 → DomainBoundary    // 可选归属领域边界（v1.5 新增；domainId 可空）
 ```
 
 #### RelationDef（关系定义）
@@ -697,6 +741,9 @@ Project ════════════════════════
 │  ├─1:N──► DomainModelDef ◄────1:N──► EntityDef ◄────1:N──► FieldDef  │   │
 │  │        ⚠️ Phase 1 扁平化：跳过 DomainModelDef，Project 直连 Entity │   │
 │  │                                                                  │   │
+│  ├─1:N──► DomainBoundary ◄────N:1── EntityDef [可选归属]  ★v1.5      │   │
+│  │        （业务子域分组容器，实体通过 domainId 可选归属）              │   │
+│  │                                                                  │   │
 │  ├─1:N──► BusinessProcess ◄────1:N──► ProcessStep                   │   │
 │  │                    │                                            │   │
 │  │                    ├─1:N──► ProcessTransition                  │   │
@@ -753,7 +800,8 @@ Project ════════════════════════
 | ProcessTrigger | 流程 trigger 字段 | BusinessProcess 内嵌 |
 | Hook | `components[].hooks[]` 或 `pages[].hooks[]` | 交互逻辑 |
 | DomainModelDef | `domainModels[]` | Project 根级 |
-| EntityDef | `domainModels[].entities[]` | DomainModelDef 子节点 |
+| DomainBoundary | `domainBoundaries[]` | 业务子域分组容器 ★ v1.5 |
+| EntityDef | `domainModels[].entities[]` | DomainModelDef 子节点；`domainId` 可选归属 DomainBoundary ★ v1.5 |
 | FieldDef | `entities[].fields[]` | EntityDef 子节点 |
 | Rule | `rules[]` | Project 根级 |
 | Endpoint | `applications[type="api"].endpoints[]` | API 应用内 |
@@ -767,6 +815,18 @@ Project ════════════════════════
 ---
 
 ## 9. 架构变更记录
+
+### v1.5 变更（2026-06-04）
+
+| 变更项 | 内容 | 影响 |
+|--------|------|------|
+| **新增 DomainBoundary 实体** | §5.1 新增 DomainBoundary（领域边界），业务子域分组容器，含 name/description/config(canvas_position)，实体通过 domainId 可选归属 | M2 领域模型管理新增"领域"概念，支持实体按业务子域分组 |
+| **EntityDef 新增 domainId** | §5.3 EntityDef 新增 `domainId?: string`，可空 FK → DomainBoundary，实体最多归属一个领域 | Canvas 领域框内实体归属关系的数据基础 |
+| **域四实体数 3→4** | §1.2 五大领域表域四更新为 4 个实体 | 总计 ~23 个核心实体 |
+| **ER 总览图更新** | §7 新增 DomainBoundary 分支，标注与 EntityDef 的 N:1 可选归属关系 | 总览图完整性 |
+| **映射表更新** | §8 新增 DomainBoundary 行，EntityDef 行补充 domainId 说明 | 与 JSON 结构对齐 |
+
+> **触发原因**：PM 决策引入"领域（DomainBoundary）"概念，支持在 Canvas 上将实体归类到业务子域。核心设计决策：① 实体最多归属一个领域（单向 FK）；② 允许空领域存在；③ 领域框不可重叠；④ 拖入领域框松手即建立归属；⑤ 删除领域时实体 domainId 置 null（SET NULL）。
 
 ### v1.4 变更（2026-06-02）
 

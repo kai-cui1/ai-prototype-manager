@@ -17,6 +17,7 @@ import ProjectOverview from './pages/ProjectOverview.js';
 import OrganizationPage from './pages/OrganizationPage.js';
 import ExternalEntitiesPage from './pages/ExternalEntitiesPage.js';
 import RolesPage from './pages/RolesPage.js';
+import RoleDetailPage from './pages/RoleDetailPage.js';
 import ApplicationsPage from './pages/ApplicationsPage.js';
 import DomainModelPage from './pages/DomainModelPage.js';
 
@@ -59,6 +60,14 @@ export default function App() {
             element={
               <ProjectRouteGuard>
                 <RolesPage />
+              </ProjectRouteGuard>
+            }
+          />
+          <Route
+            path="/p/:projectId/roles/:roleId"
+            element={
+              <ProjectRouteGuard>
+                <RoleDetailPage />
               </ProjectRouteGuard>
             }
           />

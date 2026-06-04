@@ -2,8 +2,8 @@
 
 > **模块**：M1-项目管理
 > **状态**：draft
-> **版本**：v0.3
-> **日期**：2026-06-02
+> **版本**：v0.4
+> **日期**：2026-06-04
 > **作者**：PM + AI 协作
 > **关联文档**：
 >   - PRD（业务层） → `project-management-prd.md` + `project-management-prd-2.md`
@@ -24,6 +24,7 @@
 | `/p/:projectId` | 项目概览 | F-M1-03 查看项目详情 + F-M1-10 摘要统计 | 项目层 |
 | `/p/:projectId/organization` | 组织管理 | F-M1-06 公司管理 + F-M1-07 部门管理 | 项目层 |
 | `/p/:projectId/roles` | 角色管理 | F-M1-08 角色管理 | 项目层 |
+| `/p/:projectId/roles/:roleId` | 角色详情 | F-M1-12 角色行为管理（Actions/Decisions） | 项目层 |
 | `/p/:projectId/external-entities` | 外部实体管理 | F-M1-09 外部实体管理 | 项目层 |
 
 > **创建项目（F-M1-02）**：在 Dashboard 页面内通过对话框触发。
@@ -616,3 +617,384 @@ APM
 | AC-M1-U12 | 新建/编辑 Dialog 中 name 字段有 placeholder 示例（如 `state-grid`），display_name 有中文示例（如 `国家电网`） | 全局一致性 |
 | AC-M1-U13 | 项目概览页所有 7 张模块概要卡片均为可点击卡片（`cursor-pointer` + `hover:shadow-md`）；点击应用管理/公司/部门/角色/外部实体卡片跳转对应管理页；点击领域模型/业务流程卡片弹出 Toast 提示"功能正在开发中" | F-M1-10 / §4.3 |
 | AC-M1-U14 | 应用管理概要卡片显示总应用数 + 非零类型分布标签（最多 4 个类型），无应用时显示"暂无应用" | F-M1-11 |
+
+---
+
+## 11. 角色行为管理（F-M1-12）
+
+> 本节定义角色行为（actions/decisions）的交互设计，PRD 业务规则见 `project-management-prd-2.md` §4.12。
+
+### 11.1 入口与路由
+
+| 路由 | 说明 |
+|------|------|
+| `/p/:projectId/roles` | 角色列表页（现有），角色卡片点击 → 进入角色详情 |
+| `/p/:projectId/roles/:roleId` | 角色详情页（新增），含 Actions / Decisions 双 Tab |
+
+**入口方式**：
+
+| 触发 | 行为 |
+|------|------|
+| 角色卡片点击 | 导航到 `/p/:projectId/roles/:roleId`，默认显示 Actions Tab |
+| 面包屑 | 角色详情页面包屑：项目概览 > 角色管理 > [角色名] |
+
+> **设计决策**：角色行为管理采用独立详情页（非 Dialog/Sheet），原因是 Action/Decision 表单较复杂（含动态列表、嵌套结构），Dialog 空间不足且操作频繁，独立页面体验更优。
+
+### 11.2 角色详情页布局
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ ← 返回角色列表   产品经理  [研发部]                              │
+│ 负责产品规划与迭代                                               │
+├─────────────────────────────────────────────────────────────────┤
+│ [ Actions (3) ] [ Decisions (2) ]              [+ 新建 Action] │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ 提交订单  submit_order                          [✏] [🗑] │  │
+│  │ 输入: orderId(string)                                    │  │
+│  │ 输出: result(string)                                     │  │
+│  │ 工具: Web 页面                                           │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                   │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ 审核订单  review_order                           [✏] [🗑] │  │
+│  │ 输入: orderId, amount                                    │  │
+│  │ 输出: approved, reviewResult                             │  │
+│  │ 工具: 无                                                 │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                   │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ 确认收货  confirm_receipt                        [✏] [🗑] │  │
+│  │ 输入: orderId                                            │  │
+│  │ 输出: —                                                  │  │
+│  │ 工具: 微信                                               │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 11.3 页面元素清单
+
+| 区域 | 元素 | 组件 | 说明 |
+|------|------|------|------|
+| 页头 | 返回按钮 | `Button` (ghost) | "← 返回角色列表"，导航回 `/roles` |
+| 页头 | 角色名称 | `H2` | `role.displayName` |
+| 页头 | 归属 Badge | `Badge` | 同角色列表页逻辑 |
+| 页头 | 角色描述 | `Text` (muted) | `role.description` |
+| Tab 栏 | Actions Tab | `TabsTrigger` | 显示数量 Badge，如 "Actions (3)" |
+| Tab 栏 | Decisions Tab | `TabsTrigger` | 显示数量 Badge，如 "Decisions (2)" |
+| Tab 栏 | 新建按钮 | `Button` (primary, sm) | 根据当前 Tab 显示 "+ 新建 Action" / "+ 新建 Decision" |
+| Action 卡片 | Action 名称 | `Text` (semibold) | `action.displayName` + `action.name`（灰色标识符） |
+| Action 卡片 | 输入参数 | `Text` (muted) | 逗号分隔的 name(type) 列表，如 "orderId(string), amount(number)" |
+| Action 卡片 | 输出参数 | `Text` (muted) | 同输入参数格式；无输出显示 "—" |
+| Action 卡片 | 工具 | `Badge` | 显示工具类型：null→"无"，email/sms/phone/wechat→中文标签，page→"Web/Android/iOS/PC 页面"，custom→"自定义" |
+| Action 卡片 | 编辑/删除 | `IconButton` | 编辑打开 Action Dialog；删除弹出确认 |
+| Decision 卡片 | Decision 名称 | `Text` (semibold) | `decision.displayName` + `decision.name`（灰色标识符） |
+| Decision 卡片 | 分支列表 | `Badge` 列表 | 每个分支一个 Badge，如 "approved ✅ rejected ❌ escalated ⚠" |
+| Decision 卡片 | 编辑/删除 | `IconButton` | 同 Action |
+| 空状态 | Actions 空 | `EmptyState` | "还没有 Action，点击新建" |
+| 空状态 | Decisions 空 | `EmptyState` | "还没有 Decision，点击新建" |
+
+### 11.4 Action Dialog（新建 / 编辑）
+
+```
+┌────────────────────────────────────────────────────┐
+│ 新建 Action                                  ×     │
+├────────────────────────────────────────────────────┤
+│ 标识符 *                                            │
+│ [submit_order                                    ]  │
+│                                                     │
+│ 显示名称 *                                          │
+│ [提交订单                                        ]  │
+│                                                     │
+│ 描述                                                │
+│ [用户在系统中提交购买订单...                       ] │
+│                                                     │
+│ ── 输入参数 ────────────────────── [+ 添加参数] ── │
+│ ┌────────────────────────────────────────────────┐ │
+│ │ name *        [orderId          ] type * [string▼]│
+│ │ required [✓]  描述 [订单编号    ]                │ │
+│ └────────────────────────────────────────────────┘ │
+│ ┌────────────────────────────────────────────────┐ │
+│ │ name *        [amount           ] type * [number▼]│
+│ │ required [✓]  描述 [订单金额    ]                │ │
+│ │                                              [🗑]│ │
+│ └────────────────────────────────────────────────┘ │
+│                                                     │
+│ ── 输出参数 ────────────────────── [+ 添加参数] ── │
+│ ┌────────────────────────────────────────────────┐ │
+│ │ name *        [result           ] type * [string▼]│
+│ │ required [ ]  描述 [审核结果    ]                │ │
+│ │                                              [🗑]│ │
+│ └────────────────────────────────────────────────┘ │
+│                                                     │
+│ ── 行为逻辑 ─────────────────────────────────────── │
+│ 逻辑描述 *                                          │
+│ [用户在系统中提交购买订单，系统验证库存后生成订单]   │
+│                                                     │
+│ 实现代码（可选）                                     │
+│ [// JS code                                        ] │
+│ [return { result: 'success' };                     ] │
+│                                                     │
+│ ── 执行工具 ─────────────────────────────────────── │
+│ 工具类型 [无 ▼]                                      │
+│                                                     │
+├────────────────────────────────────────────────────┤
+│                                     [取消] [确认]   │
+└────────────────────────────────────────────────────┘
+```
+
+**Action Dialog 字段规格：**
+
+| 字段 | 组件 | 校验 | 说明 |
+|------|------|------|------|
+| name（标识符） | `Input` | 必填；`/^[a-zA-Z0-9_-]+$/`；2-50 字符；同 role 内唯一 | placeholder: "如 submit_order" |
+| displayName（显示名称） | `Input` | 必填；1-100 字符 | placeholder: "如 提交订单" |
+| description（描述） | `Textarea` | 可选；0-500 字符 | 3 行 |
+| inputs（输入参数） | 动态列表 | 每项 name+type 必填，同数组 name 唯一 | 见 §11.6 |
+| outputs（输出参数） | 动态列表 | 同 inputs | 见 §11.6 |
+| logic.userDesc（逻辑描述） | `Textarea` | 必填；1-2000 字符 | 自然语言描述行为逻辑 |
+| logic.data（实现代码） | `Textarea` (monospace) | 可选；0-10000 字符 | JS 代码，6 行 |
+| tool（执行工具） | `Select` + 条件字段 | — | 见 §11.7 |
+
+**交互细节：**
+
+| 场景 | 行为 |
+|------|------|
+| name 实时校验 | 输入时实时校验格式，不合规时输入框下方红字提示 |
+| name 唯一性 | 提交时校验，冲突时 Dialog 内展示错误（不关闭 Dialog） |
+| 参数行添加/删除 | 点击"+ 添加参数"追加一行；每行末尾 🗑 按钮删除（至少保留 0 行，无最少限制） |
+| 参数 name 唯一 | 同一 inputs/outputs 数组内 name 重复时，重复行红字标红 |
+| 工具类型切换 | 选择不同工具类型时，下方动态展示条件字段（见 §11.7） |
+| 编辑模式 | 预填现有数据，提交时携带 version 做乐观锁 |
+
+### 11.5 Decision Dialog（新建 / 编辑）
+
+```
+┌────────────────────────────────────────────────────┐
+│ 新建 Decision                                ×     │
+├────────────────────────────────────────────────────┤
+│ 标识符 *                                            │
+│ [review_result                                   ] │
+│                                                     │
+│ 显示名称 *                                          │
+│ [审核结果                                        ] │
+│                                                     │
+│ 描述                                                │
+│ [根据订单金额决定审批路线...                       ] │
+│                                                     │
+│ ── 分支定义 ─────────────── [+ 添加分支] ───────── │
+│                                                     │
+│ ▼ 分支 1: approved                                  │
+│ ┌────────────────────────────────────────────────┐ │
+│ │ 分支名称 *   [approved           ]              │ │
+│ │ 条件表达式   [amount <= 10000    ]              │ │
+│ │ 输出参数:                                      │ │
+│ │   name * [result    ] type * [string▼]          │ │
+│ │   required [✓]  描述 [审批结果]        [🗑]     │ │
+│ └────────────────────────────────────────────────┘ │
+│                                                     │
+│ ▼ 分支 2: rejected                                  │
+│ ┌────────────────────────────────────────────────┐ │
+│ │ 分支名称 *   [rejected           ]              │ │
+│ │ 条件表达式   [amount > 10000     ]              │ │
+│ │ 输出参数:                                      │ │
+│ │   name * [result    ] type * [string▼]          │ │
+│ │   required [✓]  描述 [审批结果]        [🗑]     │ │
+│ └────────────────────────────────────────────────┘ │
+│                                                     │
+│ ⚠ 至少需要 2 个分支                                 │
+│                                                     │
+├────────────────────────────────────────────────────┤
+│                                     [取消] [确认]   │
+└────────────────────────────────────────────────────┘
+```
+
+**Decision Dialog 字段规格：**
+
+| 字段 | 组件 | 校验 | 说明 |
+|------|------|------|------|
+| name（标识符） | `Input` | 必填；`/^[a-zA-Z0-9_-]+$/`；2-50 字符；同 role 内唯一 | — |
+| displayName（显示名称） | `Input` | 必填；1-100 字符 | — |
+| description（描述） | `Textarea` | 可选；0-500 字符 | — |
+| branches（分支列表） | 可折叠动态列表 | ≥2 个；分支名同 Decision 内唯一 | 见下方 |
+
+**每个分支的字段：**
+
+| 字段 | 组件 | 校验 | 说明 |
+|------|------|------|------|
+| name（分支名称） | `Input` | 必填；1-50 字符；同 Decision 内唯一 | 如 approved/rejected/escalated |
+| condition（条件表达式） | `Input` | 可选；0-500 字符 | Phase 1 为原始字符串 |
+| outputs（输出参数） | 动态列表 | 同 Action 的 inputs/outputs | 见 §11.6 |
+| edgeIds | 隐藏 | Phase 1 始终 []，不展示 | M3 填充 |
+
+**交互细节：**
+
+| 场景 | 行为 |
+|------|------|
+| 分支数量 < 2 | Dialog 底部显示黄色警告"至少需要 2 个分支"，确认按钮禁用 |
+| 分支名重复 | 重复的分支输入框红字标红 |
+| 分支折叠/展开 | 点击分支标题行展开/折叠详情，默认全部展开 |
+| 分支排序 | 按添加顺序排列，暂不支持拖拽排序（Phase 1） |
+| 添加分支 | 点击"+ 添加分支"追加一个空分支（默认展开） |
+| 删除分支 | 每个分支标题行右侧 🗑 按钮；删除后若 < 2 分支显示警告 |
+
+### 11.6 NodeIO 参数行编辑器
+
+Action 的 inputs/outputs 和 Decision 分支的 outputs 共用同一套参数行编辑器。
+
+**单行参数布局：**
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ name *  [orderId          ]  type * [string ▼]  required [✓] │
+│ 描述 [订单编号           ]                        [🗑]     │
+└──────────────────────────────────────────────────────────┘
+```
+
+**参数行字段：**
+
+| 字段 | 组件 | 宽度 | 校验 | 说明 |
+|------|------|------|------|------|
+| name | `Input` | flex 2 | 必填；1-50 字符；同数组唯一 | 参数名 |
+| type | `Select` | 120px | 必填 | 常用类型下拉：string/number/boolean/datetime/text/enum/email/url/phone/object/array |
+| required | `Checkbox` | — | — | 是否必填，默认 false |
+| description | `Input` | flex 2 | 可选；0-200 字符 | 参数描述 |
+| 删除按钮 | `IconButton` | — | — | 删除此行 |
+
+> **简化设计说明**：Phase 1 的 NodeIO 编辑器仅暴露核心字段（name/type/required/description），`defaultValue` 和 `constraints` 暂不在 UI 暴露（保留在 JSONB 存储中，Phase 2+ 扩展编辑器）。type 下拉仅列 9 种基础类型，与领域模型字段类型一致。
+
+### 11.7 ToolRef 工具选择器
+
+**工具类型下拉选项：**
+
+| 选项 | 值 | 条件字段 |
+|------|-----|---------|
+| 无 | null | 无 |
+| 邮件 | "email" | 无 |
+| 短信 | "sms" | 无 |
+| 电话 | "phone" | 无 |
+| 微信 | "wechat" | 无 |
+| UI 页面 | { type: "page" } | applicationType（下拉）+ pageId（输入框） |
+| 自定义 | { type: "custom" } | name（输入框） |
+
+**选择 "UI 页面" 时的条件字段：**
+
+```
+应用平台 *  [Web ▼]     ← Select: Web/Android/iOS/PC
+页面 ID     [page_order_review]  ← Input（Phase 1 仅存字符串，不做校验）
+```
+
+**选择 "自定义" 时的条件字段：**
+
+```
+工具名称 *  [showAlert]   ← Input
+```
+
+### 11.8 删除行为确认
+
+**删除 Action / Decision 使用 AlertDialog**（遵循 UI-M1-01）：
+
+| 场景 | 弹窗标题 | 弹窗内容 | 确认按钮 |
+|------|---------|---------|---------|
+| 正常删除 | 确认删除 | "确定要删除 Action「{displayName}」吗？此操作不可撤销。" | 红色"确认删除" |
+| 被流程节点引用 | 无法删除 | "Action「{displayName}」正在被 {N} 个流程节点引用，无法删除。请先在业务流程中移除相关引用。" | 仅"我知道了"按钮（非删除按钮） |
+
+> **Phase 1 说明**：由于 process_nodes 表的 actionRef/decisionRef 字段尚未实现（M3 范围），Phase 1 删除操作不做引用检查，统一走"正常删除"路径。M3 实现后需启用引用检查逻辑。
+
+### 11.9 归档项目约束
+
+归档项目下，角色详情页：
+- 仍然可以查看 Actions/Decisions 列表
+- **隐藏**"+ 新建"按钮、编辑/删除图标
+- 不允许通过 API 直接写操作（后端 400 PROJECT_ARCHIVED）
+
+### 11.10 角色列表页变更
+
+F-M1-12 上线后，角色列表页（`/p/:projectId/roles`）需做以下调整：
+
+| 变更项 | 说明 |
+|--------|------|
+| 角色卡片可点击 | 点击卡片 → 导航到角色详情页 `/roles/:roleId`（而非仅 hover 显示操作按钮） |
+| 卡片新增行为计数 | 角色卡片底部增加 Actions/Decisions 数量展示，如 "3 Actions · 2 Decisions" |
+| 操作按钮调整 | 编辑/删除按钮移至卡片右上角 hover 显示（现有行为不变），卡片整体点击进入详情 |
+
+**更新后的角色卡片布局：**
+
+```
+┌──────────────────────────┐
+│ 产品经理        [✏] [🗑] │  ← hover 显示操作按钮
+│ [研发部]                  │
+│ 负责产品规划与迭代        │
+│ 3 Actions · 2 Decisions  │  ← 新增行为计数行
+└──────────────────────────┘
+```
+
+### 11.11 AI-系统交互（语义层设计）
+
+RoleAction 和 DecisionDef 作为业务流程的参与者行为定义，需要为下游 Coding Agent 提供结构化语义信息：
+
+**Action 语义层输出结构：**
+
+```typescript
+// 语义层为每个 RoleAction 生成的结构化描述
+interface ActionSemantic {
+  // 引用标识（供 ActivityNode.actionRef 引用）
+  ref: string;                    // = action.id
+
+  // 行为签名（Coding Agent 可据此生成函数签名）
+  signature: {
+    participant: { type: "role"; roleId: string; roleName: string };
+    actionName: string;
+    inputs: { name: string; type: string; required: boolean }[];
+    outputs: { name: string; type: string }[];
+  };
+
+  // 行为描述（自然语言 + JS 代码）
+  logic: {
+    description: string;          // logic.userDesc
+    implementation?: string;      // logic.data
+  };
+
+  // 执行上下文
+  tool?: {
+    type: string;
+    detail?: Record<string, unknown>;
+  };
+}
+```
+
+**Decision 语义层输出结构：**
+
+```typescript
+interface DecisionSemantic {
+  ref: string;                    // = decision.id
+  signature: {
+    participant: { type: "role"; roleId: string; roleName: string };
+    decisionName: string;
+    branches: {
+      name: string;
+      condition?: string;
+      outputs: { name: string; type: string }[];
+    }[];
+  };
+}
+```
+
+> **语义层实现说明**：Phase 1 的语义层输出为数据结构定义，不涉及运行时执行。M3 业务流程模块在渲染泳道图时，通过 actionRef/decisionRef 查找对应 RoleAction/DecisionDef 的语义层结构，展示给 Coding Agent 使用。
+
+### 11.12 角色行为管理 UI 验收标准
+
+| 编号 | 验收标准 | 对应 PRD |
+|------|---------|---------|
+| AC-M1-U15 | 角色卡片点击后导航到角色详情页（`/roles/:roleId`），默认显示 Actions Tab；面包屑显示"角色管理 > [角色名]" | F-M1-12 |
+| AC-M1-U16 | 角色详情页 Tab 栏显示 Actions/Decisions 各自的数量 Badge（如 "Actions (3)"）；切换 Tab 无页面刷新 | F-M1-12 |
+| AC-M1-U17 | Action 卡片展示 displayName + name + 输入输出参数摘要 + 工具类型 Badge；点击编辑按钮打开 Action Dialog | F-M1-12 |
+| AC-M1-U18 | Decision 卡片展示 displayName + name + 分支名 Badge 列表；点击编辑按钮打开 Decision Dialog | F-M1-12 |
+| AC-M1-U19 | Action Dialog 中参数行编辑器支持动态添加/删除；name+type 必填，name 重复时红字标红 | B-M1-98 |
+| AC-M1-U20 | Decision Dialog 中分支列表 ≥2 才允许提交；<2 时黄色警告 + 确认按钮禁用 | B-M1-115 |
+| AC-M1-U21 | ToolRef 选择器选择"UI 页面"时动态展示 applicationType + pageId 字段；选择"自定义"时展示 name 字段 | B-M1-100 |
+| AC-M1-U22 | 删除 Action/Decision 使用 AlertDialog 确认，确认按钮为红色 destructive 样式 | UI-M1-01 |
+| AC-M1-U23 | 归档项目下角色详情页隐藏新建/编辑/删除按钮，Actions/Decisions 列表只读展示 | B-M1-101 |
+| AC-M1-U24 | 角色卡片新增行为计数行（如 "3 Actions · 2 Decisions"），无行为时显示"暂无行为定义" | F-M1-12 |

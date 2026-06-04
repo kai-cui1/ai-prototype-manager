@@ -11,7 +11,7 @@
  */
 
 import { db } from '../../src/db.js';
-import { companies, projects, departments, roles, externalEntities, domainEntities, entityFields, entityRelations, applications } from '../../src/models/schema.js';
+import { companies, projects, departments, roles, externalEntities, domainEntities, domainBoundaries, entityFields, entityRelations, applications } from '../../src/models/schema.js';
 import { eq, ilike, and } from 'drizzle-orm';
 
 /** 测试数据名称前缀，用于隔离和清理 */
@@ -336,6 +336,45 @@ export async function createTestRelation(
 }
 
 // ============================================================
+// M2 Domain Model — Boundary factory (F-M2-06)
+// ============================================================
+
+/** 创建测试领域边界的默认参数 */
+interface CreateBoundaryParams {
+  name?: string;
+  description?: string;
+  canvasPosition?: { x: number; y: number; width: number; height: number } | null;
+}
+
+/**
+ * 创建一个测试领域边界（name 自动加 TEST_PREFIX 前缀）。
+ *
+ * @param projectId - 所属项目 ID
+ * @param overrides - 覆盖默认值的参数
+ * @returns 插入的数据库行
+ */
+export async function createTestBoundary(
+  projectId: string,
+  overrides: CreateBoundaryParams = {},
+): Promise<typeof domainBoundaries.$inferSelect> {
+  const name = `${TEST_PREFIX}${overrides.name ?? `boundary-${Date.now()}`}`;
+  const config: Record<string, unknown> = {};
+  if (overrides.canvasPosition) {
+    config.canvas_position = overrides.canvasPosition;
+  }
+  const [row] = await db
+    .insert(domainBoundaries)
+    .values({
+      projectId,
+      name,
+      description: overrides.description ?? null,
+      config: Object.keys(config).length > 0 ? config : {},
+    })
+    .returning();
+  return row!;
+}
+
+// ============================================================
 // M1 Supplement: Application factory
 // ============================================================
 
@@ -377,7 +416,7 @@ export async function createTestApplication(
 /**
  * 清理所有以 TEST_PREFIX 开头的测试数据。
  * 删除 projects 时 CASCADE FK 自动清理 domain_entities / entity_fields / entity_relations /
- * companies / departments / roles / external_entities 等子表。
+ * domain_boundaries / companies / departments / roles / external_entities 等子表。
  */
 export async function cleanupTestData(): Promise<void> {
   // 删除所有 name 以 TEST_PREFIX 开头的项目

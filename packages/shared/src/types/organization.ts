@@ -2,6 +2,8 @@
 // Organization Types — 对应 companies / departments / roles / external_entities
 // ============================================
 
+import type { RoleAction, DecisionDef } from './role-behavior.js';
+
 export type CompanyType = 'internal' | 'external' | 'partner' | 'client' | string;
 
 export interface Company {
@@ -46,10 +48,11 @@ export interface Role {
   description: string | null;
   category: string | null;
   contactInfo: Record<string, unknown>;
-  actions: unknown[];
-  decisions: unknown[];
+  actions: RoleAction[];
+  decisions: DecisionDef[];
   sortOrder: number;
   config: Record<string, unknown>;
+  version: number;           // optimistic lock version
   createdAt: string;
   updatedAt: string;
 }
@@ -64,8 +67,8 @@ export interface ExternalEntity {
   description: string | null;
   entityType: string | null;
   contactInfo: Record<string, unknown>;
-  actions: unknown[];
-  decisions: unknown[];
+  actions: RoleAction[];
+  decisions: DecisionDef[];
   sortOrder: number;
   config: Record<string, unknown>;
   createdAt: string;

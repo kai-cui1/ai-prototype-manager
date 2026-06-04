@@ -1,9 +1,11 @@
 # 项目管理模块 PRD（续）
 
-> 本文件为 `project-management-prd.md` 的续篇，包含 F-M1-05 ~ F-M1-10、§5 跨功能规则、§6 验收标准。
+> 本文件为 `project-management-prd.md` 的续篇，包含 F-M1-05 ~ F-M1-12、§5 跨功能规则、§6 验收标准。
 > 前序文件：`project-management-prd.md`（含 §1~§4.4）
 >
 > **S2 范围说明**：本文件只包含业务层内容（业务流程、业务规则、数据规格）。页面布局、交互行为、AI 编码提示等 S3 内容见 `project-management-interaction.md`。
+>
+> **F-M1-11 说明**：应用管理 PRD 详见独立文档 `docs/03-prd-ux/modules/application-management/application-management-prd.md`，本文件仅引用。
 
 ---
 
@@ -704,6 +706,361 @@ Project (1) ──< (N) ExternalEntity
 
 ---
 
+### 4.11 F-M1-11 应用管理
+
+> 应用管理 PRD 详见 `docs/03-prd-ux/modules/application-management/application-management-prd.md`，作为 M1 补充模块独立存放。
+
+---
+
+### 4.12 F-M1-12 角色行为管理
+
+**优先级**: P1 | **前置依赖**: F-M1-08（角色管理 — 角色必须先存在）
+
+> **核心定位**: 管理 Role 的 `actions[]` 和 `decisions[]` JSONB 字段，为 M3 业务流程模块提供 `actionRef`/`decisionRef` 引用源。M3 的 ActivityNode 通过 `holder.type="role"` + `actionRef` 引用 `Role.actions[].id`，DecisionNode 通过 `decisionRef` 引用 `Role.decisions[].id`。
+>
+> **数据模型特征**: actions 和 decisions 是 `roles` 表的 JSONB 内嵌数组，非独立表。CRUD 操作采用「读取→校验→变更数组→整体写回」模式，使用角色行级乐观锁防并发覆盖。
+>
+> **与 F-M1-13 的边界**: F-M1-12 仅覆盖 `roles.actions[]` 和 `roles.decisions[]`。`external_entities.actions[]` 和 `external_entities.decisions[]` 由 F-M1-13 管理，结构相同但 API 路径不同。
+
+#### 4.12.1 涉及的领域模型
+
+| 实体 | 表名 | 关系 | 说明 |
+|------|------|------|------|
+| Role | `roles` | 操作对象 | 更新 `actions` / `decisions` JSONB 字段 |
+| Project | `projects` | 父实体（N:1） | 归档时禁止写操作 |
+
+> **领域模型对照**: 在 `docs/02-domain-model/business-process.md` §2 中，RoleAction 和 DecisionDef 定义为 Role 的内嵌行为清单。本 PRD 的 CRUD 操作直接作用于 `roles.actions` 和 `roles.decisions` JSONB 列，不创建新表。
+>
+> **术语说明**: `domain-model.md` §2.5~2.6 使用泛称 `ActionDef[]` / `DecisionDef[]`，而 `business-process.md` §2 使用更精确的 `RoleAction[]` / `DecisionDef[]`（区分角色行为与 Service 行为）。本 PRD 以 `business-process.md` 的精确命名为准，`ActionDef` 为 `RoleAction` / `ExternalEntityAction` / `ServiceAction` 的泛称。
+
+**ER 关系：**
+
+```
+Project (1) ──< (N) Role
+                   │
+                   ├── actions: JSONB []      ← F-M1-12 管理范围
+                   │     └── RoleAction[]
+                   │           ├── id, name, displayName, description
+                   │           ├── inputs: NodeIO[]
+                   │           ├── outputs: NodeIO[]
+                   │           ├── logic: { userDesc, data }
+                   │           └── tool: ToolRef | null
+                   │
+                   └── decisions: JSONB []    ← F-M1-12 管理范围
+                         └── DecisionDef[]
+                               ├── id, name, displayName, description
+                               └── branches: DecisionBranchDef[]
+                                     ├── name, condition
+                                     ├── outputs: NodeIO[]
+                                     └── edgeIds: string[]
+```
+
+**共用子类型定义（与 F-M1-13 共享）：**
+
+```typescript
+// 参数定义 — Action 的 inputs/outputs 和 DecisionBranch 的 outputs 共用
+interface NodeIO {
+  name: string;             // 参数名（同数组内唯一）
+  type: string;             // 数据类型（如 string/number/boolean/datetime 等）
+  description?: string;     // 参数描述
+  required?: boolean;       // 是否必填
+  defaultValue?: any;       // 默认值
+  constraints?: object;     // 类型约束（如 { minLength, maxLength, pattern } 等）
+}
+
+// 执行工具 — 仅 Role/ExternalEntity 的 Action 使用
+type ToolRef =
+  | null                                              // 无工具（系统内部自动完成）
+  | "email" | "sms" | "phone" | "wechat"             // 内置通知工具
+  | { type: "page"; applicationType: "web"|"android"|"ios"|"pc"; pageId: string }  // UI 页面操作
+  | { type: "custom"; name: string; [key: string]: unknown };                        // 自定义工具
+```
+
+#### 4.12.2 业务动作与输入输出
+
+> 本节定义 F-M1-12 涉及的 8 个业务动作序列（actions CRUD 4 个 + decisions CRUD 4 个）。交互层面的细节见 `project-management-interaction.md`。
+
+**Action CRUD 业务动作：**
+
+| 步骤 | 业务动作 | 输入 | 输出 | 前置条件 | 异常处理 |
+|------|---------|------|------|---------|---------|
+| 1 | 查询角色的 actions 数组 | roleId | RoleAction[] | 角色存在 | 角色不存在 → 404 |
+| 2 | 创建新 Action | roleId + Action body | 创建后的 RoleAction（含系统生成 id） | 角色存在 + 项目活跃 + name 唯一 | name 重复 → 409, 项目归档 → 400 |
+| 3 | 更新已有 Action | roleId + actionId + Action body | 更新后的 RoleAction | 角色存在 + 项目活跃 + Action 存在 + 乐观锁 | 不存在 → 404, name 重复 → 409, 锁冲突 → 409 |
+| 4 | 删除已有 Action | roleId + actionId | 204 无内容 | 角色存在 + 项目活跃 + Action 存在 + 无流程引用 | 不存在 → 404, 被引用 → 409 |
+
+**Decision CRUD 业务动作：**
+
+| 步骤 | 业务动作 | 输入 | 输出 | 前置条件 | 异常处理 |
+|------|---------|------|------|---------|---------|
+| 5 | 查询角色的 decisions 数组 | roleId | DecisionDef[] | 角色存在 | 角色不存在 → 404 |
+| 6 | 创建新 Decision | roleId + Decision body | 创建后的 DecisionDef（含系统生成 id） | 角色存在 + 项目活跃 + name 唯一 | name 重复 → 409, 项目归档 → 400 |
+| 7 | 更新已有 Decision | roleId + decisionId + Decision body | 更新后的 DecisionDef | 角色存在 + 项目活跃 + Decision 存在 + 乐观锁 | 不存在 → 404, name 重复 → 409, 锁冲突 → 409 |
+| 8 | 删除已有 Decision | roleId + decisionId | 204 无内容 | 角色存在 + 项目活跃 + Decision 存在 + 无流程引用 | 不存在 → 404, 被引用 → 409 |
+
+> **无状态机**: actions/decisions 是无状态值对象，不存在状态流转。
+
+#### 4.12.3 业务规则
+
+##### 4.12.3.1 查询规则
+
+| 规则编号 | 规则内容 | 说明 |
+|---------|---------|------|
+| B-M1-91 | 查询 actions/decisions 时，按 JSONB 数组原始顺序返回 | 无额外排序 |
+| B-M1-92 | 归档项目的角色 actions/decisions 仍可查询（只读） | 与 G-M1-03 一致 |
+
+##### 4.12.3.2 创建 Action 规则
+
+| 规则编号 | 规则内容 | 违规后果 |
+|---------|---------|---------|
+| B-M1-93 | Action `id` 由系统自动生成（UUID v4），客户端不可指定 | 400 INVALID_INPUT |
+| B-M1-94 | Action `name` 格式：`/^[a-zA-Z0-9_-]+$/`，2~50 字符 | 400 INVALID_NAME_FORMAT |
+| B-M1-95 | Action `name` 在**同一 role 的 actions 数组内**唯一（scope = 单个 role，非整个 project） | 409 NAME_CONFLICT |
+| B-M1-96 | Action `displayName` 必填，1~100 字符 | 400 DISPLAY_NAME_REQUIRED |
+| B-M1-97 | Action `description` 可选，0~500 字符 | — |
+| B-M1-98 | Action `inputs` / `outputs` 为 NodeIO 数组；每项的 `name` 必填且在同一数组内唯一（同数组不重名），`type` 必填（2~50 字符） | 400 INVALID_NODE_IO |
+| B-M1-99 | Action `logic.userDesc` 必填，1~2000 字符；`logic.data` 可选，0~10000 字符（注：`business-process.md` 中 data 定义为必填，PRD 调整为可选 — 并非所有 Action 都有 JS 代码，以 PRD 为准） | 400 INVALID_LOGIC |
+| B-M1-100 | Action `tool` 可选，值为 null 或合法 ToolRef；内置枚举：null / "email" / "sms" / "phone" / "wechat"；page 类型需含 `applicationType` + `pageId`；custom 类型需含 `name`。Phase 1 不校验 pageId 是否指向真实 page（仅校验格式） | 400 INVALID_TOOL_REF |
+| B-M1-101 | 所属角色所在项目必须为 `status='active'` | 400 PROJECT_ARCHIVED |
+
+> **name 唯一性范围说明**: 不同角色可以有同名 action（如"提交订单"对于"采购员"和"审批员"都有意义），因此唯一性范围为 role 内部而非 project 全局。
+
+##### 4.12.3.3 更新 Action 规则
+
+| 规则编号 | 规则内容 | 违规后果 |
+|---------|---------|---------|
+| B-M1-102 | Action `id` 不可变更（path param 标识，不随 body 更新） | — |
+| B-M1-103 | Action `name` 格式/唯一性同创建，唯一性排除自身 | 400 / 409 |
+| B-M1-104 | 其余字段校验规则同创建（B-M1-96~100） | 同创建 |
+| B-M1-105 | 项目必须活跃 | 400 PROJECT_ARCHIVED |
+| B-M1-106 | 角色 version 乐观锁校验（JSONB 整体写回需防并发覆盖，每次变更递增 role.version） | 409 VERSION_CONFLICT |
+
+##### 4.12.3.4 删除 Action 规则
+
+| 规则编号 | 规则内容 | 违规后果 |
+|---------|---------|---------|
+| B-M1-107 | 删除 action 时检查 `process_nodes` 表是否存在 `holder_type='role' AND holder_id=roleId` 且 `action_ref` 引用了此 actionId 的节点；存在则拒绝删除 | 409 ACTION_IN_USE |
+| B-M1-108 | 项目必须活跃 | 400 PROJECT_ARCHIVED |
+| B-M1-109 | Action 不存在（actionId 在数组中未找到） | 404 ACTION_NOT_FOUND |
+
+> **B-M1-107 Phase 1 预留说明**: 若 Phase 1 中 `process_nodes` 表尚无 `action_ref` 字段，则引用检查暂时跳过，在代码中加 `TODO` 注释标注 M3 实现后需启用此检查。
+
+##### 4.12.3.5 创建 Decision 规则
+
+| 规则编号 | 规则内容 | 违规后果 |
+|---------|---------|---------|
+| B-M1-110 | Decision `id` 由系统自动生成（UUID v4），客户端不可指定 | 400 INVALID_INPUT |
+| B-M1-111 | Decision `name` 格式：同 Action name 规则（B-M1-94） | 400 INVALID_NAME_FORMAT |
+| B-M1-112 | Decision `name` 在**同一 role 的 decisions 数组内**唯一 | 409 NAME_CONFLICT |
+| B-M1-113 | Decision `displayName` 必填，1~100 字符 | 400 DISPLAY_NAME_REQUIRED |
+| B-M1-114 | Decision `description` 可选，0~500 字符 | — |
+| B-M1-115 | Decision `branches` 必填，至少包含 **2 个分支**（最少 2 个分支才有判断意义） | 400 INVALID_BRANCHES |
+| B-M1-116 | DecisionBranch `name` 必填，同一 Decision 内 branches 不可重名 | 400 INVALID_BRANCH |
+| B-M1-117 | DecisionBranch `condition` 可选，为字符串表达式（Phase 1 不做语法校验，仅存储原始字符串） | — |
+| B-M1-118 | DecisionBranch `outputs` 为 NodeIO 数组，校验规则同 B-M1-98 | 400 INVALID_NODE_IO |
+| B-M1-119 | DecisionBranch `edgeIds` Phase 1 必须为空数组 `[]`（M3 业务流程模块负责填充边 ID） | 400 INVALID_EDGE_IDS |
+| B-M1-120 | 所属角色所在项目必须为 `status='active'` | 400 PROJECT_ARCHIVED |
+
+##### 4.12.3.6 更新 Decision 规则
+
+| 规则编号 | 规则内容 | 违规后果 |
+|---------|---------|---------|
+| B-M1-121 | Decision `id` 不可变更 | — |
+| B-M1-122 | Decision `name` 格式/唯一性同创建，排除自身 | 400 / 409 |
+| B-M1-123 | 其余字段校验规则同创建（B-M1-113~119） | 同创建 |
+| B-M1-124 | 项目必须活跃 | 400 PROJECT_ARCHIVED |
+| B-M1-125 | 角色 version 乐观锁校验 | 409 VERSION_CONFLICT |
+
+##### 4.12.3.7 删除 Decision 规则
+
+| 规则编号 | 规则内容 | 违规后果 |
+|---------|---------|---------|
+| B-M1-126 | 删除 decision 时检查 `process_nodes` 表是否存在引用了此 decisionId 的 Decision 节点；存在则拒绝删除 | 409 DECISION_IN_USE |
+| B-M1-127 | 项目必须活跃 | 400 PROJECT_ARCHIVED |
+| B-M1-128 | Decision 不存在 | 404 DECISION_NOT_FOUND |
+
+##### 4.12.3.8 校验汇总
+
+| 维度 | 规则 | 触发时机 |
+|------|------|---------|
+| 格式校验 | B-M1-94/111: name 正则 | 创建/更新 Action/Decision |
+| 唯一性校验 | B-M1-95/103/112/122: role 范围内唯一（排除自身） | 创建/更新前 |
+| 必填校验 | B-M1-96/113: displayName 必填 | 创建/更新 |
+| NodeIO 校验 | B-M1-98/118: inputs/outputs 中 name+type 必填且不重名 | 创建/更新 |
+| Branch 校验 | B-M1-115~119: 最少 2 分支 + 分支名唯一 + edgeIds=[] | 创建/更新 Decision |
+| Tool 校验 | B-M1-100: ToolRef 格式校验 | 创建/更新 Action |
+| 状态校验 | B-M1-101/105/108/120/124/127: 项目活跃 | 所有写操作 |
+| 引用完整性 | B-M1-107/126: 被 process_nodes 引用时禁止删除 | 删除前 |
+| 乐观锁 | B-M1-106/125: role version 匹配 | 更新时 |
+
+##### 4.12.3.9 异常场景汇总
+
+| 场景 | HTTP 状态码 | 错误码 | 说明 |
+|------|-----------|--------|------|
+| Action name 格式非法 | 400 | `INVALID_NAME_FORMAT` | 正则不匹配或长度越界 |
+| Action name 同角色内冲突 | 409 | `NAME_CONFLICT` | 同 role 的 actions 数组内已存在 |
+| Action displayName 为空 | 400 | `DISPLAY_NAME_REQUIRED` | 必填字段缺失 |
+| NodeIO name 缺失或重复 | 400 | `INVALID_NODE_IO` | 同数组内 name 不唯一 |
+| ToolRef 格式非法 | 400 | `INVALID_TOOL_REF` | 非法枚举值或对象结构不完整 |
+| Logic userDesc 缺失 | 400 | `INVALID_LOGIC` | 必填字段缺失 |
+| Branch 数量 < 2 | 400 | `INVALID_BRANCHES` | Decision 至少需要 2 个分支 |
+| Branch name 重复 | 400 | `INVALID_BRANCH` | 同 Decision 内分支名冲突 |
+| edgeIds 非空（Phase 1） | 400 | `INVALID_EDGE_IDS` | Phase 1 不允许非空 edgeIds |
+| 项目已归档 | 400 | `PROJECT_ARCHIVED` | 归档项目禁止写操作 |
+| Action/Decision 被流程节点引用 | 409 | `ACTION_IN_USE` / `DECISION_IN_USE` | 需先解除引用 |
+| Action/Decision 不存在 | 404 | `ACTION_NOT_FOUND` / `DECISION_NOT_FOUND` | 数组中未找到指定 id |
+| 乐观锁冲突 | 409 | `VERSION_CONFLICT` | 并发修改冲突 |
+
+#### 4.12.4 数据规格
+
+##### Action CRUD
+
+**List Actions（GET /api/v1/projects/:projectId/roles/:roleId/actions）**
+
+输出：
+
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| data | RoleAction[] | roles.actions JSONB | 按数组原序返回，无分页 |
+
+> 无分页：actions 为内嵌数组，单个角色通常 < 20 个 action。
+
+**Create Action（POST /api/v1/projects/:projectId/roles/:roleId/actions）**
+
+输入：
+
+| 字段 | 类型 | 必填 | 默认值 | 校验规则 | 说明 |
+|------|------|:----:|:------:|---------|------|
+| name | string | ✅ | — | `/^[a-zA-Z0-9_-]+$/`, 2~50 | 编程标识符 |
+| displayName | string | ✅ | — | 1~100 字符 | 显示名称 |
+| description | string | ❌ | null | 0~500 字符 | 描述 |
+| inputs | NodeIO[] | ❌ | [] | 见 B-M1-98 | 入参定义 |
+| outputs | NodeIO[] | ❌ | [] | 见 B-M1-98 | 出参定义 |
+| logic | object | ✅ | — | — | 行为逻辑 |
+| logic.userDesc | string | ✅ | — | 1~2000 字符 | 自然语言描述 |
+| logic.data | string | ❌ | "" | 0~10000 字符 | JS 代码（可选） |
+| tool | ToolRef \| null | ❌ | null | 见 B-M1-100 | 执行工具 |
+
+输出：
+
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| data | RoleAction | 计算 | 含系统生成的 id |
+| version | integer | roles.version | 更新后的角色版本号 |
+
+**Update Action（PUT /api/v1/projects/:projectId/roles/:roleId/actions/:actionId）**
+
+输入：
+
+| 字段 | 类型 | 必填 | 默认值 | 校验规则 | 说明 |
+|------|------|:----:|:------:|---------|------|
+| name | string | ✅ | — | 同创建 | 编程标识符 |
+| displayName | string | ✅ | — | 同创建 | 显示名称 |
+| description | string | ❌ | null | 同创建 | 描述 |
+| inputs | NodeIO[] | ❌ | [] | 同创建 | 入参定义 |
+| outputs | NodeIO[] | ❌ | [] | 同创建 | 出参定义 |
+| logic | object | ✅ | — | 同创建 | 行为逻辑 |
+| logic.userDesc | string | ✅ | — | 同创建 | 自然语言描述 |
+| logic.data | string | ❌ | "" | 同创建 | JS 代码 |
+| tool | ToolRef \| null | ❌ | null | 同创建 | 执行工具 |
+| version | integer | ✅ | — | 乐观锁 | 角色当前版本号 |
+
+输出：
+
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| data | RoleAction | 计算 | 更新后的完整 Action |
+| version | integer | roles.version | 递增后的角色版本号 |
+
+**Delete Action（DELETE /api/v1/projects/:projectId/roles/:roleId/actions/:actionId）**
+
+- 请求：无 body，actionId 在 URL path 中
+- 响应：204 No Content（成功）/ 错误码
+
+##### Decision CRUD
+
+**List Decisions（GET /api/v1/projects/:projectId/roles/:roleId/decisions）**
+
+输出：
+
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| data | DecisionDef[] | roles.decisions JSONB | 按数组原序返回，无分页 |
+
+**Create Decision（POST /api/v1/projects/:projectId/roles/:roleId/decisions）**
+
+输入：
+
+| 字段 | 类型 | 必填 | 默认值 | 校验规则 | 说明 |
+|------|------|:----:|:------:|---------|------|
+| name | string | ✅ | — | `/^[a-zA-Z0-9_-]+$/`, 2~50 | 编程标识符 |
+| displayName | string | ✅ | — | 1~100 字符 | 显示名称 |
+| description | string | ❌ | null | 0~500 字符 | 描述 |
+| branches | DecisionBranchInput[] | ✅ | — | ≥2, 分支名唯一 | 分支定义 |
+
+输出：
+
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| data | DecisionDef | 计算 | 含系统生成的 id，branches 保持原序 |
+| version | integer | roles.version | 更新后的角色版本号 |
+
+**DecisionBranchInput（创建/更新 Decision 时的分支输入）：**
+
+| 字段 | 类型 | 必填 | 默认值 | 校验规则 | 说明 |
+|------|------|:----:|:------:|---------|------|
+| name | string | ✅ | — | 同 Decision 内唯一, 1~50 字符 | 分支标识（如 approved/rejected） |
+| condition | string | ❌ | null | 0~500 字符 | 条件表达式（Phase 1 原始字符串，不做语法校验） |
+| outputs | NodeIO[] | ❌ | [] | 见 B-M1-98 | 分支输出参数 |
+| edgeIds | string[] | ❌ | [] | Phase 1 必须 = [] | 出口边 ID（M3 填充） |
+
+**Update Decision（PUT /api/v1/projects/:projectId/roles/:roleId/decisions/:decisionId）**
+
+输入：
+
+| 字段 | 类型 | 必填 | 默认值 | 校验规则 | 说明 |
+|------|------|:----:|:------:|---------|------|
+| name | string | ✅ | — | 同创建 | 编程标识符 |
+| displayName | string | ✅ | — | 同创建 | 显示名称 |
+| description | string | ❌ | null | 同创建 | 描述 |
+| branches | DecisionBranchInput[] | ✅ | — | 同创建 | 分支定义 |
+| version | integer | ✅ | — | 乐观锁 | 角色当前版本号 |
+
+输出：
+
+| 字段 | 类型 | 来源 | 说明 |
+|------|------|------|------|
+| data | DecisionDef | 计算 | 更新后的完整 Decision |
+| version | integer | roles.version | 递增后的角色版本号 |
+
+**Delete Decision（DELETE /api/v1/projects/:projectId/roles/:roleId/decisions/:decisionId）**
+
+- 请求：无 body，decisionId 在 URL path 中
+- 响应：204 No Content（成功）/ 错误码
+
+##### NodeIO 子类型数据规格
+
+| 字段 | 类型 | 必填 | 默认值 | 校验规则 | 说明 |
+|------|------|:----:|:------:|---------|------|
+| name | string | ✅ | — | 同数组内唯一, 1~50 字符 | 参数名 |
+| type | string | ✅ | — | 2~50 字符 | 数据类型（如 string/number/boolean/datetime/text/enum 等） |
+| description | string | ❌ | null | 0~200 字符 | 参数描述 |
+| required | boolean | ❌ | false | — | 是否必填 |
+| defaultValue | any | ❌ | null | — | 默认值 |
+| constraints | object | ❌ | null | — | 类型约束（如 { minLength, maxLength, pattern }） |
+
+> **NodeIO 与 EntityField 的区别**: NodeIO 是流程节点的轻量参数定义，用于描述 Action 的输入/输出和 Decision 分支的输出；EntityField 是领域实体的持久化字段定义（含完整校验约束）。两者结构相似但职责不同。
+
+#### 4.12.5 AI 编码提示
+
+- **JSONB 原子写回**: actions/decisions 是 JSONB 数组，更新操作为「读取→校验→修改→写回整个数组」，必须使用角色行级乐观锁（role.version）防止并发覆盖。不可使用 `jsonb_set` 单项更新，因为需要整体校验（如 name 唯一性）
+- **id 生成策略**: actionId/decisionId 由后端 `crypto.randomUUID()` 生成。客户端请求 body 中若包含 `id` 字段，必须被忽略（不报错，直接覆盖为系统生成值）
+- **process_nodes 引用检查**: 删除 action/decision 时需查 `process_nodes` 表中 `holder_type='role' AND holder_id=roleId` 的行，检查其 `action_ref`/`decision_ref` 是否引用了该 id。Phase 1 若 `process_nodes` 表尚无 `action_ref`/`decision_ref` 字段，则在代码中加 `// TODO: M3 实现后启用 process_nodes 引用检查` 注释标注
+- **edgeIds=[] Phase 1 硬约束**: 后端校验必须拦截非空 edgeIds，否则 M3 流程编辑器写入的边 ID 会在 Action/Decision 更新时被误删
+- **与 F-M1-13 的代码复用**: NodeIO、ToolRef、DecisionBranch 的校验逻辑应抽取为共享 helper 函数，F-M1-13（ExternalEntity 行为管理）将复用相同结构
+
+---
+
 ## 5. 跨功能规则
 
 ### 5.1 全局状态流转约束
@@ -805,6 +1162,8 @@ Company / Department / Role / ExternalEntity 自身也有 `status` 字段, 但�
 | 新建/编辑/删除角色 | ✅ | ❌ | ❌ |
 | 查看/搜索外部实体 | ✅ | ✅ | ✅ |
 | 新建/编辑/删除外部实体 | ✅ | ❌ | ❌ |
+| 查看/搜索角色行为（actions/decisions） | ✅ | ✅ | ✅ |
+| 新建/编辑/删除角色行为（actions/decisions） | ✅ | ❌ | ❌ |
 | 查看统计摘要 | ✅ | ✅ | ✅ |
 
 #### 5.3.3 权限实现要点
@@ -851,6 +1210,15 @@ Company / Department / Role / ExternalEntity 自身也有 `status` 字段, 但�
 | AC-M1-22 | **Given** 组织架构 Tab → 外部实体子 Tab, **When** 加载完成, **Then** 展示外部实体列表（含类型 Badge）, 有新建/搜索/编辑/删除能力 | F-M1-09 |
 | AC-M1-23 | **Given** 项目列表页, **When** 每行项目数据, **Then** 内嵌 summary 统计字段（实体数/流程数/组织数）, 无需额外请求 | F-M1-10, B-M1-88 |
 | AC-M1-24 | **Given** Developer 或 Tester 角色用户, **When** 访问任意页面, **Then** 所有写操作按钮（新建/编辑/删除/归档）均不可见, 列表/详情正常展示 | §5.3 |
+| AC-M1-25 | **Given** 活跃项目下的角色 R（actions=[], decisions=[]）, **When** POST 创建 action A1（name=submit_order, displayName=提交订单, inputs=[{name:"orderId",type:"string"}], outputs=[{name:"result",type:"string"}], logic={userDesc:"用户提交订单"}）, **Then** 返回 201，A1.id 为 UUID，R.actions=[A1] | F-M1-12 |
+| AC-M1-26 | **Given** 角色 R 有 action A1, **When** PUT 更新 A1 的 displayName 为"提交采购单", **Then** 返回 200，A1.displayName 已更新，R.version 递增 | F-M1-12 |
+| AC-M1-27 | **Given** 角色 R 有 action A1, **When** DELETE 删除 A1, **Then** 返回 204，R.actions 不再包含 A1 | F-M1-12 |
+| AC-M1-28 | **Given** 角色 R, **When** POST 创建 decision D1（name=review_result, displayName=审核结果, branches=[{name:"approved"},{name:"rejected"}]）, **Then** 返回 201，D1.id 为 UUID，R.decisions=[D1] | F-M1-12 |
+| AC-M1-29 | **Given** 角色 R 有 decision D1（branches=[approved, rejected]）, **When** PUT 更新 D1 新增 branch "escalated"（含 outputs）, **Then** D1.branches 有 3 个分支 | F-M1-12 |
+| AC-M1-30 | **Given** 角色 R 有 decision D1, **When** DELETE 删除 D1, **Then** 返回 204，R.decisions 不再包含 D1 | F-M1-12 |
+| AC-M1-31 | **Given** 角色 R 有 action A1（name=submit）, **When** POST 创建 action name=submit, **Then** 返回 409 NAME_CONFLICT | F-M1-12, B-M1-95 |
+| AC-M1-32 | **Given** 角色 R 有 decision D1（branches=[A,B]）, **When** PUT 更新 D1 branches 仅保留 [A], **Then** 返回 400 INVALID_BRANCHES（<2 分支） | F-M1-12, B-M1-115 |
+| AC-M1-33 | **Given** 归档项目下的角色 R, **When** POST 创建 action, **Then** 返回 400 PROJECT_ARCHIVED | F-M1-12, B-M1-101 |
 
 ### 6.2 异常验收
 
@@ -862,3 +1230,5 @@ Company / Department / Role / ExternalEntity 自身也有 `status` 字段, 但�
 | AC-M1-E04 | **Given** 网络中断, **When** 用户提交任意表单, **Then** 按钮停止 loading, 显示网络错误 Toast, 数据不丢失（编辑态保留） | — |
 | AC-M1-E05 | **Given** 搜索框快速连续输入 5 个字符, **When** 观察 API 调用, **Then** 仅在停止输入 300ms 后发起 1 次请求（非 5 次） | B-M1-03 |
 | AC-M1-E06 | **Given** PM 用户, **When** 通过 API 调试工具（如 Postman）发送 DELETE 请求到被引用的实体, **Then** 返回 409 ENTITY_IN_USE + 引用清单 JSON | G-M1-09 |
+| AC-M1-E07 | **Given** 两个窗口同时编辑同一角色的 actions, **When** 窗口 A 新增 action 后窗口 B 也新增, **Then** 窗口 B 收到 409 VERSION_CONFLICT | F-M1-12, B-M1-106 |
+| AC-M1-E08 | **Given** 角色 R 的 action A1 被 process_node 引用, **When** DELETE 删除 A1, **Then** 返回 409 ACTION_IN_USE | F-M1-12, B-M1-107 |

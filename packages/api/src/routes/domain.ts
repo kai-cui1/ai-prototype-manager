@@ -2,7 +2,8 @@
  * @module routes/domain
  * @description M2 领域模型管理路由。
  *              覆盖 F-M2-01（实体 CRUD）+ F-M2-02（字段管理）+
- *              F-M2-03（关系管理）+ F-M2-04（ER 图端点）。
+ *              F-M2-03（关系管理）+ F-M2-04（ER 图端点）+
+ *              F-M2-06（领域边界管理）。
  *
  *  路由前缀：/api/v1/projects/:projectId/domain（在 app.ts 中注册）
  *
@@ -23,8 +24,12 @@ import {
   UpdateRelationInput,
   RelationListQuery,
   ERGraphResponse,
+  CreateBoundaryInput,
+  UpdateBoundaryInput,
+  UpdateEntityDomainInput,
+  BoundaryListQuery,
+  ErrorResponse,
 } from '@apm/validation-schemas';
-import { ErrorResponse } from '@apm/validation-schemas';
 
 /**
  * 注册领域模型路由（F-M2-01 ~ F-M2-04）。
@@ -368,11 +373,126 @@ export default async function domainRoutes(app: FastifyInstance) {
       response: { 200: ERGraphResponse, 500: ErrorResponse },
       tags: ['Domain'],
       summary: '项目全量 ER 图',
-      description: 'F-M2-04: 返回项目下所有实体节点和关系边，通用格式，含 canvasPosition。',
+      description: 'F-M2-04: 返回项目下所有实体节点、关系边和领域框，通用格式，含 canvasPosition。',
     },
   }, async (request: FastifyRequest, reply: FastifyReply) => {
     const { projectId } = request.params as { projectId: string };
     const graph = await domainService.getFullERGraph(db, projectId);
     return reply.code(200).send({ data: graph });
+  });
+
+  // ====================================================
+  // F-M2-06: 领域边界管理
+  // ====================================================
+
+  /** GET /boundaries — 领域列表（含 entityCount） */
+  app.get('/boundaries', {
+    schema: {
+      querystring: BoundaryListQuery,
+      response: { 400: ErrorResponse, 500: ErrorResponse },
+      tags: ['Domain'],
+      summary: '查询领域列表',
+      description: 'F-M2-06: 返回项目下所有领域边界，含 entityCount 统计。',
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { projectId } = request.params as { projectId: string };
+    const query = request.query as { page?: number; pageSize?: number; search?: string };
+    const result = await domainService.listBoundaries(db, projectId, query);
+    return reply.code(200).send(result);
+  });
+
+  /** POST /boundaries — 创建领域 */
+  app.post('/boundaries', {
+    schema: {
+      body: CreateBoundaryInput,
+      response: { 400: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
+      tags: ['Domain'],
+      summary: '创建领域边界',
+      description: 'F-M2-06: name 在项目内唯一，领域框不可与其他领域框重叠。',
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { projectId } = request.params as { projectId: string };
+    const body = request.body as {
+      name: string;
+      description?: string;
+      canvasPosition?: { x: number; y: number; width: number; height: number };
+    };
+    const boundary = await domainService.createBoundary(db, projectId, body);
+    return reply.code(201).send({ data: boundary });
+  });
+
+  /** GET /boundaries/:boundaryId — 领域详情 */
+  app.get('/boundaries/:boundaryId', {
+    schema: {
+      response: { 404: ErrorResponse, 500: ErrorResponse },
+      tags: ['Domain'],
+      summary: '获取领域详情',
+      description: 'F-M2-06: 返回领域基本信息、canvasPosition、entityCount。',
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { projectId, boundaryId } = request.params as { projectId: string; boundaryId: string };
+    const boundary = await domainService.getBoundaryById(db, projectId, boundaryId);
+    return reply.code(200).send({ data: boundary });
+  });
+
+  /** PUT /boundaries/:boundaryId — 更新领域 */
+  app.put('/boundaries/:boundaryId', {
+    schema: {
+      body: UpdateBoundaryInput,
+      response: { 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },
+      tags: ['Domain'],
+      summary: '更新领域边界',
+      description: 'F-M2-06: 支持更新 name/description/canvasPosition，领域框不可重叠。',
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { projectId, boundaryId } = request.params as { projectId: string; boundaryId: string };
+    const body = request.body as {
+      name?: string;
+      description?: string | null;
+      canvasPosition?: { x: number; y: number; width: number; height: number } | null;
+    };
+    // R5 Why: Fastify Ajv coerceTypes 将 JSON null 强制转为空字符串，
+    //         需还原为 null 语义（description 清除、canvasPosition 清除）
+    const input = {
+      ...body,
+      description: (!body.description || body.description === 'null') ? null : body.description,
+      canvasPosition: (!body.canvasPosition || body.canvasPosition === 'null') ? null : body.canvasPosition,
+    };
+    const boundary = await domainService.updateBoundary(db, projectId, boundaryId, input);
+    return reply.code(200).send({ data: boundary });
+  });
+
+  /** DELETE /boundaries/:boundaryId — 删除领域 */
+  app.delete('/boundaries/:boundaryId', {
+    schema: {
+      response: { 404: ErrorResponse, 500: ErrorResponse },
+      tags: ['Domain'],
+      summary: '删除领域边界',
+      description: 'F-M2-06: 删除领域后，归属实体的 domainId 自动置 null（DB ON DELETE SET NULL）。',
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { projectId, boundaryId } = request.params as { projectId: string; boundaryId: string };
+    await domainService.deleteBoundary(db, projectId, boundaryId);
+    return reply.code(204).send();
+  });
+
+  /** PUT /entities/:entityId/domain — 更新实体领域归属 */
+  app.put('/entities/:entityId/domain', {
+    schema: {
+      body: UpdateEntityDomainInput,
+      response: { 400: ErrorResponse, 404: ErrorResponse, 422: ErrorResponse, 500: ErrorResponse },
+      tags: ['Domain'],
+      summary: '更新实体领域归属',
+      description: 'F-M2-06: domainId 设为目标领域 ID 则归属，设为 null 则脱离。松手即归属，无需确认。',
+    },
+  }, async (request: FastifyRequest, reply: FastifyReply) => {
+    const { projectId, entityId } = request.params as { projectId: string; entityId: string };
+    const body = request.body as { domainId?: string | null };
+    // R5 Why: Fastify Ajv coerceTypes 将 JSON null 强制转为空字符串 "" 或 "null"，
+    //         需还原为 null 语义。领域 ID 为 UUID 格式，空字符串/""/"null" 均非合法 ID。
+    const rawDomainId = body.domainId;
+    const domainId = (!rawDomainId || rawDomainId === 'null') ? null : rawDomainId;
+    await domainService.updateEntityDomain(db, projectId, entityId, domainId);
+    return reply.code(200).send({ data: { entityId, domainId } });
   });
 }

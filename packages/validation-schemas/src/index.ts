@@ -11,3 +11,4 @@ export * from './organization.schema.js';
 export * from './domain.schema.js';
 export * from './application.schema.js';
 export * from './response.js';
+export * from './role-behavior.schema.js';

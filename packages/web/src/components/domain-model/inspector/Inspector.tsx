@@ -1,12 +1,14 @@
 /**
  * @module Inspector
- * @description 右滑面板容器：支持两种模式：
+ * @description 右滑面板容器：支持三种模式：
  * - 实体详情模式：选中实体时，包含三个 Tab（基本信息 / 字段 / 关系）
  * - 关系详情模式：选中关系线时，仅显示"关系"选项卡及当前选中关系详情
+ * - 领域详情模式：选中领域框时，包含两个 Tab（基本信息 / 归属实体）
  *
- * 两种模式互斥（B-M2-F03-01），点击空白处两者均收起。
+ * 三种模式互斥（B-M2-F03-01），点击空白处均收起。
  */
 
+import { useState } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDomainModelContext } from '@/contexts/DomainModelContext';
@@ -15,6 +17,9 @@ import EntityBasicTab from './EntityBasicTab';
 import FieldsTab from './FieldsTab';
 import RelationsTab from './RelationsTab';
 import RelationDetailPanel from './RelationDetailPanel';
+import DomainBasicTab from './DomainBasicTab';
+import DomainEntitiesTab from './DomainEntitiesTab';
+import DeleteBoundaryDialog from '../dialogs/DeleteBoundaryDialog';
 
 export default function Inspector() {
   const {
@@ -25,87 +30,141 @@ export default function Inspector() {
     selectedRelationId,
     selectedRelation,
     selectRelation,
+    selectedDomainId,
+    selectDomain,
+    boundaries,
   } = useDomainModelContext();
 
-  // Inspector 展开：选中实体 OR 选中关系线
-  const isOpen = selectedEntityId !== null || selectedRelationId !== null;
+  const [deleteOpen, setDeleteOpen] = useState(false);
+
+  // Inspector 展开：选中实体 OR 选中关系线 OR 选中领域
+  const isOpen = selectedEntityId !== null || selectedRelationId !== null || selectedDomainId !== null;
 
   // 关闭 Inspector：清除所有选中状态
   const handleClose = () => {
     selectEntity(null);
     selectRelation(null);
+    selectDomain(null);
   };
 
-  return (
-    <div
-      className={cn(
-        'flex flex-col border-l border-border bg-card transition-[width] duration-[250ms] ease-out overflow-hidden shrink-0',
-        isOpen ? 'w-[360px]' : 'w-0'
-      )}
-    >
-      {isOpen && (
-        <>
-          {/* Inspector 标题栏 */}
-          <div className="flex h-12 items-center justify-between border-b border-border px-4 shrink-0">
-            <span className="text-sm font-semibold text-foreground">
-              {selectedRelationId ? '关系详情' : selectedEntity?.displayName ?? '加载中...'}
-            </span>
-            <button
-              onClick={handleClose}
-              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          </div>
+  // 当前选中的领域边界数据
+  const selectedBoundary = selectedDomainId
+    ? (boundaries.find((b) => b.id === selectedDomainId) ?? null)
+    : null;
 
-          {/* 关系详情模式 */}
-          {selectedRelationId && selectedRelation ? (
-            <div className="flex-1 overflow-y-auto p-4">
-              <RelationDetailPanel relation={selectedRelation} />
+  return (
+    <>
+      <div
+        className={cn(
+          'flex flex-col border-l border-border bg-card transition-[width] duration-[250ms] ease-out overflow-hidden shrink-0',
+          isOpen ? 'w-[360px]' : 'w-0'
+        )}
+      >
+        {isOpen && (
+          <>
+            {/* Inspector 标题栏 */}
+            <div className="flex h-12 items-center justify-between border-b border-border px-4 shrink-0">
+              <span className="text-sm font-semibold text-foreground">
+                {selectedRelationId
+                  ? '关系详情'
+                  : selectedDomainId
+                  ? (selectedBoundary?.name ?? '领域详情')
+                  : (selectedEntity?.displayName ?? '加载中...')}
+              </span>
+              <button
+                onClick={handleClose}
+                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
             </div>
-          ) : selectedRelationId ? (
-            // 关系选中但数据尚未构造完成
-            <div className="flex flex-1 items-center justify-center">
-              <span className="text-sm text-muted-foreground">加载中...</span>
-            </div>
-          ) : selectedEntityId ? (
-            /* 实体详情模式（原有三 Tab） */
-            loadingDetail ? (
+
+            {/* 关系详情模式 */}
+            {selectedRelationId && selectedRelation ? (
+              <div className="flex-1 overflow-y-auto p-4">
+                <RelationDetailPanel relation={selectedRelation} />
+              </div>
+            ) : selectedRelationId ? (
               <div className="flex flex-1 items-center justify-center">
                 <span className="text-sm text-muted-foreground">加载中...</span>
               </div>
-            ) : selectedEntity ? (
-              <Tabs defaultValue="basic" className="flex flex-1 flex-col overflow-hidden">
-                <TabsList className="mx-4 mt-3 mb-0 grid w-auto grid-cols-3 shrink-0">
-                  <TabsTrigger value="basic" className="text-xs">基本信息</TabsTrigger>
-                  <TabsTrigger value="fields" className="text-xs">
-                    字段（{selectedEntity.fields?.length ?? 0}）
-                  </TabsTrigger>
-                  <TabsTrigger value="relations" className="text-xs">
-                    关系（{selectedEntity.relations?.length ?? 0}）
-                  </TabsTrigger>
-                </TabsList>
+            ) : selectedDomainId ? (
+              /* 领域详情模式 */
+              selectedBoundary ? (
+                <Tabs defaultValue="basic" className="flex flex-1 flex-col overflow-hidden">
+                  <TabsList className="mx-4 mt-3 mb-0 grid w-auto grid-cols-2 shrink-0">
+                    <TabsTrigger value="basic" className="text-xs">基本信息</TabsTrigger>
+                    <TabsTrigger value="entities" className="text-xs">
+                      归属实体（{selectedBoundary.entityCount}）
+                    </TabsTrigger>
+                  </TabsList>
 
-                <TabsContent value="basic" className="flex-1 overflow-y-auto p-4 mt-0">
-                  <EntityBasicTab entity={selectedEntity} />
-                </TabsContent>
+                  <TabsContent value="basic" className="flex-1 overflow-y-auto p-4 mt-0">
+                    <DomainBasicTab
+                      boundary={selectedBoundary}
+                      onDeleteRequest={() => setDeleteOpen(true)}
+                    />
+                  </TabsContent>
 
-                <TabsContent value="fields" className="flex-1 overflow-y-auto p-4 mt-0">
-                  <FieldsTab entity={selectedEntity} />
-                </TabsContent>
+                  <TabsContent value="entities" className="flex-1 overflow-y-auto p-4 mt-0">
+                    <DomainEntitiesTab boundary={selectedBoundary} />
+                  </TabsContent>
+                </Tabs>
+              ) : (
+                <div className="flex flex-1 items-center justify-center">
+                  <span className="text-sm text-muted-foreground">加载中...</span>
+                </div>
+              )
+            ) : selectedEntityId ? (
+              /* 实体详情模式（原有三 Tab） */
+              loadingDetail ? (
+                <div className="flex flex-1 items-center justify-center">
+                  <span className="text-sm text-muted-foreground">加载中...</span>
+                </div>
+              ) : selectedEntity ? (
+                <Tabs defaultValue="basic" className="flex flex-1 flex-col overflow-hidden">
+                  <TabsList className="mx-4 mt-3 mb-0 grid w-auto grid-cols-3 shrink-0">
+                    <TabsTrigger value="basic" className="text-xs">基本信息</TabsTrigger>
+                    <TabsTrigger value="fields" className="text-xs">
+                      字段（{selectedEntity.fields?.length ?? 0}）
+                    </TabsTrigger>
+                    <TabsTrigger value="relations" className="text-xs">
+                      关系（{selectedEntity.relations?.length ?? 0}）
+                    </TabsTrigger>
+                  </TabsList>
 
-                <TabsContent value="relations" className="flex-1 overflow-y-auto p-4 mt-0">
-                  <RelationsTab entity={selectedEntity} />
-                </TabsContent>
-              </Tabs>
-            ) : (
-              <div className="flex flex-1 items-center justify-center">
-                <span className="text-sm text-muted-foreground">加载失败</span>
-              </div>
-            )
-          ) : null}
-        </>
+                  <TabsContent value="basic" className="flex-1 overflow-y-auto p-4 mt-0">
+                    <EntityBasicTab entity={selectedEntity} />
+                  </TabsContent>
+
+                  <TabsContent value="fields" className="flex-1 overflow-y-auto p-4 mt-0">
+                    <FieldsTab entity={selectedEntity} />
+                  </TabsContent>
+
+                  <TabsContent value="relations" className="flex-1 overflow-y-auto p-4 mt-0">
+                    <RelationsTab entity={selectedEntity} />
+                  </TabsContent>
+                </Tabs>
+              ) : (
+                <div className="flex flex-1 items-center justify-center">
+                  <span className="text-sm text-muted-foreground">加载失败</span>
+                </div>
+              )
+            ) : null}
+          </>
+        )}
+      </div>
+
+      {/* 删除领域 Dialog（Step 8.9） */}
+      {selectedBoundary && (
+        <DeleteBoundaryDialog
+          open={deleteOpen}
+          onOpenChange={setDeleteOpen}
+          boundaryId={selectedBoundary.id}
+          boundaryName={selectedBoundary.name}
+          entityCount={selectedBoundary.entityCount}
+        />
       )}
-    </div>
+    </>
   );
 }

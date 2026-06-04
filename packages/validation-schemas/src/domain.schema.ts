@@ -1,7 +1,7 @@
 /**
  * @module domain.schema
  * @description TypeBox validation schemas for M2 Domain Model management endpoints.
- *              Covers F-M2-01 (entities), F-M2-02 (fields), F-M2-03 (relations), F-M2-04 (ER graph).
+ *              Covers F-M2-01 (entities), F-M2-02 (fields), F-M2-03 (relations), F-M2-04 (ER graph), F-M2-06 (boundaries).
  *
  * PRD Reference: docs/03-prd-ux/modules/domain-model/domain-model-prd.md
  * Tech Design:   docs/04-tech-design/domain-model-tech-design.md §3, §5
@@ -68,6 +68,19 @@ export const CanvasPositionSchema = Type.Object({
   y: Type.Number(),
 });
 
+/**
+ * Canvas position + size for domain boundary (includes width/height).
+ * R5 Why: Domain boundaries have dimensions (unlike entities which have fixed width),
+ *        because the user can manually resize the domain box on the Canvas.
+ *        min 240×160 per S3 interaction design spec.
+ */
+export const BoundaryPositionSchema = Type.Object({
+  x: Type.Number(),
+  y: Type.Number(),
+  width: Type.Number({ minimum: 240 }),
+  height: Type.Number({ minimum: 160 }),
+});
+
 // ============================================================
 // F-M2-01: Entity CRUD
 // ============================================================
@@ -129,6 +142,8 @@ export const ERNodeSchema = Type.Object({
     displayName: Type.String(),
     category: Type.Optional(Type.String()),
     fields: Type.Array(ERNodeFieldSchema),
+    // R5 Why: v1.2 新增 domainId，实体归属领域。可选字段，旧数据无此字段不会报错。
+    domainId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
   }),
 });
 
@@ -148,10 +163,23 @@ export const EREdgeSchema = Type.Object({
   }),
 });
 
+/** ERDomain shape — Canvas 领域框节点（F-M2-06） */
+export const ERDomainSchema = Type.Object({
+  id: Type.String(),
+  type: Type.Literal('domain'),
+  position: Type.Optional(Type.Union([BoundaryPositionSchema, Type.Null()])),
+  data: Type.Object({
+    name: Type.String(),
+    description: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  }),
+});
+
 /** Full ERGraphData — 通用格式（非 ReactFlow 特定） */
 export const ERGraphDataSchema = Type.Object({
   entities: Type.Array(ERNodeSchema),
   relations: Type.Array(EREdgeSchema),
+  // R5 Why: v1.2 新增 domains 数组，含 Canvas 领域框信息。前端 (erGraph.domains ?? []) 防御性处理。
+  domains: Type.Array(ERDomainSchema),
 });
 
 export const ERGraphResponse = SuccessEnvelope(ERGraphDataSchema);
@@ -234,3 +262,66 @@ export const RelationIdParam = Type.Object({
   projectId: Type.String(),
   relationId: Type.String(),
 });
+
+// ============================================================
+// F-M2-06: Boundary (Domain) Management
+// ============================================================
+
+/**
+ * Boundary name: 1-128 chars, supports CJK.
+ * R5 Why: Unlike EntityNameSchema which requires programming identifier format,
+ *        boundary names are display names (e.g. "订单域", "用户域") —
+ *        no pattern restriction per PRD §4.6.4.
+ */
+export const BoundaryNameSchema = Type.String({
+  minLength: 1,
+  maxLength: 128,
+});
+
+/**
+ * Optional description for boundaries, max 512 chars.
+ * R5 Why: Shorter than entity description (2000) because boundary descriptions are
+ *        concise business sub-domain labels per PRD §4.6.4.
+ */
+export const BoundaryDescriptionSchema = Type.Optional(Type.String({ maxLength: 512 }));
+
+/** POST /domain/boundaries — create boundary */
+export const CreateBoundaryInput = Type.Object({
+  name: BoundaryNameSchema,
+  description: BoundaryDescriptionSchema,
+  canvasPosition: Type.Optional(BoundaryPositionSchema),
+});
+
+/**
+ * PUT /domain/boundaries/:boundaryId — update boundary (partial).
+ * R5 Why: name is mutable (unlike entity name) because boundary name is a display label,
+ *        not a code identifier. canvasPosition uses BoundaryPositionSchema (with width/height).
+ */
+export const UpdateBoundaryInput = Type.Object({
+  name: Type.Optional(BoundaryNameSchema),
+  description: Type.Optional(Type.Union([Type.String({ maxLength: 512 }), Type.Null()])),
+  canvasPosition: Type.Optional(Type.Union([BoundaryPositionSchema, Type.Null()])),
+});
+
+/**
+ * PUT /domain/entities/:entityId/domain — update entity's domain assignment.
+ * R5 Why: domainId=null means entity leaves its current domain.
+ *        null is explicit (not undefined) to distinguish "remove" from "no change".
+ */
+export const UpdateEntityDomainInput = Type.Object({
+  domainId: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+});
+
+/** Path params: boundaryId */
+export const BoundaryIdParam = Type.Object({
+  projectId: Type.String(),
+  boundaryId: Type.String(),
+});
+
+/** GET /domain/boundaries — list query params */
+export const BoundaryListQuery = Type.Intersect([
+  PaginationQuery,
+  Type.Object({
+    search: SearchQuery,
+  }),
+]);

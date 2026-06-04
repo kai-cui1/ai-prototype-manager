@@ -33,6 +33,8 @@ import type {
   Department,
   Role,
   ExternalEntity,
+  RoleAction,
+  DecisionDef,
 } from '@apm/shared';
 
 // ============================================================
@@ -127,8 +129,8 @@ function toRole(row: typeof roles.$inferSelect): Role {
     description: row.description,
     category: row.category,
     contactInfo: row.contactInfo as Record<string, unknown>,
-    actions: row.actions as unknown[],
-    decisions: row.decisions as unknown[],
+    actions: row.actions as RoleAction[],
+    decisions: row.decisions as DecisionDef[],
     sortOrder: row.sortOrder,
     config: row.config as Record<string, unknown>,
     createdAt: row.createdAt.toISOString(),
@@ -151,8 +153,8 @@ function toExternalEntity(row: typeof externalEntities.$inferSelect): ExternalEn
     description: row.description,
     entityType: row.entityType,
     contactInfo: row.contactInfo as Record<string, unknown>,
-    actions: row.actions as unknown[],
-    decisions: row.decisions as unknown[],
+    actions: row.actions as RoleAction[],
+    decisions: row.decisions as DecisionDef[],
     sortOrder: row.sortOrder,
     config: row.config as Record<string, unknown>,
     createdAt: row.createdAt.toISOString(),

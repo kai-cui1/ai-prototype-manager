@@ -2,7 +2,8 @@
  * @module domain.service
  * @description M2 领域模型管理 Service 层。
  *              覆盖 F-M2-01（实体 CRUD）+ F-M2-02（字段管理）+
- *              F-M2-03（关系管理）+ F-M2-04（ER 图数据端点）。
+ *              F-M2-03（关系管理）+ F-M2-04（ER 图数据端点）+
+ *              F-M2-06（领域边界管理）。
  *
  * PRD Reference: docs/03-prd-ux/modules/domain-model/domain-model-prd.md
  * Tech Design:   docs/04-tech-design/domain-model-tech-design.md
@@ -12,6 +13,7 @@ import { eq, ilike, and, or, asc, count, sql, inArray } from 'drizzle-orm';
 import {
   projects,
   domainEntities,
+  domainBoundaries,
   entityFields,
   entityRelations,
 } from '../models/schema.js';
@@ -32,6 +34,14 @@ interface CanvasPosition {
   y: number;
 }
 
+/** R5 Why: 领域框有尺寸信息（width/height），与实体的 CanvasPosition（只有 x/y）不同 */
+interface BoundaryCanvasPosition {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
 /** 从 config JSONB 中解析 canvasPosition */
 function parseCanvasPosition(config: unknown): CanvasPosition | null {
   if (!config || typeof config !== 'object') return null;
@@ -40,6 +50,17 @@ function parseCanvasPosition(config: unknown): CanvasPosition | null {
   const pos = c.canvas_position as Record<string, unknown>;
   if (typeof pos.x !== 'number' || typeof pos.y !== 'number') return null;
   return { x: pos.x, y: pos.y };
+}
+
+/** 从 config JSONB 中解析领域框 canvasPosition（含 width/height） */
+function parseBoundaryPosition(config: unknown): BoundaryCanvasPosition | null {
+  if (!config || typeof config !== 'object') return null;
+  const c = config as Record<string, unknown>;
+  if (!c.canvas_position || typeof c.canvas_position !== 'object') return null;
+  const pos = c.canvas_position as Record<string, unknown>;
+  if (typeof pos.x !== 'number' || typeof pos.y !== 'number' ||
+      typeof pos.width !== 'number' || typeof pos.height !== 'number') return null;
+  return { x: pos.x, y: pos.y, width: pos.width, height: pos.height };
 }
 
 // ============================================================
@@ -943,6 +964,8 @@ export async function getFullERGraph(db: Db, projectId: string) {
         fieldType: f.fieldType,
         isRequired: f.isRequired,
       })),
+      // R5 Why: v1.2 新增 domainId，实体归属领域。前端通过此字段判断实体属于哪个领域框。
+      domainId: entity.domainId ?? undefined,
     },
   }));
 
@@ -961,7 +984,23 @@ export async function getFullERGraph(db: Db, projectId: string) {
     },
   }));
 
-  return { entities: nodes, relations: edges };
+  // R5 Why: v1.2 新增 domains 数组，查询项目下所有领域边界，映射为 ERDomain 格式
+  const boundaries = await db
+    .select()
+    .from(domainBoundaries)
+    .where(eq(domainBoundaries.projectId, projectId));
+
+  const domains = boundaries.map((b) => ({
+    id: b.id,
+    type: 'domain' as const,
+    position: parseBoundaryPosition(b.config),
+    data: {
+      name: b.name,
+      description: b.description ?? undefined,
+    },
+  }));
+
+  return { entities: nodes, relations: edges, domains };
 }
 
 /**
@@ -1046,6 +1085,7 @@ export async function getEntityERGraph(db: Db, projectId: string, entityId: stri
         fieldType: f.fieldType,
         isRequired: f.isRequired,
       })),
+      domainId: entity.domainId ?? undefined,
     },
   }));
 
@@ -1064,7 +1104,34 @@ export async function getEntityERGraph(db: Db, projectId: string, entityId: stri
     },
   }));
 
-  return { entities: nodes, relations: edges };
+  // R5 Why: 局部 ER 图也需返回 domains，以便前端渲染领域框
+  const boundaryIds = new Set<string>();
+  for (const entity of allEntities) {
+    if (entity.domainId) boundaryIds.add(entity.domainId);
+  }
+  const boundaries = boundaryIds.size > 0
+    ? await db
+        .select()
+        .from(domainBoundaries)
+        .where(
+          and(
+            eq(domainBoundaries.projectId, projectId),
+            inArray(domainBoundaries.id, [...boundaryIds])
+          )
+        )
+    : [];
+
+  const domains = boundaries.map((b) => ({
+    id: b.id,
+    type: 'domain' as const,
+    position: parseBoundaryPosition(b.config),
+    data: {
+      name: b.name,
+      description: b.description ?? undefined,
+    },
+  }));
+
+  return { entities: nodes, relations: edges, domains };
 }
 
 // ============================================================
@@ -1103,4 +1170,300 @@ async function getRelationsWithNames(
   `)) as unknown as Record<string, unknown>[];
 
   return rows.map(toRelation);
+}
+
+// ============================================================
+// F-M2-06: Boundary (Domain) Management
+// ============================================================
+
+/** Boundary 数据映射 */
+function toBoundary(
+  row: typeof domainBoundaries.$inferSelect,
+  entityCount: number
+) {
+  return {
+    id: row.id,
+    projectId: row.projectId,
+    name: row.name,
+    description: row.description ?? null,
+    canvasPosition: parseBoundaryPosition(row.config),
+    entityCount,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+  };
+}
+
+/** 查找领域，不存在则抛 404 */
+async function findBoundaryOrThrow(db: Db, projectId: string, boundaryId: string) {
+  const [row] = await db
+    .select()
+    .from(domainBoundaries)
+    .where(
+      and(
+        eq(domainBoundaries.id, boundaryId),
+        eq(domainBoundaries.projectId, projectId)
+      )
+    );
+  if (!row) throw notFound('领域', boundaryId);
+  return row;
+}
+
+/** 领域框矩形重叠检测（AABB），重叠抛 409 */
+async function checkBoundaryOverlap(
+  db: Db,
+  projectId: string,
+  excludeBoundaryId: string | null,
+  position: BoundaryCanvasPosition
+): Promise<void> {
+  const others = await db
+    .select()
+    .from(domainBoundaries)
+    .where(eq(domainBoundaries.projectId, projectId));
+
+  for (const other of others) {
+    // 跳过自身
+    if (excludeBoundaryId && other.id === excludeBoundaryId) continue;
+    const otherPos = parseBoundaryPosition(other.config);
+    if (!otherPos) continue;
+
+    // AABB 相交检测：不相交条件取反 = 相交
+    const notOverlap =
+      position.x + position.width <= otherPos.x ||
+      otherPos.x + otherPos.width <= position.x ||
+      position.y + position.height <= otherPos.y ||
+      otherPos.y + otherPos.height <= position.y;
+
+    if (!notOverlap) {
+      throw conflict(ERROR_CODES.CONFLICT, `领域框与「${other.name}」重叠，领域框不可重叠`);
+    }
+  }
+}
+
+/**
+ * 获取项目内领域列表（含 entityCount）。
+ * B-M2-F06-02: 允许空领域存在，列表始终返回所有领域。
+ */
+export async function listBoundaries(
+  db: Db,
+  projectId: string,
+  params?: { page?: number; pageSize?: number; search?: string }
+) {
+  const { offset, limit, page, pageSize } = parsePagination(params);
+
+  // 条件构建
+  const conditions = [eq(domainBoundaries.projectId, projectId)];
+  if (params?.search) {
+    conditions.push(ilike(domainBoundaries.name, `%${params.search}%`));
+  }
+  const where = and(...conditions);
+
+  // 查询总数
+  const [{ count: total }] = await db
+    .select({ count: count() })
+    .from(domainBoundaries)
+    .where(where);
+
+  // 查询列表
+  const rows = await db
+    .select()
+    .from(domainBoundaries)
+    .where(where)
+    .orderBy(asc(domainBoundaries.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  // 统计每个领域的实体数量
+  const boundaryIds = rows.map((r) => r.id);
+  const entityCountMap = new Map<string, number>();
+  if (boundaryIds.length > 0) {
+    const counts = await db
+      .select({
+        domainId: domainEntities.domainId,
+        count: count(),
+      })
+      .from(domainEntities)
+      .where(
+        and(
+          eq(domainEntities.projectId, projectId),
+          inArray(domainEntities.domainId, boundaryIds)
+        )
+      )
+      .groupBy(domainEntities.domainId);
+    for (const c of counts) {
+      entityCountMap.set(c.domainId!, Number(c.count));
+    }
+  }
+
+  const data = rows.map((row) =>
+    toBoundary(row, entityCountMap.get(row.id) ?? 0)
+  );
+
+  return { data, meta: buildMeta(Number(total), page, pageSize) };
+}
+
+/**
+ * 创建领域。
+ * B-M2-F06-01: name 在项目内唯一。
+ * B-M2-F06-04: 如果提供 canvasPosition，检查重叠。
+ */
+export async function createBoundary(
+  db: Db,
+  projectId: string,
+  input: { name: string; description?: string; canvasPosition?: BoundaryCanvasPosition }
+) {
+  // 唯一性检查
+  const [existing] = await db
+    .select({ id: domainBoundaries.id })
+    .from(domainBoundaries)
+    .where(
+      and(
+        eq(domainBoundaries.projectId, projectId),
+        eq(domainBoundaries.name, input.name)
+      )
+    );
+  if (existing) {
+    throw conflict(ERROR_CODES.CONFLICT, `领域名称「${input.name}」已被使用`);
+  }
+
+  // 重叠检测（仅在提供了 canvasPosition 时）
+  if (input.canvasPosition) {
+    await checkBoundaryOverlap(db, projectId, null, input.canvasPosition);
+  }
+
+  // 构造 config
+  const config: Record<string, unknown> = {};
+  if (input.canvasPosition) {
+    config.canvas_position = input.canvasPosition;
+  }
+
+  const [row] = await db
+    .insert(domainBoundaries)
+    .values({
+      projectId,
+      name: input.name,
+      description: input.description ?? null,
+      config: Object.keys(config).length > 0 ? config : {},
+    })
+    .returning();
+
+  return toBoundary(row, 0);
+}
+
+/** 获取领域详情 */
+export async function getBoundaryById(db: Db, projectId: string, boundaryId: string) {
+  const row = await findBoundaryOrThrow(db, projectId, boundaryId);
+
+  // 统计实体数量
+  const [{ count: entityCount }] = await db
+    .select({ count: count() })
+    .from(domainEntities)
+    .where(eq(domainEntities.domainId, boundaryId));
+
+  return toBoundary(row, Number(entityCount));
+}
+
+/**
+ * 更新领域。
+ * name 变更时检查唯一性；canvasPosition 变更时检查重叠。
+ */
+export async function updateBoundary(
+  db: Db,
+  projectId: string,
+  boundaryId: string,
+  input: { name?: string; description?: string | null; canvasPosition?: BoundaryCanvasPosition | null }
+) {
+  await findBoundaryOrThrow(db, projectId, boundaryId);
+
+  // name 唯一性检查
+  if (input.name !== undefined) {
+    const [existing] = await db
+      .select({ id: domainBoundaries.id })
+      .from(domainBoundaries)
+      .where(
+        and(
+          eq(domainBoundaries.projectId, projectId),
+          eq(domainBoundaries.name, input.name)
+        )
+      );
+    // 排除自身
+    if (existing && existing.id !== boundaryId) {
+      throw conflict(ERROR_CODES.CONFLICT, `领域名称「${input.name}」已被使用`);
+    }
+  }
+
+  // 重叠检测（canvasPosition 变更时）
+  if (input.canvasPosition) {
+    await checkBoundaryOverlap(db, projectId, boundaryId, input.canvasPosition);
+  }
+
+  // 获取现有 config，合并更新
+  const [current] = await db
+    .select({ config: domainBoundaries.config })
+    .from(domainBoundaries)
+    .where(eq(domainBoundaries.id, boundaryId));
+
+  const currentConfig = (current?.config as Record<string, unknown>) ?? {};
+  const newConfig = { ...currentConfig };
+
+  if (input.canvasPosition !== undefined) {
+    if (input.canvasPosition === null) {
+      delete newConfig.canvas_position;
+    } else {
+      newConfig.canvas_position = input.canvasPosition;
+    }
+  }
+
+  // 构建更新对象
+  const updates: Record<string, unknown> = { updatedAt: new Date() };
+  if (input.name !== undefined) updates.name = input.name;
+  if (input.description !== undefined) updates.description = input.description;
+  if (input.canvasPosition !== undefined) updates.config = Object.keys(newConfig).length > 0 ? newConfig : {};
+
+  const [row] = await db
+    .update(domainBoundaries)
+    .set(updates)
+    .where(eq(domainBoundaries.id, boundaryId))
+    .returning();
+
+  // 统计实体数量
+  const [{ count: entityCount }] = await db
+    .select({ count: count() })
+    .from(domainEntities)
+    .where(eq(domainEntities.domainId, boundaryId));
+
+  return toBoundary(row, Number(entityCount));
+}
+
+/**
+ * 删除领域。
+ * B-M2-F06-03: 删除领域时实体 domainId 置 null（ON DELETE SET NULL 由 DB 外键自动处理）。
+ */
+export async function deleteBoundary(db: Db, projectId: string, boundaryId: string) {
+  await findBoundaryOrThrow(db, projectId, boundaryId);
+  await db.delete(domainBoundaries).where(eq(domainBoundaries.id, boundaryId));
+}
+
+/**
+ * 更新实体的领域归属。
+ * B-M2-F06-01: 实体最多归属一个领域（domainId 是单一 FK）。
+ * B-M2-F06-05: 松手即归属，允许覆盖已有领域。
+ */
+export async function updateEntityDomain(
+  db: Db,
+  projectId: string,
+  entityId: string,
+  domainId: string | null
+) {
+  // 验证实体存在且属于当前项目
+  await findEntityOrThrow(db, projectId, entityId);
+
+  // 验证领域存在且属于当前项目（domainId 非 null 时）
+  if (domainId !== null) {
+    await findBoundaryOrThrow(db, projectId, domainId);
+  }
+
+  await db
+    .update(domainEntities)
+    .set({ domainId, updatedAt: new Date() })
+    .where(eq(domainEntities.id, entityId));
 }

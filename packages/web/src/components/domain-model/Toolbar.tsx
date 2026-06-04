@@ -4,19 +4,21 @@
  */
 
 import { useState, useEffect } from 'react';
-import { LayoutGrid, List, Plus, Search, Settings2 } from 'lucide-react';
+import { LayoutGrid, List, Plus, Search, Settings2, BoxSelect } from 'lucide-react';
 import { useDebouncedCallback } from 'use-debounce';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { useDomainModelContext } from '@/contexts/DomainModelContext';
 import CreateEntityDialog from './dialogs/CreateEntityDialog';
+import CreateBoundaryDialog from './dialogs/CreateBoundaryDialog';
 import CanvasSettingsSheet from './CanvasSettingsSheet';
 
 export default function Toolbar() {
   const { viewMode, setViewMode, setSearchQuery } = useDomainModelContext();
   const [inputValue, setInputValue] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
+  const [createBoundaryOpen, setCreateBoundaryOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
   // 防抖 300ms 后更新 Context 的 searchQuery
@@ -72,6 +74,17 @@ export default function Toolbar() {
 
         <div className="flex-1" />
 
+        {/* 新建领域 */}
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5"
+          onClick={() => setCreateBoundaryOpen(true)}
+        >
+          <BoxSelect className="h-3.5 w-3.5" />
+          新建领域
+        </Button>
+
         {/* 新建实体 */}
         <Button size="sm" className="h-8 gap-1.5" onClick={() => setCreateOpen(true)}>
           <Plus className="h-3.5 w-3.5" />
@@ -91,6 +104,7 @@ export default function Toolbar() {
       </div>
 
       <CreateEntityDialog open={createOpen} onOpenChange={setCreateOpen} />
+      <CreateBoundaryDialog open={createBoundaryOpen} onOpenChange={setCreateBoundaryOpen} />
       <CanvasSettingsSheet open={settingsOpen} onOpenChange={setSettingsOpen} />
     </>
   );

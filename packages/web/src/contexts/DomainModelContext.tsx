@@ -21,6 +21,7 @@ import type {
   EntitySummary,
   EntityDetail,
   ERGraphData,
+  BoundarySummary,
   Field,
   Relation,
   FieldType,
@@ -58,11 +59,14 @@ interface DomainModelContextValue {
   // ---- 数据 ----
   entities: EntitySummary[];
   entitiesTotal: number;
+  boundaries: BoundarySummary[];
+  boundariesTotal: number;
   erGraph: ERGraphData | null;
   selectedEntity: EntityDetail | null;
 
   // ---- 加载状态 ----
   loadingEntities: boolean;
+  loadingBoundaries: boolean;
   loadingGraph: boolean;
   loadingDetail: boolean;
 
@@ -85,12 +89,19 @@ interface DomainModelContextValue {
   selectedRelation: Relation | null;
   selectRelation: (id: string | null) => void;
 
+  // ---- 领域框选中状态（与实体/关系选中互斥）----
+  selectedDomainId: string | null;
+  selectDomain: (id: string | null) => void;
+
   // ---- 数据刷新 ----
   refetchEntities: () => void;
   refetchGraph: () => void;
 
   // ---- ReactFlow 实例引用（用于 fitView 等操作）----
   rfInstanceRef: React.MutableRefObject<ReactFlowInstance | null>;
+
+  // ---- 最后一次画布点击位置（画布坐标，用于新建对象时的放置定位）----
+  lastCanvasClickRef: React.MutableRefObject<{ x: number; y: number } | null>;
 
   // ---- 数据操作（透传给子组件）----
   createEntity: (input: {
@@ -157,6 +168,23 @@ interface DomainModelContextValue {
     }
   ) => Promise<Relation>;
   deleteRelation: (relationId: string) => Promise<void>;
+
+  // ---- 领域边界操作（F-M2-06）----
+  createBoundary: (input: {
+    name: string;
+    description?: string;
+    canvasPosition?: { x: number; y: number; width: number; height: number };
+  }) => Promise<BoundarySummary>;
+  updateBoundary: (
+    boundaryId: string,
+    input: {
+      name?: string;
+      description?: string | null;
+      canvasPosition?: { x: number; y: number; width: number; height: number } | null;
+    }
+  ) => Promise<BoundarySummary>;
+  deleteBoundary: (boundaryId: string) => Promise<void>;
+  updateEntityDomain: (entityId: string, domainId: string | null) => Promise<{ entityId: string; domainId: string | null }>;
 }
 
 // ============================================================
@@ -183,7 +211,9 @@ export function DomainModelProvider({ projectId, children }: DomainModelProvider
   const [selectedEntity, setSelectedEntity] = useState<EntityDetail | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [selectedRelationId, setSelectedRelationId] = useState<string | null>(null);
+  const [selectedDomainId, setSelectedDomainId] = useState<string | null>(null);
   const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
+  const lastCanvasClickRef = useRef<{ x: number; y: number } | null>(null);
 
   // 画布配置（从 localStorage 初始化，按项目隔离）
   const [canvasSettings, setCanvasSettings] = useState<CanvasSettings>(() =>
@@ -205,6 +235,7 @@ export function DomainModelProvider({ projectId, children }: DomainModelProvider
   useEffect(() => {
     hook.fetchEntities();
     hook.fetchERGraph();
+    hook.fetchBoundaries();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId]);
 
@@ -231,14 +262,29 @@ export function DomainModelProvider({ projectId, children }: DomainModelProvider
 
   const selectEntity = useCallback((id: string | null) => {
     setSelectedEntityId(id);
-    // B-M2-F03-01：实体选中与关系选中互斥
-    if (id !== null) setSelectedRelationId(null);
+    // B-M2-F03-01：实体选中与关系/领域选中互斥
+    if (id !== null) {
+      setSelectedRelationId(null);
+      setSelectedDomainId(null);
+    }
   }, []);
 
   const selectRelation = useCallback((id: string | null) => {
     setSelectedRelationId(id);
-    // B-M2-F03-01：关系选中与实体选中互斥
-    if (id !== null) setSelectedEntityId(null);
+    // B-M2-F03-01：关系选中与实体/领域选中互斥
+    if (id !== null) {
+      setSelectedEntityId(null);
+      setSelectedDomainId(null);
+    }
+  }, []);
+
+  const selectDomain = useCallback((id: string | null) => {
+    setSelectedDomainId(id);
+    // 领域选中与实体/关系选中互斥
+    if (id !== null) {
+      setSelectedEntityId(null);
+      setSelectedRelationId(null);
+    }
   }, []);
 
   // 从 erGraph + entities 构造 selectedRelation（避免额外 API 请求）
@@ -414,12 +460,59 @@ export function DomainModelProvider({ projectId, children }: DomainModelProvider
     [refetchDetail, selectedRelationId]
   );
 
+  // ---- 领域边界操作包装（成功后自动刷新 ER 图 + 领域列表）----
+
+  const createBoundary = useCallback(
+    async (input: Parameters<typeof hook.createBoundary>[0]) => {
+      const result = await hook.createBoundary(input);
+      hook.fetchBoundaries();
+      hook.fetchERGraph();
+      return result;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  const updateBoundary = useCallback(
+    async (boundaryId: string, input: Parameters<typeof hook.updateBoundary>[1]) => {
+      const result = await hook.updateBoundary(boundaryId, input);
+      hook.fetchBoundaries();
+      hook.fetchERGraph();
+      return result;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  const deleteBoundary = useCallback(
+    async (boundaryId: string) => {
+      await hook.deleteBoundary(boundaryId);
+      hook.fetchBoundaries();
+      hook.fetchERGraph();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
+  const updateEntityDomain = useCallback(
+    async (entityId: string, domainId: string | null) => {
+      const result = await hook.updateEntityDomain(entityId, domainId);
+      hook.fetchERGraph();
+      return result;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
+
   const value: DomainModelContextValue = {
     entities: hook.entities,
     entitiesTotal: hook.entitiesTotal,
+    boundaries: hook.boundaries,
+    boundariesTotal: hook.boundariesTotal,
     erGraph: hook.erGraph,
     selectedEntity,
     loadingEntities: hook.loadingEntities,
+    loadingBoundaries: hook.loadingBoundaries,
     loadingGraph: hook.loadingGraph,
     loadingDetail,
     viewMode,
@@ -433,9 +526,12 @@ export function DomainModelProvider({ projectId, children }: DomainModelProvider
     selectedRelationId,
     selectedRelation,
     selectRelation,
+    selectedDomainId,
+    selectDomain,
     refetchEntities,
     refetchGraph,
     rfInstanceRef,
+    lastCanvasClickRef,
     createEntity,
     updateEntity,
     deleteEntity,
@@ -446,6 +542,10 @@ export function DomainModelProvider({ projectId, children }: DomainModelProvider
     createRelation,
     updateRelation,
     deleteRelation,
+    createBoundary,
+    updateBoundary,
+    deleteBoundary,
+    updateEntityDomain,
   };
 
   return <DomainModelContext.Provider value={value}>{children}</DomainModelContext.Provider>;

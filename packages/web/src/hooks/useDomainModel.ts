@@ -68,9 +68,21 @@ export interface Relation {
   updatedAt: string;
 }
 
+export interface BoundarySummary {
+  id: string;
+  projectId: string;
+  name: string;
+  description: string | null;
+  canvasPosition: { x: number; y: number; width: number; height: number } | null;
+  entityCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ERGraphData {
   entities: ERNode[];
   relations: EREdge[];
+  domains: ERDomain[];
 }
 
 export interface ERNode {
@@ -81,6 +93,7 @@ export interface ERNode {
     name: string;
     displayName: string;
     category?: string;
+    domainId?: string;
     fields: Array<{
       id: string;
       name: string;
@@ -88,6 +101,16 @@ export interface ERNode {
       fieldType: FieldType;
       isRequired: boolean;
     }>;
+  };
+}
+
+export interface ERDomain {
+  id: string;
+  type: 'domain';
+  position?: { x: number; y: number; width: number; height: number };
+  data: {
+    name: string;
+    description?: string;
   };
 }
 
@@ -112,8 +135,11 @@ export interface EREdge {
 export function useDomainModel(projectId: string) {
   const [entities, setEntities] = useState<EntitySummary[]>([]);
   const [entitiesTotal, setEntitiesTotal] = useState(0);
+  const [boundaries, setBoundaries] = useState<BoundarySummary[]>([]);
+  const [boundariesTotal, setBoundariesTotal] = useState(0);
   const [erGraph, setErGraph] = useState<ERGraphData | null>(null);
   const [loadingEntities, setLoadingEntities] = useState(false);
+  const [loadingBoundaries, setLoadingBoundaries] = useState(false);
   const [loadingGraph, setLoadingGraph] = useState(false);
 
   // ---- 实体列表 ----
@@ -327,16 +353,97 @@ export function useDomainModel(projectId: string) {
     [projectId]
   );
 
+  // ---- 领域边界 CRUD ----
+
+  const fetchBoundaries = useCallback(
+    async (params?: { search?: string; page?: number; pageSize?: number }) => {
+      setLoadingBoundaries(true);
+      try {
+        const query = new URLSearchParams();
+        if (params?.search) query.set('search', params.search);
+        if (params?.page) query.set('page', String(params.page));
+        if (params?.pageSize) query.set('pageSize', String(params.pageSize));
+        const res = await apiClient.get<{ data: BoundarySummary[]; meta: { total: number } }>(
+          `/projects/${projectId}/domain/boundaries?${query}`
+        );
+        setBoundaries(res.data.data);
+        setBoundariesTotal(res.data.meta.total);
+      } catch (err) {
+        toast.error((err as Error).message || '加载领域列表失败');
+      } finally {
+        setLoadingBoundaries(false);
+      }
+    },
+    [projectId]
+  );
+
+  const createBoundary = useCallback(
+    async (input: {
+      name: string;
+      description?: string;
+      canvasPosition?: { x: number; y: number; width: number; height: number };
+    }) => {
+      const res = await apiClient.post<{ data: BoundarySummary }>(
+        `/projects/${projectId}/domain/boundaries`,
+        input
+      );
+      return res.data.data;
+    },
+    [projectId]
+  );
+
+  const updateBoundary = useCallback(
+    async (
+      boundaryId: string,
+      input: {
+        name?: string;
+        description?: string | null;
+        canvasPosition?: { x: number; y: number; width: number; height: number } | null;
+      }
+    ) => {
+      const res = await apiClient.put<{ data: BoundarySummary }>(
+        `/projects/${projectId}/domain/boundaries/${boundaryId}`,
+        input
+      );
+      return res.data.data;
+    },
+    [projectId]
+  );
+
+  const deleteBoundary = useCallback(
+    async (boundaryId: string) => {
+      await apiClient.delete(`/projects/${projectId}/domain/boundaries/${boundaryId}`);
+    },
+    [projectId]
+  );
+
+  // ---- 实体领域归属 ----
+
+  const updateEntityDomain = useCallback(
+    async (entityId: string, domainId: string | null) => {
+      const res = await apiClient.put<{ data: { entityId: string; domainId: string | null } }>(
+        `/projects/${projectId}/domain/entities/${entityId}/domain`,
+        { domainId }
+      );
+      return res.data.data;
+    },
+    [projectId]
+  );
+
   return {
     // 数据
     entities,
     entitiesTotal,
+    boundaries,
+    boundariesTotal,
     erGraph,
     // 加载状态
     loadingEntities,
+    loadingBoundaries,
     loadingGraph,
     // 操作
     fetchEntities,
+    fetchBoundaries,
     fetchERGraph,
     createEntity,
     updateEntity,
@@ -349,5 +456,9 @@ export function useDomainModel(projectId: string) {
     createRelation,
     updateRelation,
     deleteRelation,
+    createBoundary,
+    updateBoundary,
+    deleteBoundary,
+    updateEntityDomain,
   };
 }

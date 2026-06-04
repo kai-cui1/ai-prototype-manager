@@ -6,3 +6,4 @@ export * from './architecture.js';
 export * from './menu.js';
 export * from './data-flow.js';
 export * from './application.js';
+export * from './role-behavior.js';

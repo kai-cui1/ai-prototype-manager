@@ -28,10 +28,13 @@ export const domainEntities = pgTable('domain_entities', {
   sortOrder: integer('sort_order').notNull().default(0),
   // R5 Why: config JSONB 存储 UI 元数据（如 canvas_position），避免频繁 DDL 变更
   config: jsonb('config').default('{}'),
+  // R5 Why: domainId 为可空 FK，实体最多归属一个领域。ON DELETE SET NULL 保证删除领域时实体保留。
+  domainId: text('domain_id').references(() => domainBoundaries.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   uniqueIndex('domain_entities_project_name_unique').on(table.projectId, table.name),
+  index('idx_domain_entities_domain').on(table.domainId),
 ]);
 
 // ============================================
@@ -83,7 +86,32 @@ export const entityRelations = pgTable('entity_relations', {
 ]);
 
 // ============================================
-// Table 5: data_flow_metadata — 数据流元数据表
+// Table 5: domain_boundaries — 领域边界表
+// ============================================
+/**
+ * @module domainBoundaries
+ * @description 业务子域的分组容器（如"订单域"、"用户域"），实体可通过 domainId 归属一个领域。
+ * R5 Why: DomainBoundary 是 M2 领域模型管理的新增概念（v1.5），支持将实体按业务子域分组。
+ *        与 DomainModelDef 不同，DomainBoundary 是实际实现的功能（非跳过的元模型中间层）。
+ *        name 即展示名称（无单独 displayName），因为领域名不是编程标识符。
+ *        config 存储 canvas_position: { x, y, width, height }，含领域框尺寸信息。
+ */
+export const domainBoundaries = pgTable('domain_boundaries', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),           // 领域名称（项目内唯一，即展示名）
+  description: text('description'),       // 可选描述
+  // R5 Why: config JSONB 存储 UI 元数据（canvas_position: { x, y, width, height }），与 domain_entities.config 模式一致
+  config: jsonb('config').default('{}'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('idx_domain_boundaries_project').on(table.projectId),
+  uniqueIndex('domain_boundaries_project_name_unique').on(table.projectId, table.name),
+]);
+
+// ============================================
+// Table 6: data_flow_metadata — 数据流元数据表
 // ============================================
 /**
  * @module dataFlowMetadata
@@ -376,6 +404,7 @@ export const roles = pgTable('roles', {
   actions: jsonb('actions').default('[]'),
   decisions: jsonb('decisions').default('[]'),
   sortOrder: integer('sort_order').notNull().default(0),
+  version: integer('version').notNull().default(1),
   config: jsonb('config').default('{}'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -407,6 +436,7 @@ export const externalEntities = pgTable('external_entities', {
   actions: jsonb('actions').default('[]'),
   decisions: jsonb('decisions').default('[]'),
   sortOrder: integer('sort_order').notNull().default(0),
+  version: integer('version').notNull().default(1),
   config: jsonb('config').default('{}'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

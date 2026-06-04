@@ -7,7 +7,7 @@
  */
 
 import { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useProjectDetail } from '@/hooks/useProjectDetail';
 import { useOrganization } from '@/hooks/useOrganization';
 import { DetailSkeleton } from '@/components/project/DetailSkeleton';
@@ -256,6 +256,7 @@ function RoleFormDialog({
 
 export default function RolesPage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
   const { project, loading: projectLoading, error: projectError } = useProjectDetail(projectId);
   const org = useOrganization(projectId ?? '');
 
@@ -444,21 +445,22 @@ export default function RolesPage() {
             return (
               <div
                 key={role.id}
-                className="group relative rounded-card border border-card-border bg-card p-4 hover:border-primary/40 hover:shadow-sm transition-all"
+                className="group relative rounded-card border border-card-border bg-card p-4 hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer"
+                onClick={() => navigate(`/p/${projectId}/roles/${role.id}`)}
               >
                 {/* 操作按钮（hover 显示） */}
                 {!isArchived && (
                   <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       className="p-1 rounded text-text-tertiary hover:text-primary hover:bg-primary/10 transition-colors"
-                      onClick={() => setEditTarget(role)}
+                      onClick={(e) => { e.stopPropagation(); setEditTarget(role); }}
                       title="编辑"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
                     <button
                       className="p-1 rounded text-text-tertiary hover:text-danger hover:bg-danger/10 transition-colors"
-                      onClick={() => setDeleteTarget(role)}
+                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(role); }}
                       title="删除"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -478,6 +480,11 @@ export default function RolesPage() {
                 {role.description && (
                   <p className="mt-2 text-sm text-text-secondary line-clamp-2">{role.description}</p>
                 )}
+                <div className="mt-2 text-xs text-text-tertiary">
+                  {(role.actions?.length ?? 0) > 0 && <span>{role.actions.length} 行为</span>}
+                  {(role.actions?.length ?? 0) > 0 && (role.decisions?.length ?? 0) > 0 && <span> · </span>}
+                  {(role.decisions?.length ?? 0) > 0 && <span>{role.decisions.length} 决策</span>}
+                </div>
               </div>
             );
           })}

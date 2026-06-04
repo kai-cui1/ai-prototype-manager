@@ -190,6 +190,8 @@ flowchart TD
 | F-M1-08 | 角色管理 | **P0** | 在部门下管理角色：创建/编辑/删除角色；角色必须归属于某个部门；字段含 name、display_name、description、category、contact_info | §4.8 |
 | F-M1-09 | 外部实体管理 | P1 | 管理外部参与方（系统/组织/人员/API 等）：可选择性归属到公司和部门；与 Role 对称的第四类流程节点 holder | §4.9 |
 | F-M1-10 | 项目摘要统计 | P1 | 聚合查询项目下各模块的资源数量（实体数、流程数、公司数等），用于详情页概要卡片的数据填充 | §4.10 |
+| F-M1-11 | 应用管理 | **P0** | CRUD 管理应用对象（7 种类型），含 icon 自动分配、卡片/表格切换视图 | 见 application-management-prd.md |
+| F-M1-12 | 角色行为管理 | P1 | 管理 Role.actions[] 和 Role.decisions[] 的 CRUD，为 M3 业务流程提供 actionRef/decisionRef 引用源 | §4.12 |
 
 **功能点编号规则**：
 - 格式：`F-M1-[序号]`，序号从 01 开始递增
@@ -212,6 +214,7 @@ flowchart TD
 | 领域模型 CRUD（domain_entities/entity_fields/relations） | 核心功能但属于 M2 模块 | M2 PRD |
 | 业务流程 CRUD（business_processes/nodes/edges） | 核心功能但属于 M3 模块 | M3 PRD |
 | 应用/页面 CRUD（applications/pages） | 属于交互原型模块，Phase 2 范围 | Phase 2 |
+| 外部实体行为管理（external_entities.actions/decisions CRUD） | 与角色行为管理结构相同但 API 路径不同，独立功能点 | F-M1-13 |
 
 ### 3.3 术语表
 

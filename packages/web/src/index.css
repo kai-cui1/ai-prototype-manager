@@ -279,3 +279,11 @@
     @apply font-sans;
   }
 }
+
+/* ReactFlow MiniMap 交互修复：确保 viewport mask 不阻挡 SVG 事件 */
+.react-flow__minimap svg {
+  pointer-events: auto;
+}
+.react-flow__minimap svg path.react-flow__minimap-mask {
+  pointer-events: none;
+}

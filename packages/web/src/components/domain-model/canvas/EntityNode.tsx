@@ -44,6 +44,7 @@ interface EntityNodeData {
   name: string;
   displayName: string;
   category?: string;
+  domainId?: string;
   fields: Array<{
     id: string;
     name: string;
@@ -74,13 +75,25 @@ function EntityNode({ id, data, selected }: NodeProps) {
   return (
     <div
       className={cn(
-        'rounded-lg border bg-card shadow-sm overflow-hidden',
+        'relative rounded-lg border bg-card shadow-sm',
         'transition-shadow duration-200',
         isSelected ? 'border-primary shadow-md ring-2 ring-primary/30' : 'border-border hover:shadow-md'
       )}
       style={{ width: 180 }}
       onClick={() => selectEntity(id)}
     >
+      {/* 领域归属圆点（右上角，有 domainId 时显示）*/}
+      {nodeData.domainId && (
+        <div
+          className="absolute top-1 right-1 z-10 rounded-full"
+          style={{ width: 8, height: 8, backgroundColor: '#0958d9' }}
+          title="已归属领域"
+        />
+      )}
+
+      {/* 内容区：单独加 overflow-hidden + rounded-lg，避免裁剪 Handle */}
+      <div className="overflow-hidden rounded-lg">
+
       {/* 标题栏 */}
       <div
         className="px-2 py-1.5"
@@ -121,8 +134,9 @@ function EntityNode({ id, data, selected }: NodeProps) {
           </div>
         )}
       </div>
+      </div>{/* 内容区结束 */}
 
-      {/* ReactFlow Handles — 四方向，source+target 双向 */}
+      {/* ReactFlow Handles — 四方向，source+target 双向，位于外层避免被 overflow-hidden 裁剪 */}
       {HANDLES.map((h) => (
         <Handle
           key={`source-${h.id}`}

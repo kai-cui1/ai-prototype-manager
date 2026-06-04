@@ -42,7 +42,7 @@ describe('OpenAPI Spec 合法性', () => {
     expect(spec.components).toBeDefined();
   });
 
-  test('覆盖全部 52 个端点（1 health + 6 project + 18 domain + 21 organization + 5 application + 1 openapi/json）', () => {
+  test('覆盖全部 66 个端点（1 health + 6 project + 24 domain + 29 organization + 5 application + 1 openapi/json）', () => {
     const paths = spec.paths as Record<string, Record<string, unknown>>;
     let totalEndpoints = 0;
     for (const methods of Object.values(paths)) {
@@ -51,8 +51,8 @@ describe('OpenAPI Spec 合法性', () => {
       ).length;
     }
 
-    // 1(health) + 6(projects) + 18(domain) + 21(organization) + 5(application) + 1(openapi/json) = 52
-    expect(totalEndpoints).toBe(52);
+    // 1(health) + 6(projects) + 24(domain) + 29(organization) + 5(application) + 1(openapi/json) = 66
+    expect(totalEndpoints).toBe(66);
   });
 
   test('每个端点都包含 responses 定义且含 2xx 成功响应', () => {

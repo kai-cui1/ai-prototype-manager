@@ -39,6 +39,7 @@ await app.register(swagger, {
       { name: 'Health', description: '健康检查' },
       { name: 'Projects', description: '项目管理 (M1)' },
       { name: 'Organization', description: '组织管理 (M1 子模块)' },
+      { name: 'Role Behavior', description: '角色行为管理 (M1 子模块)' },
       { name: 'Domain', description: '领域模型管理 (M2)' },
     ],
     components: {
@@ -146,6 +147,9 @@ await app.register(companyResourceRoutes, { prefix: '/api/v1' });
 // M1 补充: 应用管理（F-M1-11 Application CRUD）
 import applicationRoutes from './routes/applications.js';
 await app.register(applicationRoutes, { prefix: '/api/v1/projects/:projectId' });
+// M1 补充: 角色行为管理（F-M1-12 Actions/Decisions CRUD）
+import roleBehaviorRoutes from './routes/role-behavior.js';
+await app.register(roleBehaviorRoutes, { prefix: '/api/v1/projects/:projectId/roles/:roleId' });
 // TODO(M5): app.register(architectureRoutes, { prefix: '/api/v1/projects/:projectId/business-architectures' })
 // TODO(M6): app.register(menuRoutes, { prefix: '/api/v1/menus' })
 
