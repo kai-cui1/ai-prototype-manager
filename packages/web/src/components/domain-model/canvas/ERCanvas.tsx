@@ -129,6 +129,9 @@ export default function ERCanvas() {
   useEffect(() => { nodesRef.current = nodes; }, [nodes]);
   useEffect(() => { erGraphRef.current = erGraph; }, [erGraph]);
 
+  // 首次加载 erGraph 数据后手动 fitView（fitView prop 仅在 ReactFlow 挂载时触发，彼时节点为空）
+  const hasInitialFitRef = useRef(false);
+
   // 防抖保存 domain 框尺寸（resize 结束后 500ms 触发）
   const saveDomainSize = useDebouncedCallback(
     (nodeId: string, width: number, height: number) => {
@@ -248,6 +251,15 @@ export default function ERCanvas() {
 
     setNodes(newNodes);
     setEdges(newEdges);
+
+    // 首次从 erGraph 加载节点后，手动 fitView
+    // fitView prop 仅在 ReactFlow 初始化时触发（彼时 erGraph 为空，节点未加载）
+    if (!hasInitialFitRef.current && newNodes.length > 0) {
+      hasInitialFitRef.current = true;
+      requestAnimationFrame(() => {
+        rfInstanceRef.current?.fitView({ padding: 0.2, duration: 200 });
+      });
+    }
   }, [erGraph, canvasSettings.showRelationLabel, setNodes, setEdges]);
 
   // showRelationLabel 切换时，直接更新现有 edges 的 data（避免完整重建）
@@ -568,7 +580,7 @@ export default function ERCanvas() {
           rfInstanceRef.current = instance;
         }}
         fitView
-        fitViewOptions={{ padding: 0.6 }}
+        fitViewOptions={{ padding: 0.2 }}
         minZoom={0.2}
         maxZoom={2}
         deleteKeyCode={null}
@@ -600,7 +612,7 @@ export default function ERCanvas() {
           <div className="text-center">
             <p className="text-base font-medium text-muted-foreground">还没有领域实体</p>
             <p className="mt-1 text-sm text-muted-foreground/60">
-              点击右上角「新建实体」开始建模
+              从上方工具箱点击或拖放开始建模
             </p>
           </div>
         </div>

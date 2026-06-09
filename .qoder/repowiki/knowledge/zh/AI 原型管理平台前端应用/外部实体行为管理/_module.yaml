@@ -1,0 +1,16 @@
+schema_version: 1
+module_path: web_app/external_entities
+title: 外部实体行为管理
+scope:
+    - packages/web/src/pages/ExternalEntitiesPage.tsx
+    - packages/web/src/pages/ExternalEntityDetailPage.tsx
+    - packages/web/src/hooks/useExternalEntityBehavior.ts
+source_files: []
+depends_on: []
+related_to:
+    - path: web_app/organization_and_roles
+    - path: web_app/shared_ui_core
+    - path: web_app/domain_model_editor/inspector
+    - path: web_app/domain_model_editor/dialogs
+    - path: shared_libs
+    - path: api_service

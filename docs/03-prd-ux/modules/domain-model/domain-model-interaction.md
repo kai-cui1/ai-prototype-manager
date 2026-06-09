@@ -2,7 +2,7 @@
 
 > **模块**：M2-领域模型管理
 > **状态**：draft
-> **版本**：v1.4
+> **版本**：v1.5
 > **日期**：2026-06-04
 > **作者**：AI/PM
 > **关联文档**：
@@ -27,12 +27,12 @@
 
 | 场景 | 交互方式 | 说明 |
 |------|---------|------|
-| 新建实体 | Dialog（Toolbar 入口）/ Inspector 新建模式（空状态入口） | 见 §3.7 |
+| 新建实体 | Toolbox 图标（单击 / 拖放至画布） | 见 §3.7 |
 | 编辑实体 | Inspector 右滑面板 | 点击画布节点或列表行 |
 | 删除实体 | Dialog 二次确认 | 危险操作，需确认 |
 | 新建/编辑字段 | Dialog | 表单较复杂，Dialog 更合适 |
 | 新建/编辑关系 | Dialog | 在 Inspector 的关系 Tab 中触发 |
-| 新建领域 | Dialog（Toolbar 入口） | 见 §3.8 |
+| 新建领域 | Toolbox 图标（单击 / 拖放至画布） | 见 §3.8 |
 | 编辑领域 | Inspector 右滑面板 | 点击领域框或 Inspector 入口 |
 | 删除领域 | Dialog 二次确认 | 解除所有实体归属，需确认 |
 | 实体归属/脱离领域 | Canvas 拖入/拖出 | 松手即生效，无需额外确认 |
@@ -62,20 +62,23 @@ Phase 1 主要适配桌面端（`lg` 以上）。ER 图画布在较小屏幕上�
 ├─────────┬─────────────────────────────────────────────┬─────────────┤
 │         │  Toolbar (48px)                             │             │
 │         │  ┌───────────────────────────────────────┐  │             │
-│         │  │ [ER图|实体列表] [搜索] [+新建实体] [⊞领域] ⚙ │  │             │
+│         │  │ [ER图|实体列表] [搜索]              ⚙ │  │             │
 │         │  └───────────────────────────────────────┘  │             │
-│ Sidebar │                                             │ Inspector   │
-│ 220px   │  Canvas Area (ER 图 / 实体列表)              │ 360px       │
-│         │                                             │ (可折叠)     │
-│         │  ┌─────────────────────────────┐            │             │
-│         │  │ ╔═══════ 订单域 ═════════╗   │            │ 未选中时     │
-│         │  │ ║  [实体A] ─────▶ [实体B] ║   │            │ 完全收起     │
-│         │  │ ║  ┌────────┐  ┌────────┐║   │            │ (width: 0)  │
-│         │  │ ║  │ name   │  │ name   │║   │            │             │
-│         │  │ ╚════════════════════════╝   │            │ 选中后滑出   │
-│         │  │         [Minimap]            │            │ 宽度 360px  │
-│         │  └─────────────────────────────┘            │             │
+│         │  Toolbox (36px, 可折叠)                      │             │
+│         │  ┌───────────────────────────────────────┐  │             │
+│         │  │ ▾ [📦实体] [⊞领域]                    │  │             │
+│ Sidebar │  └───────────────────────────────────────┘  │ Inspector   │
+│ 220px   │                                             │ 360px       │
+│         │  Canvas Area (ER 图 / 实体列表)              │ (可折叠)     │
 │         │                                             │             │
+│         │  ┌─────────────────────────────┐            │ 未选中时     │
+│         │  │ ╔═══════ 订单域 ═════════╗   │            │ 完全收起     │
+│         │  │ ║  [实体A] ─────▶ [实体B] ║   │            │ (width: 0)  │
+│         │  │ ║  ┌────────┐  ┌────────┐║   │            │             │
+│         │  │ ║  │ name   │  │ name   │║   │            │ 选中后滑出   │
+│         │  │ ╚════════════════════════╝   │            │ 宽度 360px  │
+│         │  │         [Minimap]            │            │             │
+│         │  └─────────────────────────────┘            │             │
 └─────────┴─────────────────────────────────────────────┴─────────────┘
 ```
 
@@ -85,7 +88,9 @@ Phase 1 主要适配桌面端（`lg` 以上）。ER 图画布在较小屏幕上�
 |------|------|------|
 | Toolbar 高度 | 48px | 与 Header 同高，紧贴 Header 下方 |
 | Toolbar 内边距 | `px-4`（16px） | 左右内边距 |
-| Canvas 区域 | `calc(100vh - 48px - 48px)` | 减去 Header + Toolbar |
+| Toolbox 高度（展开） | 36px | 仅 ER 图模式显示 |
+| Toolbox 高度（折叠） | 24px | 折叠为细栏，显示"工具箱"文字 |
+| Canvas 区域 | `calc(100vh - 48px - 48px - 36px)` | 减去 Header + Toolbar + Toolbox（展开态） |
 | Inspector 宽度 | 360px | 展开状态 |
 | Inspector 收起 | 0px | 无实体选中时完全收起 |
 | Inspector 滑出动画 | 250ms ease-out | 与 Sidebar 展开动画一致 |
@@ -104,9 +109,7 @@ Phase 1 主要适配桌面端（`lg` 以上）。ER 图画布在较小屏幕上�
 | 视图切换 | Segmented Control | 左侧 | 两个选项："ER 图" / "实体列表"，默认 "ER 图" |
 | 搜索框 | Input + Icon | 中间偏左 | 占位符"搜索实体..."，支持 name / display_name 模糊匹配 |
 | 搜索清除 | IconButton | 搜索框内右侧 | 有输入内容时显示 `X` 图标，点击清空 |
-| 新建实体 | Primary Button | 右侧 | 文字"新建实体" + `Plus` 图标，点击弹出创建 Dialog |
-| 新建领域 | Secondary Button | 新建实体右侧 | 文字"新建领域" + `BoxSelect` 图标（lucide-react），点击弹出领域创建 Dialog |
-| 画布设置 | IconButton | 新建领域右侧 | `Settings2` 图标（lucide-react），点击向左滑出配置侧边栏 |
+| 画布设置 | IconButton | 右侧 | `Settings2` 图标（lucide-react），点击向左滑出配置侧边栏 |
 
 #### 3.1.2 视图切换行为
 
@@ -131,6 +134,7 @@ Phase 1 主要适配桌面端（`lg` 以上）。ER 图画布在较小屏幕上�
 
 | 操作 | 行为 | 范围限制 |
 |------|------|---------|
+| 页面首次加载 | 自动 Fit View（等同点击"适配画布"），200ms 动画过渡 | padding 0.2 |
 | 点击 `-` | 缩放比例减少 10% | 最小 25% |
 | 点击 `+` | 缩放比例增加 10% | 最大 200% |
 | 鼠标滚轮 | 以鼠标指针位置为中心缩放 | 同上 |
@@ -174,6 +178,145 @@ Phase 1 主要适配桌面端（`lg` 以上）。ER 图画布在较小屏幕上�
 |------|-----------|
 | 关闭（默认） | 关系线上无常驻标签；Hover 时显示 Tooltip（原有行为） |
 | 开启 | 关系线中部显示常驻标签（display_name 优先，无则显示 kind 中文映射）；Hover Tooltip 仍保留 |
+
+---
+
+### 3.1A 工具箱（Toolbox）
+
+#### 3.1A.1 概述
+
+工具箱是独立于 Toolbar 的画布附属组件，集中放置所有"可添加到画布"的元素图标。停靠在 Toolbar 下方、Canvas 上方，仅在 ER 图模式下显示。
+
+**设计动机**：将"创建元素"操作从 Toolbar 中分离，使 Toolbar 聚焦于视图切换和搜索等导航功能，工具箱则专注于画布元素的创建入口。未来新增可添加元素（如注释、分组框等）时只需扩展工具箱，不影响 Toolbar 布局。
+
+#### 3.1A.2 布局与外观
+
+**展开态**：
+
+```
+┌──────────────────────────────────────────────────┐
+│  ▾  [📦 实体]  [⊞ 领域]                          │
+└──────────────────────────────────────────────────┘
+```
+
+**折叠态**：
+
+```
+┌──────────────────────────────────────────────────┐
+│  ▸ 工具箱                                        │
+└──────────────────────────────────────────────────┘
+```
+
+**样式规格**：
+
+| 属性 | 值 |
+|------|-----|
+| 高度（展开） | 36px |
+| 高度（折叠） | 24px |
+| 宽度 | 100%（与 Canvas 等宽） |
+| 背景 | `bg-muted/50`（半透明淡底） |
+| 边框 | 底边 `border-b border-border` |
+| 折叠/展开动画 | `height` 过渡 150ms ease |
+| 显示条件 | 仅 ER 图模式显示，列表模式隐藏 |
+
+**折叠控制**：
+
+| 元素 | 位置 | 说明 |
+|------|------|------|
+| 折叠箭头 `▾` / 展开箭头 `▸` | 左侧 | `ChevronDown` / `ChevronRight`（lucide），12px，`text-muted-foreground` |
+| "工具箱"文字 | 折叠态箭头右侧 | `text-xs text-muted-foreground`，仅折叠态显示 |
+| 折叠状态持久化 | `localStorage` | key = `toolbox-collapsed-{projectId}`，默认展开 |
+
+#### 3.1A.3 元素图标
+
+| 元素 | 图标 (lucide-react) | Tooltip | 光标 | draggable |
+|------|---------------------|---------|------|-----------|
+| 实体 | `Database` | "新建实体" | `grab` | `true` |
+| 领域 | `BoxSelect` | "新建领域" | `grab` | `true` |
+
+**图标按钮样式**：
+
+| 属性 | 值 |
+|------|-----|
+| 按钮尺寸 | 28px × 28px |
+| 图标尺寸 | 14px |
+| 按钮间距 | `gap-1`（4px） |
+| 默认样式 | `bg-transparent rounded-md transition-colors` |
+| Hover 样式 | `bg-accent text-accent-foreground` + Tooltip 浮出 |
+| 按下样式 | `bg-accent/80 scale-95` |
+| 拖拽中样式 | `opacity-50`（源图标半透明） |
+
+#### 3.1A.4 单击创建（Click）
+
+单击图标按钮的行为与当前 Toolbar 按钮完全一致：
+
+| 操作 | 行为 |
+|------|------|
+| 单击"实体"图标 | 弹出 CreateEntityDialog，放置位置：`lastCanvasClickRef` 优先，否则视口中心 |
+| 单击"领域"图标 | 弹出 CreateBoundaryDialog，放置位置：`lastCanvasClickRef` 优先（以该点为中心）+ 碰撞检测避让 |
+
+#### 3.1A.5 拖放创建（Drag & Drop）
+
+用户从工具箱按住图标拖拽到画布区域松手，在放置位置弹出创建 Dialog。
+
+**拖拽流程**：
+
+```
+按住图标 → 光标变 grabbing → 拖入画布 → 画布高亮 + 全尺寸幽灵预览跟随光标 → 松手 → 弹出创建 Dialog
+```
+
+**拖拽过程视觉反馈**：
+
+| 阶段 | 画布表现 | 图标表现 |
+|------|---------|---------|
+| 开始拖拽（mousedown） | — | 光标变 `grabbing` |
+| 拖拽在 Toolbox 区域 | 无特殊反馈 | 源图标 `opacity-50` |
+| 拖拽进入 Canvas 区域 | Canvas 上方覆盖蓝色虚线高亮层（`border-2 border-dashed border-primary/30 bg-primary/5`） | 源图标 `opacity-50` |
+| 光标在 Canvas 上移动 | 在光标位置渲染**全尺寸幽灵预览**（见下方规格） | 源图标 `opacity-50` |
+| 松手在 Canvas 上 | 幽灵预览消失 + 蓝色高亮消失，弹出创建 Dialog | 恢复默认 |
+| 松手在 Canvas 外 / 按 ESC | 蓝色高亮消失，无操作 | 恢复默认 |
+
+**全尺寸幽灵预览规格**：
+
+拖拽过程中，在 Canvas 上以光标位置为中心，渲染一个半透明的矩形轮廓，预览新建对象的实际尺寸。
+
+| 元素 | 幽灵尺寸 | 幽灵样式 |
+|------|---------|---------|
+| 实体 | 180px × 约 78px（标题栏 30px + 1 行字段 24px + 底栏 24px） | `border-2 border-dashed border-primary/50 bg-primary/10 rounded-lg` |
+| 领域 | 400px × 300px | `border-2 border-dashed border-[#91caff]/60 bg-[#e6f4ff]/20 rounded-lg`（领域色） |
+
+- 幽灵预览的左上角坐标 = 光标位置 - (宽度/2, 高度/2)，即以光标为中心
+- 幽灵预览使用 `pointer-events-none`，不影响拖拽事件
+- 幽灵预览通过绝对定位的 `div` 渲染在 Canvas 容器内（z-index 高于画布内容）
+- 位置更新使用 `screenToFlowPosition()` 将屏幕坐标转为画布坐标
+
+**拖放放置位置计算**：
+
+1. 松手时获取屏幕坐标 `(clientX, clientY)`
+2. 通过 ReactFlow 的 `screenToFlowPosition()` 转换为画布坐标 `(flowX, flowY)`
+3. 该坐标作为新建对象的放置中心点：
+   - 实体：`canvasPosition = { x: flowX, y: flowY }`（节点左上角 = 中心点，因为实体节点较窄）
+   - 领域：`canvasPosition = { x: flowX - 200, y: flowY - 150, width: 400, height: 300 }`（以中心点推算左上角）+ 碰撞检测避让
+
+**拖放创建 Dialog**：
+
+| 元素 | Dialog | 位置来源 |
+|------|--------|---------|
+| 实体 | CreateEntityDialog | drop 坐标作为 `initialPosition` |
+| 领域 | CreateBoundaryDialog | drop 坐标（经碰撞检测）作为 `initialPosition` |
+
+Dialog 创建成功后，新对象出现在 drop 位置，自动选中并打开 Inspector。
+
+**实现方案**：使用 HTML5 Drag & Drop API
+
+| 事件 | 绑定位置 | 处理 |
+|------|---------|------|
+| `draggable` + `onDragStart` | 工具箱图标 | `e.dataTransfer.setData('text/plain', itemType)`，设置 `effectAllowed = 'copy'` |
+| `onDragOver` | Canvas 容器 | `e.preventDefault()` + 更新幽灵预览位置 |
+| `onDragEnter` | Canvas 容器 | 显示蓝色虚线高亮层 |
+| `onDragLeave` | Canvas 容器 | 隐藏高亮层和幽灵预览 |
+| `onDrop` | Canvas 容器 | 计算 drop 坐标 → 打开 Dialog → 清除高亮 |
+| `onDragEnd` | 工具箱图标 | 清除所有拖拽状态 |
 
 ---
 
@@ -506,6 +649,7 @@ Phase 1 主要适配桌面端（`lg` 以上）。ER 图画布在较小屏幕上�
 
 | 操作 | 行为 |
 |------|------|
+| 页面首次加载 | 自动 Fit View：计算 zoom + pan 使所有节点居中填满视口（padding 0.2），带动画过渡（200ms） |
 | 鼠标拖拽空白处 | 平移画布（pan） |
 | 鼠标滚轮 | 以指针位置为中心缩放 |
 | 点击 Minimap | 跳转到对应区域 |
@@ -537,6 +681,9 @@ Phase 1 主要适配桌面端（`lg` 以上）。ER 图画布在较小屏幕上�
 │                                      │
 │    创建实体来定义你的业务数据模型      │
 │      color: text-tertiary 13px       │
+│                                      │
+│    从上方工具箱点击或拖放 📦 开始      │
+│       或点击此处创建                  │
 │                                      │
 │      [+ 创建第一个实体]               │
 │       Primary Button                 │
@@ -942,10 +1089,11 @@ relation_kind 改变时：
 
 #### 3.7.1 入口
 
-| 入口 | 触发方式 | 容器 |
-|------|---------|------|
-| Toolbar "新建实体"按钮 | 点击 | Dialog |
-| 画布空状态"创建第一个实体" | 点击 | Inspector 新建模式 |
+| 入口 | 触发方式 | 容器 | 放置位置 |
+|------|---------|------|---------|
+| Toolbox "实体"图标单击 | 点击 | Dialog | `lastCanvasClickRef` 优先，否则视口中心 |
+| Toolbox "实体"图标拖放 | 拖放至画布 | Dialog | drop 坐标 |
+| 画布空状态"创建第一个实体" | 点击 | Inspector 新建模式 | 画布中心 |
 
 #### 3.7.2 新建实体 Dialog
 
@@ -980,10 +1128,11 @@ relation_kind 改变时：
 
 #### 3.8.1 入口
 
-| 入口 | 触发方式 | 容器 |
-|------|---------|------|
-| Toolbar "新建领域"按钮 | 点击 | Dialog |
-| 画布领域框 | 单击框体 | Inspector（基本信息 Tab 提供编辑/删除） |
+| 入口 | 触发方式 | 容器 | 放置位置 |
+|------|---------|------|---------|
+| Toolbox "领域"图标单击 | 点击 | Dialog | `lastCanvasClickRef` 优先（居中放置）+ 碰撞检测 |
+| Toolbox "领域"图标拖放 | 拖放至画布 | Dialog | drop 坐标（居中推算左上角）+ 碰撞检测 |
+| 画布领域框 | 单击框体 | Inspector（基本信息 Tab 提供编辑/删除） | — |
 
 > **设计决策（v1.4）**：领域框标题栏不设编辑/删除快捷按钮。单击领域框即可打开 Inspector，在 Inspector 的基本信息 Tab 中完成名称/描述编辑及删除操作，与实体节点的交互模式保持一致。
 
@@ -1186,7 +1335,7 @@ AI Agent 通过结构化指令可执行以下操作：
 
 | 场景 | 展示内容 | 操作入口 |
 |------|---------|---------|
-| 画布无实体 | 中央大 Empty State | "创建第一个实体" → Inspector 新建模式 |
+| 画布无实体 | 中央大 Empty State | 工具箱图标 / "创建第一个实体"按钮 → Inspector 新建模式 |
 | 实体无字段 | Inspector 字段 Tab 内小 Empty State | "+ 添加字段"按钮 |
 | 实体无关系 | Inspector 关系 Tab 内小 Empty State | "+ 添加关系"按钮 |
 | 领域无实体 | Inspector 实体 Tab 内小 Empty State | "在画布中拖入实体以添加归属" |
@@ -1226,8 +1375,11 @@ AI Agent 通过结构化指令可执行以下操作：
 | Textarea | shadcn | 描述输入 | 3 行默认高度 |
 | Button | shadcn | 各类按钮 | 按 design-language.md 规范 |
 | Table | shadcn | 实体列表 | 按 design-language.md 表格规范 |
+| Tooltip | shadcn | 工具箱图标悬浮提示 | — |
 | Tag / Badge | shadcn | category、field_type、relation_kind | 按状态色规范；generalization 使用紫色 |
 | EmptyState | 自定义 | 各类空状态 | 图标 64px + 标题 + 描述 |
+| Toolbar | 自定义 | 顶部导航栏（视图切换 + 搜索 + 设置） | 不含创建按钮 |
+| Toolbox | 自定义 | 画布元素创建工具箱（可折叠） | HTML5 拖放 + 全尺寸幽灵预览 |
 | Inspector | 自定义 | 右滑详情面板 | 宽度 360px，滑出动画 |
 | EntityNode | ReactFlow + 自定义 | ER 图实体节点 | 字段列表、category 染色、领域归属圆点 |
 | DomainNode | ReactFlow + 自定义 | ER 图领域框节点 | 半透明矩形框、标题栏、尺寸调整把手、拖拽联动 |
@@ -1245,14 +1397,17 @@ AI Agent 通过结构化指令可执行以下操作：
 
 ```mermaid
 flowchart TD
-    U1[点击 Toolbar 新建实体] --> D1[弹出创建 Dialog]
-    D1 --> U2[填写表单]
+    E1{创建入口}
+    E1 --> |单击工具箱图标| U1[弹出创建 Dialog\n位置: lastCanvasClick / 视口中心]
+    E1 --> |拖放图标至画布| U1D[拖拽中: 全尺寸幽灵预览跟随光标\n松手弹出 Dialog\n位置: drop 坐标]
+    U1 --> U2[填写表单]
+    U1D --> U2
     U2 --> U3[点击保存]
     U3 --> S1{校验通过?}
     S1 --> |否| D1
     S1 --> |是| S2[API 创建实体]
     S2 --> S3[Dialog 关闭]
-    S3 --> S4[画布中央生成新节点]
+    S3 --> S4[在指定位置生成新节点]
     S4 --> S5[自动选中节点]
     S5 --> S6[Inspector 滑出展示详情]
     S6 --> U4[Toast: 实体已创建]
@@ -1329,15 +1484,18 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    U1[点击 Toolbar 新建领域] --> D1[弹出创建 Dialog]
-    D1 --> U2[填写领域名称 + 描述]
+    E1{创建入口}
+    E1 --> |单击工具箱图标| U1[弹出创建 Dialog\n位置: lastCanvasClick 居中 / 视口中心\n+ 碰撞检测避让]
+    E1 --> |拖放图标至画布| U1D[拖拽中: 400×300 幽灵预览跟随光标\n松手弹出 Dialog\n位置: drop 坐标居中 + 碰撞检测]
+    U1 --> U2[填写领域名称 + 描述]
+    U1D --> U2
     U2 --> U3[点击保存]
     U3 --> S1{名称唯一?}
-    S1 --> |否| E1[Dialog 提示 名称已被使用]
-    E1 --> D1
+    S1 --> |否| E2[Dialog 提示 名称已被使用]
+    E2 --> D1
     S1 --> |是| S2[API 创建领域]
     S2 --> S3[Dialog 关闭]
-    S3 --> S4[画布中央生成领域框\n默认尺寸 400×300]
+    S3 --> S4[在指定位置生成领域框\n默认尺寸 400×300]
     S4 --> S5[自动选中领域框]
     S5 --> S6[Inspector 滑出显示领域详情]
     S6 --> U4[Toast: 领域已创建]
@@ -1394,3 +1552,4 @@ flowchart TD
 | v1.2 | 2026-06-03 | Bug 修复（3 项）：① §3.2 Canvas 泛化关系标签修正为"常驻关系名称 + 维度标签（可选）"双层布局，非泛化关系恢复常驻名称标签；② §3.5 关系详情面板 RelationDetailPanel 补充 generalization 的 KIND_LABEL 条目（紫色 Badge）和 dimension 标签展示（替代基数显示）；③ 后端 service 层修复 createRelation/updateRelation 对 dimension 字段的持久化逻辑（已在 v1.1 实现但未完整联调） |
 | v1.3 | 2026-06-04 | 新增领域（DomainBoundary）交互规格：① §1.2 全局交互约定新增领域相关行；② §2.2 整体布局图更新，新增领域框视觉元素和 Toolbar"新建领域"按钮；③ §3.1 Toolbar 元素清单新增"新建领域"Secondary Button；④ §3.2.4 新增领域节点（DomainNode）完整交互规格：外观样式、标题栏元素、尺寸调整把手、节点交互（拖拽/选中/单击）、实体拖入/拖出领域框流程、领域框移动联动、视觉反馈；⑤ §3.8 新增领域管理交互：创建 Dialog、领域详情 Inspector（基本信息 Tab + 实体 Tab）、删除领域 Dialog、实体归属圆点标记；⑥ §4.1 语义绑定新增领域框；§4.2 AI 输出格式新增 domains/selectedDomain/visibleDomainIds；§4.3 AI 操作接口新增创建/更新/删除领域 + 实体归属/脱离领域；⑦ §5.2 空状态新增"领域无实体"；§5.4 确认 Dialog 新增"删除领域"；⑧ §6 组件清单新增 DomainNode；⑨ §7.5~7.7 新增 3 个流程图（创建领域/实体拖入拖出/领域框拖拽联动） |
 | v1.4 | 2026-06-04 | 交互简化（设计决策）：移除领域框标题栏的编辑（Pencil）和删除（Trash2）快捷按钮。单击领域框直接打开 Inspector 面板，在基本信息 Tab 中完成名称/描述编辑及删除操作，与实体节点交互模式保持一致，避免双入口冗余。更新：§3.8.1 入口表（移除两行标题栏按钮入口，改为"单击领域框→Inspector"）；§3.2.4 标题栏元素表（已在 v1.3 末更新）；DomainNode.tsx 移除按钮代码及 hovered/showActions 状态。 |
+| v1.5 | 2026-06-04 | 新增工具箱（Toolbox）组件交互规格：① §1.2 全局交互约定更新新建实体/领域的入口为"Toolbox 图标（单击/拖放）"；② §2.2 整体布局图更新，Toolbar 移除新建按钮，新增 Toolbox 层（Toolbar 与 Canvas 之间）；③ §2.3 布局尺寸新增 Toolbox 高度（展开 36px / 折叠 24px），Canvas 区域计算公式更新；④ §3.1.1 Toolbar 元素清单移除"新建实体"和"新建领域"按钮；⑤ §3.1A 新增工具箱完整交互规格：布局外观（可折叠）、元素图标（Database/BoxSelect + Tooltip）、单击创建（复用现有 Dialog 位置逻辑）、拖放创建（HTML5 DnD API + 全尺寸幽灵预览 + Canvas 蓝色虚线高亮）、折叠/展开控制（localStorage 持久化）；⑥ §3.7.1 入口表新增"放置位置"列 + Toolbox 两行入口；⑦ §3.8.1 入口表新增"放置位置"列 + Toolbox 两行入口；⑧ §3.2.7 空状态文案更新引导用户使用工具箱；⑨ §6 组件清单新增 Toolbox + Toolbar + Tooltip；⑩ §7.1/§7.5 创建实体/领域流程图更新为双入口（单击 + 拖放）|

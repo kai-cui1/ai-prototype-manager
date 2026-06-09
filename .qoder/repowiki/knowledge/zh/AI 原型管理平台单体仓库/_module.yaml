@@ -1,0 +1,16 @@
+schema_version: 1
+module_path: ""
+title: AI 原型管理平台单体仓库
+scope:
+    - README.md
+    - .gitignore
+    - package.json
+    - pnpm-lock.yaml
+    - pnpm-workspace.yaml
+    - turbo.json
+    - AGENTS.md
+    - CLAUDE.md
+    - .env
+source_files: []
+depends_on: []
+related_to: []

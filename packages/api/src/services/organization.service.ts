@@ -133,6 +133,7 @@ function toRole(row: typeof roles.$inferSelect): Role {
     decisions: row.decisions as DecisionDef[],
     sortOrder: row.sortOrder,
     config: row.config as Record<string, unknown>,
+    version: row.version,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -157,6 +158,7 @@ function toExternalEntity(row: typeof externalEntities.$inferSelect): ExternalEn
     decisions: row.decisions as DecisionDef[],
     sortOrder: row.sortOrder,
     config: row.config as Record<string, unknown>,
+    version: row.version,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

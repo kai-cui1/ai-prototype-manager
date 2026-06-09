@@ -1,0 +1,14 @@
+schema_version: 1
+module_path: e2e_tests
+title: 端到端（E2E）自动化测试
+scope:
+    - packages/e2e/
+source_files: []
+depends_on: []
+related_to:
+    - path: web_app
+    - path: api_service
+    - path: shared_libs
+    - path: environments
+    - path: docs
+    - path: web_app/applications_and_dashboard

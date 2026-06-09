@@ -287,3 +287,16 @@
 .react-flow__minimap svg path.react-flow__minimap-mask {
   pointer-events: none;
 }
+
+/* ReactFlow 泳道背景透传：确保 ReactFlow 容器和内部 pane 不遮挡下层泳道背景色 */
+.react-flow,
+.react-flow__pane {
+  background-color: transparent !important;
+}
+
+/* Toolbox 拖放高亮：画布容器在拖放进入时显示蓝色虚线边框 */
+.react-flow.toolbox-drop-highlight {
+  outline: 2px dashed hsl(var(--primary) / 0.3);
+  outline-offset: -2px;
+  background-color: hsl(var(--primary) / 0.05);
+}

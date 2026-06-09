@@ -1,0 +1,22 @@
+schema_version: 1
+module_path: web_app/project_management
+title: 项目全生命周期管理
+scope:
+    - packages/web/src/pages/ProjectList.tsx
+    - packages/web/src/pages/ProjectDetail.tsx
+    - packages/web/src/pages/ProjectOverview.tsx
+    - packages/web/src/components/project/
+    - packages/web/src/hooks/useProjectList.ts
+    - packages/web/src/hooks/useProjectDetail.ts
+source_files: []
+depends_on: []
+related_to:
+    - path: web_app/organization_and_roles
+    - path: web_app/applications_and_dashboard
+    - path: web_app/shared_ui_core
+    - path: web_app/domain_model_editor/inspector
+    - path: web_app/domain_model_editor/editor_core
+    - path: web_app/domain_model_editor/dialogs
+    - path: shared_libs
+    - path: api_service
+    - path: environments

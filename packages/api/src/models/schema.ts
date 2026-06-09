@@ -155,6 +155,9 @@ export const businessProcesses = pgTable('business_processes', {
   parentProcessId: text('parent_process_id').references(() => businessProcesses.id, { onDelete: 'set null' }),
   entryNodeId: text('entry_node_id'),
   exitNodeIds: jsonb('exit_node_ids').default('[]'),
+  // ★ M3: 流程直接存储节点和边的 ID 引用数组（替代 process_node_map 关联表）
+  nodeIds: jsonb('node_ids').default('[]'),
+  edgeIds: jsonb('edge_ids').default('[]'),
   config: jsonb('config').default('{}'),
   sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -190,9 +193,11 @@ export const processNodes = pgTable('process_nodes', {
   //        枚举值由 TypeBox Schema + Service 层校验。
   holderType: text('holder_type').notNull(), // role | external_entity | service
   holderId: text('holder_id').notNull(),
-  branches: jsonb('branches').default('[]'),
-  inputs: jsonb('inputs').default('[]'),
-  outputs: jsonb('outputs').default('[]'),
+  // ★ M3: 引用参与者的 Action/DecisionDef（二选一，根据 node_type）
+  actionRef: text('action_ref'),      // node_type='action' 时必填
+  decisionRef: text('decision_ref'),  // node_type='decision' 时必填
+  // ★ M3: 条件表达式（进入此节点的守卫条件）
+  condition: text('condition'),
   config: jsonb('config').default('{}'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -225,27 +230,35 @@ export const processEdges = pgTable('process_edges', {
   index('idx_process_edges_project').on(table.projectId),
   index('idx_process_edges_source').on(table.sourceNodeId),
   index('idx_process_edges_target').on(table.targetNodeId),
+  uniqueIndex('idx_process_edges_source_target_unique').on(table.sourceNodeId, table.targetNodeId),
 ]);
 
 // ============================================
-// Table 9: process_node_map — 流程-节点关联表（多对多）
+// Table 9: process_layouts — 流程布局表
 // ============================================
 /**
- * @module processNodeMap
- * @description 业务流程与流程节点的多对多映射，支持排序。
- * R5 Why: 同一节点可被多个流程复用（全局节点池模式），独立映射表避免冗余且支持灵活编排。
- *        无 updatedAt 字段——此表纯为关联用途，不承载业务状态变更。
+ * @module processLayouts
+ * @description 流程图的泳道配置和节点位置（相对坐标）。
+ * R5 Why: 泳道布局属于 UI 元数据，独立存储便于与流程数据解耦。
  */
-export const processNodeMap = pgTable('process_node_map', {
+export const processLayouts = pgTable('process_layouts', {
   id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
   processId: text('process_id').notNull().references(() => businessProcesses.id, { onDelete: 'cascade' }),
-  nodeId: text('node_id').notNull().references(() => processNodes.id, { onDelete: 'cascade' }),
-  sortOrder: integer('sort_order').notNull().default(0),
+  // 泳道方向配置
+  orientation: text('orientation').notNull().default('participant-horizontal'), // participant-horizontal | participant-vertical
+  // Participant 泳道配置（固定轴）
+  participantLanes: jsonb('participant_lanes').default('[]'),
+  // 自定义泳道配置（自定义轴）
+  customLanes: jsonb('custom_lanes').default('[]'),
+  // 节点位置（相对坐标）
+  nodePositions: jsonb('node_positions').default('{}'),
+  // 泳道尺寸人工调整记录
+  laneOverrides: jsonb('lane_overrides').default('{}'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
-  index('idx_process_node_map_process').on(table.processId),
-  index('idx_process_node_map_node').on(table.nodeId),
-  uniqueIndex('process_node_map_process_node_unique').on(table.processId, table.nodeId),
+  index('idx_process_layouts_process').on(table.processId),
+  uniqueIndex('process_layouts_process_unique').on(table.processId),
 ]);
 
 // ============================================
@@ -268,6 +281,10 @@ export const applications = pgTable('applications', {
   icon: text('icon'),
   sortOrder: integer('sort_order').notNull().default(0),
   config: jsonb('config').default('{}'),
+  // ★ F-M1-14: 应用行为管理（actions/decisions JSONB 数组 + 乐观锁 version）
+  actions: jsonb('actions').default('[]'),
+  decisions: jsonb('decisions').default('[]'),
+  version: integer('version').notNull().default(1),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [

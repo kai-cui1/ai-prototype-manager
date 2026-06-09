@@ -1,0 +1,23 @@
+schema_version: 1
+module_path: web_app/organization_and_roles
+title: 组织架构与角色行为管理
+scope:
+    - packages/web/src/pages/OrganizationPage.tsx
+    - packages/web/src/pages/RolesPage.tsx
+    - packages/web/src/pages/RoleDetailPage.tsx
+    - packages/web/src/components/organization/
+    - packages/web/src/components/role-behavior/
+    - packages/web/src/hooks/useOrganization.ts
+    - packages/web/src/hooks/useRoleBehavior.ts
+source_files: []
+depends_on: []
+related_to:
+    - path: web_app/project_management
+    - path: web_app/external_entities
+    - path: web_app/domain_model_editor
+    - path: web_app/shared_ui_core
+    - path: web_app/applications_and_dashboard
+    - path: web_app/domain_model_editor/dialogs
+    - path: web_app/domain_model_editor/inspector
+    - path: shared_libs
+    - path: api_service

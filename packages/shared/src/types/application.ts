@@ -14,6 +14,10 @@ export interface Application {
   icon: string | null;
   sortOrder: number;
   config: Record<string, unknown>;
+  // ★ F-M1-14: 应用行为管理
+  actions: unknown[];
+  decisions: unknown[];
+  version: number;
   createdAt: string; // ISO 8601
   updatedAt: string; // ISO 8601
 }

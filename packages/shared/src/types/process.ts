@@ -1,5 +1,5 @@
 // ============================================
-// Process Types — 对应 business_processes / process_nodes / process_edges / process_node_map
+// Process Types — 对应 business_processes / process_nodes / process_edges / process_layouts
 // ============================================
 
 export type ProcessStatus = 'draft' | 'active' | 'deprecated';
@@ -17,6 +17,8 @@ export interface BusinessProcess {
   parentProcessId: string | null;
   entryNodeId: string | null;
   exitNodeIds: string[];
+  nodeIds: string[];
+  edgeIds: string[];
   config: Record<string, unknown>;
   sortOrder: number;
   createdAt: string;
@@ -32,9 +34,9 @@ export interface ProcessNode {
   description: string | null;
   holderType: HolderType;
   holderId: string;
-  branches: Array<{ name: string; condition?: string; outputs?: string[] }>;
-  inputs: Array<Record<string, unknown>>;
-  outputs: Array<Record<string, unknown>>;
+  actionRef: string | null;
+  decisionRef: string | null;
+  condition: string | null;
   config: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -53,10 +55,39 @@ export interface ProcessEdge {
   updatedAt: string;
 }
 
-export interface ProcessNodeMap {
+export type Orientation = 'participant-horizontal' | 'participant-vertical';
+
+export interface ProcessLayout {
   id: string;
   processId: string;
-  nodeId: string;
-  sortOrder: number;
+  orientation: Orientation;
+  participantLanes: ParticipantLane[];
+  customLanes: CustomLane[];
+  nodePositions: Record<string, NodePosition>;
+  laneOverrides: Record<string, { size: number }>;
   createdAt: string;
+  updatedAt: string;
+}
+
+export interface ParticipantLane {
+  participantId: string;
+  participantType: HolderType;
+  label: string;
+  order: number;
+  size: number;
+}
+
+export interface CustomLane {
+  id: string;
+  name: string;
+  label: string;
+  order: number;
+  size: number;
+}
+
+export interface NodePosition {
+  participantLaneIndex: number;
+  customLaneIndex: number;
+  offsetX: number;
+  offsetY: number;
 }

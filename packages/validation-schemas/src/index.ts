@@ -12,3 +12,6 @@ export * from './domain.schema.js';
 export * from './application.schema.js';
 export * from './response.js';
 export * from './role-behavior.schema.js';
+export * from './external-entity-behavior.schema.js';
+export * from './application-behavior.schema.js';
+export * from './process.schema.js';

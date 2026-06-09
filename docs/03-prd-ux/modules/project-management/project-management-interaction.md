@@ -26,6 +26,7 @@
 | `/p/:projectId/roles` | 角色管理 | F-M1-08 角色管理 | 项目层 |
 | `/p/:projectId/roles/:roleId` | 角色详情 | F-M1-12 角色行为管理（Actions/Decisions） | 项目层 |
 | `/p/:projectId/external-entities` | 外部实体管理 | F-M1-09 外部实体管理 | 项目层 |
+| `/p/:projectId/external-entities/:eeId` | 外部实体详情 | F-M1-13 外部实体行为管理（Actions/Decisions） | 项目层 |
 
 > **创建项目（F-M1-02）**：在 Dashboard 页面内通过对话框触发。
 > **编辑/归档项目（F-M1-04/05）**：在项目概览页面内触发。
@@ -80,6 +81,7 @@ APM
 | UI-M1-07 | **归档视觉区分**：归档状态用灰色 `Badge`（text: "已归档"）标识，列表行降低透明度；归档项目的所有写操作按钮隐藏 | 项目列表 / 概览页 |
 | UI-M1-08 | **Toast 反馈**：写操作成功后弹出 Toast（右上角，3s 自动消失）；文案格式："XXX 已创建" / "XXX 已归档" / "XXX 已删除" | 所有写操作 |
 | UI-M1-09 | **表单重置**：Dialog 每次打开时都是全空（或预填充）的干净状态，关闭后重置表单数据 | 所有新建/编辑 Dialog |
+| UI-M1-10 | **列表管理页抬头统一**：所有列表管理页（角色管理、外部实体管理、应用管理）的页头采用统一结构：左侧 `<H2>` 标题 + 语义图标（`h-6 w-6 text-primary`，inline 于标题左侧）+ 说明文案（标题下方 `text-sm text-text-secondary`）；右侧新建按钮（`Button` primary `size="sm"`）。容器 `flex items-start justify-between gap-4` | 角色管理、外部实体管理、应用管理 |
 
 ---
 
@@ -457,7 +459,7 @@ APM
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ 角色管理                                               [+新建角色]│
+│ [👥] 角色管理                                        [+新建角色]│
 │ 此处定义参与业务流程的角色，可选挂载到组织架构中的部门            │
 ├──────────────────────────────────────────────────────────────────┤
 │ [🔍 搜索角色...] [部门筛选 ▼]                                    │
@@ -478,9 +480,9 @@ APM
 
 | 区域 | 元素 | 组件 | 说明 |
 |------|------|------|------|
-| 页头 | 页面标题 | `H2` | "角色管理" |
-| 页头 | 说明文案 | `Text` (muted) | 简述角色定义用途 |
-| 页头 | 新建角色按钮 | `Button` (primary) | 打开「新建角色」Dialog |
+| 页头 | 页面标题 | `H2` + 图标 | "角色管理"，左侧 `Users` 图标（`h-6 w-6 text-primary`，inline） |
+| 页头 | 说明文案 | `Text` (muted) | "此处定义参与业务流程的角色，可选挂载到组织架构中的部门" |
+| 页头 | 新建角色按钮 | `Button` (primary, sm) | 打开「新建角色」Dialog，右侧定位 |
 | 筛选栏 | 搜索框 | `Input` | 搜索 `name` / `display_name`；防抖 300ms |
 | 筛选栏 | 部门筛选器 | `Select` | 选项："全部" / "独立角色" / 各部门名称（跨公司展平）|
 | 角色卡片 | 角色名称 | `CardTitle` | `display_name` |
@@ -538,7 +540,7 @@ APM
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ 外部实体管理                                         [+新建外部实体]│
+│ [🌐] 外部实体管理                                   [+新建外部实体]│
 │ 管理与本项目交互的外部系统、组织、接口或角色                      │
 ├──────────────────────────────────────────────────────────────────┤
 │ [🔍 搜索...]  [类型筛选 ▼]                                       │
@@ -555,14 +557,23 @@ APM
 
 ### 7.2 页面元素清单
 
-| 元素 | 组件 | 说明 |
-|------|------|------|
-| 搜索框 | `Input` | 搜索 `name` / `display_name`；防抖 300ms |
-| 类型筛选器 | `Select` | "全部" / "系统" / "组织机构" / "个人角色" / "接口" |
-| 外部实体卡片 | `Card` | 2-3 列网格 |
-| 类型 Badge | `Badge` | 按类型展示不同颜色/文案 |
-| 编辑/删除 | `IconButton` | 同角色管理交互模式 |
-| 空状态 | `EmptyState` | "还没有外部实体，点击新建" |
+| 区域 | 元素 | 组件 | 说明 |
+|------|------|------|------|
+| 页头 | 页面标题 | `H2` + 图标 | "外部实体管理"，左侧 `Globe` 图标（`h-6 w-6 text-primary`）；与角色管理页头样式统一 |
+| 页头 | 说明文案 | `Text` (muted) | "管理与本项目交互的外部系统、组织、接口或角色" |
+| 页头 | 新建按钮 | `Button` (primary, sm) | 打开「新建外部实体」Dialog，右侧定位 |
+| 筛选栏 | 搜索框 | `Input` + 搜索图标 | 搜索 `name` / `display_name`；防抖 300ms |
+| 筛选栏 | 类型筛选器 | `Select` | "全部" / "系统" / "组织机构" / "个人角色" / "接口" |
+| 外部实体卡片 | `Card` | 可点击卡片网格 | 4 列（xl）/ 3 列（lg）/ 2 列（sm）/ 1 列；`cursor-pointer` + `hover:border-primary/40 hover:shadow-sm` |
+| 外部实体卡片 | 实体名称 | `CardTitle` | `displayName`，`font-semibold`，`truncate` |
+| 外部实体卡片 | 类型 Badge | `Badge` | 按类型展示不同颜色：system→info, organization→success, person→warning, api→error |
+| 外部实体卡片 | 描述 | `Text` (muted, line-clamp-2) | `description`，最多显示 2 行 |
+| 外部实体卡片 | 行为计数 | `Text` (tertiary, text-xs) | 如 "2 行为 · 1 决策"；无行为时显示"暂无行为定义" |
+| 外部实体卡片 | 编辑/删除 | `IconButton` | hover 卡片右上角显示（`opacity-0 group-hover:opacity-100`）；编辑打开 Dialog；删除弹出确认 |
+| 空状态 | 空状态 | `EmptyState` | 图标 + "还没有外部实体，点击新建" |
+| 加载状态 | Skeleton | `Skeleton` | 卡片骨架屏，保持网格结构感 |
+
+> **样式一致性要求**：外部实体管理页的页头、筛选栏、卡片网格、hover 操作按钮均与 §6 角色管理页保持统一布局和交互模式。
 
 ### 7.3 外部实体 Dialog（新建 / 编辑）
 
@@ -998,3 +1009,181 @@ interface DecisionSemantic {
 | AC-M1-U22 | 删除 Action/Decision 使用 AlertDialog 确认，确认按钮为红色 destructive 样式 | UI-M1-01 |
 | AC-M1-U23 | 归档项目下角色详情页隐藏新建/编辑/删除按钮，Actions/Decisions 列表只读展示 | B-M1-101 |
 | AC-M1-U24 | 角色卡片新增行为计数行（如 "3 Actions · 2 Decisions"），无行为时显示"暂无行为定义" | F-M1-12 |
+
+## 12. 外部实体行为管理（F-M1-13）
+
+> 本节定义外部实体行为（actions/decisions）的交互设计，PRD 业务规则见 `project-management-prd-2.md` §4.13。
+> 交互设计与 §11（角色行为管理）完全对称，差异仅在父实体和入口路径。
+
+### 12.1 入口与路由
+
+| 路由 | 说明 |
+|------|------|
+| `/p/:projectId/external-entities` | 外部实体列表页（现有），外部实体卡片点击 → 进入外部实体详情 |
+| `/p/:projectId/external-entities/:eeId` | 外部实体详情页（新增），含 Actions / Decisions 双 Tab |
+
+**入口方式**：
+
+| 触发 | 行为 |
+|------|------|
+| 外部实体卡片点击 | 导航到 `/p/:projectId/external-entities/:eeId`，默认显示 Actions Tab |
+| 面包屑 | 外部实体详情页面包屑：项目概览 > 外部实体管理 > [实体名] |
+
+> **设计决策**：与角色行为管理一致，采用独立详情页。Action/Decision 表单较复杂（含动态列表、嵌套结构），Dialog 空间不足且操作频繁，独立页面体验更优。
+
+### 12.2 外部实体详情页布局
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ ← 返回外部实体列表   政府监管机构  [系统]                        │
+│ 负责对系统运行进行合规监管                                         │
+├─────────────────────────────────────────────────────────────────┤
+│ [ Actions (2) ] [ Decisions (1) ]              [+ 新建 Action]  │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ 提交监管报告  submit_report                      [✏] [🗑] │  │
+│  │ 输入: reportId(string)                                    │  │
+│  │ 输出: —                                                   │  │
+│  │ 工具: 邮件                                                │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                   │
+│  ┌───────────────────────────────────────────────────────────┐  │
+│  │ 发送通知  send_notification                       [✏] [🗑] │  │
+│  │ 输入: target(string), content(text)                       │  │
+│  │ 输出: success(boolean)                                    │  │
+│  │ 工具: 微信                                                │  │
+│  └───────────────────────────────────────────────────────────┘  │
+│                                                                   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 12.3 页面元素清单
+
+| 区域 | 元素 | 组件 | 说明 |
+|------|------|------|------|
+| 页头 | 返回按钮 | `Button` (ghost) | "← 返回外部实体列表"，导航回 `/external-entities` |
+| 页头 | 实体名称 | `H2` | `ee.displayName` |
+| 页头 | 类型 Badge | `Badge` | `ee.entityType`（system/organization/person/api） |
+| 页头 | 实体描述 | `Text` (muted) | `ee.description` |
+| Tab 栏 | Actions Tab | `TabsTrigger` | 显示数量 Badge，如 "Actions (2)" |
+| Tab 栏 | Decisions Tab | `TabsTrigger` | 显示数量 Badge，如 "Decisions (1)" |
+| Tab 栏 | 新建按钮 | `Button` (primary, sm) | 根据当前 Tab 显示 "+ 新建 Action" / "+ 新建 Decision" |
+| Action 卡片 | 同 §11.3 | — | 完全复用角色行为管理的 Action 卡片元素 |
+| Decision 卡片 | 同 §11.3 | — | 完全复用角色行为管理的 Decision 卡片元素 |
+| 空状态 | 同 §11.3 | — | 完全复用 |
+
+### 12.4 Action Dialog（新建 / 编辑）
+
+与 §11.4 完全相同，共享同一套 ActionFormDialog 组件。
+
+**差异点**：
+- Dialog 标题中"角色"替换为"外部实体"的上下文（由父页面传入 holderLabel 参数）
+- API 调用路径从 `/roles/:roleId/` 改为 `/external-entities/:eeId/`
+
+### 12.5 Decision Dialog（新建 / 编辑）
+
+与 §11.5 完全相同，共享同一套 DecisionFormDialog 组件。
+
+### 12.6 NodeIO 参数行编辑器
+
+与 §11.6 完全相同，共享 NodeIOEditor 组件。
+
+### 12.7 ToolRef 工具选择器
+
+与 §11.7 完全相同。
+
+### 12.8 删除行为确认
+
+与 §11.8 完全相同。Phase 1 同样统一走"正常删除"路径。
+
+### 12.9 归档项目约束
+
+与 §11.9 完全对称：
+- 仍然可以查看 Actions/Decisions 列表
+- **隐藏**"+ 新建"按钮、编辑/删除图标
+- 不允许通过 API 直接写操作（后端 400 PROJECT_ARCHIVED）
+
+### 12.10 外部实体列表页变更
+
+F-M1-13 上线后，外部实体列表页（`/p/:projectId/external-entities`）需做以下调整：
+
+| 变更项 | 说明 |
+|--------|------|
+| 外部实体卡片可点击 | 点击卡片 → 导航到外部实体详情页 `/external-entities/:eeId`（而非仅 hover 显示操作按钮） |
+| 卡片新增行为计数 | 外部实体卡片底部增加 Actions/Decisions 数量展示，如 "2 Actions · 1 Decisions" |
+| 操作按钮调整 | 编辑/删除按钮移至卡片右上角 hover 显示（现有行为不变），卡片整体点击进入详情 |
+
+**更新后的外部实体卡片布局：**
+
+```
+┌──────────────────────────────────┐
+│ 政府监管机构             [✏] [🗑] │  ← hover 显示操作按钮
+│ [系统]                            │
+│ 负责对系统运行进行合规监管        │
+│ 2 Actions · 1 Decisions           │  ← 新增行为计数行
+└──────────────────────────────────┘
+```
+
+### 12.11 AI-系统交互（语义层设计）
+
+与 §11.11 对称，差异仅在于 `participant.type` 为 `"external_entity"`：
+
+**Action 语义层输出结构：**
+
+```typescript
+interface ExternalEntityActionSemantic {
+  ref: string;                    // = action.id
+  signature: {
+    participant: { type: "external_entity"; eeId: string; eeName: string };
+    actionName: string;
+    inputs: { name: string; type: string; required: boolean }[];
+    outputs: { name: string; type: string }[];
+  };
+  logic: {
+    description: string;
+    implementation?: string;
+  };
+  tool?: {
+    type: string;
+    detail?: Record<string, unknown>;
+  };
+}
+```
+
+**Decision 语义层输出结构：**
+
+```typescript
+interface ExternalEntityDecisionSemantic {
+  ref: string;                    // = decision.id
+  signature: {
+    participant: { type: "external_entity"; eeId: string; eeName: string };
+    decisionName: string;
+    branches: {
+      name: string;
+      condition?: string;
+      outputs: { name: string; type: string }[];
+    }[];
+  };
+}
+```
+
+### 12.12 外部实体行为管理 UI 验收标准
+
+| 编号 | 验收标准 | 对应 PRD |
+|------|---------|---------|
+| AC-M1-U25 | 外部实体卡片点击后导航到外部实体详情页（`/external-entities/:eeId`），默认显示 Actions Tab；面包屑显示"外部实体管理 > [实体名]" | F-M1-13 |
+| AC-M1-U26 | 外部实体详情页 Tab 栏显示 Actions/Decisions 各自的数量 Badge（如 "Actions (2)"）；切换 Tab 无页面刷新 | F-M1-13 |
+| AC-M1-U27 | Action 卡片展示 displayName + name + 输入输出参数摘要 + 工具类型 Badge；点击编辑按钮打开 Action Dialog | F-M1-13 |
+| AC-M1-U28 | Decision 卡片展示 displayName + name + 分支名 Badge 列表；点击编辑按钮打开 Decision Dialog | F-M1-13 |
+| AC-M1-U29 | Action/Decision Dialog 与角色行为管理共享同一套组件，交互行为一致 | F-M1-13 |
+| AC-M1-U30 | 删除 Action/Decision 使用 AlertDialog 确认，确认按钮为红色 destructive 样式 | UI-M1-01 |
+| AC-M1-U31 | 归档项目下外部实体详情页隐藏新建/编辑/删除按钮，Actions/Decisions 列表只读展示 | B-M1-139 |
+| AC-M1-U32 | 外部实体卡片新增行为计数行（如 "2 Actions · 1 Decisions"），无行为时显示"暂无行为定义" | F-M1-13 |
+
+## 13. 应用行为管理（F-M1-14）
+
+> **文档位置**: 本功能属于应用管理模块，完整交互设计见 `docs/03-prd-ux/modules/application-management/application-management-interaction-2.md` §1。
+> PRD 业务规则见 `docs/03-prd-ux/modules/application-management/application-management-prd-2.md` §1。
+>
+> **与 §11/§12 的关系**: 交互设计与 §11（角色行为管理）/§12（外部实体行为管理）完全对称，差异仅在父实体（Application vs Role/ExternalEntity）和入口路径。

@@ -3,19 +3,13 @@
  * @description 外部实体管理面板：独立管理外部实体 CRUD。
  *
  * 从 OrganizationPanel 拆分出来，作为 ExternalEntitiesPage 的内容组件。
+ * 样式与 RolesPage 统一：页面级抬头 + 搜索筛选 + 卡片网格。
  *
  * 归档保护：project.status === 'archived' 时隐藏所有新建/编辑/删除按钮。
  */
 
 import { useState, useEffect } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -36,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, UserPlus } from 'lucide-react';
+import { Plus, Globe, Search, Pencil, Trash2 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
@@ -48,9 +42,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { SectionHeading } from '@/components/common/SectionHeading';
 import type { Project, ExternalEntity } from '@apm/shared';
 import { useOrganization } from '@/hooks/useOrganization';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { toast } from 'sonner';
 
 // ============================================================
@@ -261,9 +255,16 @@ interface ExternalEntitiesPanelProps {
 
 /**
  * 外部实体管理面板 — 独立页面组件。
+ * 样式与 RolesPage 统一：页面级抬头 + 搜索筛选 + 卡片网格。
  */
 export function ExternalEntitiesPanel({ project }: ExternalEntitiesPanelProps) {
   const org = useOrganization(project?.id ?? '');
+  const navigate = useNavigate();
+
+  // Filter states
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebouncedValue(searchInput, 300);
+  const [typeFilter, setTypeFilter] = useState('__all__');
 
   // Dialog states
   const [eeDialogOpen, setEeDialogOpen] = useState(false);
@@ -276,91 +277,137 @@ export function ExternalEntitiesPanel({ project }: ExternalEntitiesPanelProps) {
   // Archive protection
   const isArchived = project?.status === 'archived';
 
+  // Local filtering (debounced search + type filter)
+  const filteredEntities = org.externalEntities.filter((e) => {
+    const matchesSearch =
+      !debouncedSearch ||
+      e.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+      e.displayName.toLowerCase().includes(debouncedSearch.toLowerCase());
+
+    const matchesType =
+      typeFilter === '__all__' || e.entityType === typeFilter;
+
+    return matchesSearch && matchesType;
+  });
+
   return (
     <div className="space-y-6">
-      {/* ===== 外部实体表格 ===== */}
-      <SectionHeading
-        title="外部实体"
-        icon={<UserPlus className="h-4 w-4" />}
-        count={org.externalEntities.length}
-        action={
-          !isArchived ? (
-            <Button size="sm" onClick={() => setEeDialogOpen(true)}>
-              <Plus className="mr-1.5 h-3.5 w-3.5" /> 添加外部实体
-            </Button>
-          ) : undefined
-        }
-      />
+      {/* ===== 页头 ===== */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-text-primary flex items-center gap-2">
+            <Globe className="h-6 w-6 text-primary" />
+            外部实体管理
+          </h2>
+          <p className="mt-1 text-sm text-text-secondary">
+            管理与本项目交互的外部系统、组织、接口或角色
+          </p>
+        </div>
+        {!isArchived && (
+          <Button size="sm" onClick={() => setEeDialogOpen(true)}>
+            <Plus className="mr-1.5 h-3.5 w-3.5" /> 新建外部实体
+          </Button>
+        )}
+      </div>
 
+      {/* ===== 筛选栏 ===== */}
+      <div className="flex items-center gap-3">
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-text-tertiary pointer-events-none" />
+          <Input
+            placeholder="搜索外部实体..."
+            value={searchInput}
+            onChange={(e) => setSearchInput((e.target as HTMLInputElement).value)}
+            className="pl-8"
+          />
+        </div>
+        <Select value={typeFilter} onValueChange={(val) => setTypeFilter(val ?? '__all__')}>
+          <SelectTrigger className="w-[160px]">
+            <span className="truncate text-sm">
+              {typeFilter === '__all__'
+                ? '全部类型'
+                : ENTITY_TYPE_LABELS[typeFilter] ?? typeFilter}
+            </span>
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="__all__">全部类型</SelectItem>
+            {ENTITY_TYPE_OPTIONS.map((opt) => (
+              <SelectItem key={opt.value} value={opt.value}>
+                {opt.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {/* ===== 外部实体卡片列表 ===== */}
       {org.externalEntitiesLoading ? (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>名称</TableHead>
-              <TableHead>类型</TableHead>
-              <TableHead>描述</TableHead>
-              <TableHead className="text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {[1, 2].map((i) => (
-              <TableRow key={i}>
-                <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-12" /></TableCell>
-                <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                <TableCell className="text-right"><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      ) : org.externalEntities.length === 0 ? (
-        <p className="text-sm text-text-tertiary py-8 text-center">暂无外部实体，点击「添加外部实体」创建</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="rounded-card border border-card-border p-4 space-y-2">
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-4 w-16" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
+          ))}
+        </div>
+      ) : filteredEntities.length === 0 ? (
+        <div className="py-16 text-center">
+          <Globe className="mx-auto h-10 w-10 text-text-tertiary mb-3" />
+          <p className="text-sm text-text-tertiary">
+            {org.externalEntities.length === 0 ? '还没有外部实体，点击「新建外部实体」创建' : '没有匹配的外部实体'}
+          </p>
+        </div>
       ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>名称</TableHead>
-              <TableHead>类型</TableHead>
-              <TableHead>描述</TableHead>
-              <TableHead className="text-right">操作</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {org.externalEntities.map((e) => (
-              <TableRow key={e.id}>
-                <TableCell className="font-medium">{e.displayName}</TableCell>
-                <TableCell>
-                  {e.entityType && (
-                    <Badge variant={ENTITY_TYPE_BADGE_VARIANT[e.entityType] ?? 'draft'} className="text-xs">
-                      {ENTITY_TYPE_LABELS[e.entityType] ?? e.entityType}
-                    </Badge>
-                  )}
-                </TableCell>
-                <TableCell title={e.description ?? ''}>{e.description ?? '-'}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex items-center justify-end gap-3">
-                    {!isArchived && (
-                      <>
-                        <button
-                          className="text-[13px] text-primary hover:text-primary-hover hover:underline cursor-pointer bg-transparent border-none p-0 font-inherit"
-                          onClick={() => setEditEeTarget(e)}
-                        >
-                          编辑
-                        </button>
-                        <button
-                          className="text-[13px] text-danger hover:text-danger-hover hover:underline cursor-pointer bg-transparent border-none p-0 font-inherit"
-                          onClick={() => setDeleteEeTarget(e)}
-                        >
-                          删除
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredEntities.map((e) => (
+            <div
+              key={e.id}
+              className="group relative rounded-card border border-card-border bg-card p-4 hover:border-primary/40 hover:shadow-sm transition-all cursor-pointer"
+              onClick={() => navigate(`/p/${project?.id}/external-entities/${e.id}`)}
+            >
+              {/* 操作按钮（hover 显示） */}
+              {!isArchived && (
+                <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button
+                    className="p-1 rounded text-text-tertiary hover:text-primary hover:bg-primary/10 transition-colors"
+                    onClick={(ev) => { ev.stopPropagation(); setEditEeTarget(e); }}
+                    title="编辑"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    className="p-1 rounded text-text-tertiary hover:text-danger hover:bg-danger/10 transition-colors"
+                    onClick={(ev) => { ev.stopPropagation(); setDeleteEeTarget(e); }}
+                    title="删除"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {/* 卡片内容 */}
+              <h3 className="font-semibold text-text-primary pr-14 truncate">{e.displayName}</h3>
+              <div className="mt-1.5">
+                {e.entityType && (
+                  <Badge variant={ENTITY_TYPE_BADGE_VARIANT[e.entityType] ?? 'draft'} className="text-xs">
+                    {ENTITY_TYPE_LABELS[e.entityType] ?? e.entityType}
+                  </Badge>
+                )}
+              </div>
+              {e.description && (
+                <p className="mt-2 text-sm text-text-secondary line-clamp-2">{e.description}</p>
+              )}
+              <div className="mt-2 text-xs text-text-tertiary">
+                {(e.actions?.length ?? 0) > 0 && <span>{e.actions!.length} 行为</span>}
+                {(e.actions?.length ?? 0) > 0 && (e.decisions?.length ?? 0) > 0 && <span> · </span>}
+                {(e.decisions?.length ?? 0) > 0 && <span>{e.decisions!.length} 决策</span>}
+                {(e.actions?.length ?? 0) === 0 && (e.decisions?.length ?? 0) === 0 && <span>暂无行为定义</span>}
+              </div>
+            </div>
+          ))}
+        </div>
       )}
 
       {/* ===== Dialogs ===== */}
@@ -392,6 +439,7 @@ export function ExternalEntitiesPanel({ project }: ExternalEntitiesPanelProps) {
           type: editEeTarget.entityType ?? '',
           description: editEeTarget.description ?? '',
         } : undefined}
+        entityVersion={editEeTarget?.version}
         fields={[
           { key: 'name', label: '名称标识', required: true },
           { key: 'displayName', label: '显示名称', required: true },

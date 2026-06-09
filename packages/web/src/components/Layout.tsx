@@ -172,7 +172,7 @@ function getProjectMenus(projectId: string): MenuItem[] {
       name: 'project-business-processes',
       displayName: '业务流程',
       icon: 'FileText',
-      path: `/p/${projectId}/business-processes`,
+      path: `/p/${projectId}/processes`,
       menuType: 'menu',
       sortOrder: 7,
       visible: true,
@@ -274,6 +274,11 @@ function useBreadcrumbs(activeProjectId: string | null) {
       labels.push('角色管理');
     } else if (subPath === 'domain-model') {
       labels.push('领域模型');
+    } else if (subPath === 'processes') {
+      labels.push('业务流程');
+    } else if (subPath?.startsWith('processes/')) {
+      labels.push('业务流程');
+      labels.push('流程编辑');
     } else if (subPath === 'business-processes') {
       labels.push('业务流程');
     } else if (subPath === 'business-architecture') {

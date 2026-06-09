@@ -13,7 +13,7 @@
  */
 
 import { useState, useCallback, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   LayoutGrid,
   List,
@@ -131,20 +131,25 @@ interface AppCardGridProps {
   applications: Application[];
   onEdit: (app: Application) => void;
   onDelete: (app: Application) => void;
+  onNavigate: (appId: string) => void;
 }
 
-function AppCardGrid({ applications, onEdit, onDelete }: AppCardGridProps) {
+function AppCardGrid({ applications, onEdit, onDelete, onNavigate }: AppCardGridProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {applications.map((app) => (
-        <Card key={app.id} className="group relative hover:shadow-md transition-shadow">
+        <Card
+          key={app.id}
+          className="group relative hover:shadow-md transition-shadow cursor-pointer"
+          onClick={() => onNavigate(app.id)}
+        >
           <CardContent className="p-5">
             {/* 类型 Badge */}
             <div className="mb-3">
               <TypeBadge type={app.type} />
             </div>
             {/* 应用名称 */}
-            <h3 className="text-[15px] font-semibold text-text-primary leading-snug truncate">
+            <h3 className="text-[15px] font-semibold text-primary leading-snug truncate hover:underline">
               {app.displayName}
             </h3>
             <p className="mt-0.5 text-xs text-text-tertiary font-mono truncate">
@@ -156,13 +161,17 @@ function AppCardGrid({ applications, onEdit, onDelete }: AppCardGridProps) {
                 {app.description}
               </p>
             )}
+            {/* 行为计数 */}
+            <p className="mt-2 text-xs text-text-tertiary">
+              {(app.actions?.length ?? 0)} Actions · {(app.decisions?.length ?? 0)} Decisions
+            </p>
             {/* 操作按钮（hover 显示） */}
             <div className="mt-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
               <Button
                 variant="outline"
                 size="sm"
                 className="h-7 px-2 text-xs"
-                onClick={() => onEdit(app)}
+                onClick={(e) => { e.stopPropagation(); onEdit(app); }}
               >
                 <Pencil className="h-3 w-3 mr-1" />
                 编辑
@@ -171,7 +180,7 @@ function AppCardGrid({ applications, onEdit, onDelete }: AppCardGridProps) {
                 variant="outline"
                 size="sm"
                 className="h-7 px-2 text-xs text-destructive hover:text-destructive"
-                onClick={() => onDelete(app)}
+                onClick={(e) => { e.stopPropagation(); onDelete(app); }}
               >
                 <Trash2 className="h-3 w-3 mr-1" />
                 删除
@@ -192,9 +201,10 @@ interface AppTableProps {
   applications: Application[];
   onEdit: (app: Application) => void;
   onDelete: (app: Application) => void;
+  onNavigate: (appId: string) => void;
 }
 
-function AppTable({ applications, onEdit, onDelete }: AppTableProps) {
+function AppTable({ applications, onEdit, onDelete, onNavigate }: AppTableProps) {
   return (
     <div className="rounded-lg border border-border overflow-hidden">
       <Table>
@@ -204,13 +214,18 @@ function AppTable({ applications, onEdit, onDelete }: AppTableProps) {
             <TableHead>标识名</TableHead>
             <TableHead>类型</TableHead>
             <TableHead>描述</TableHead>
+            <TableHead>行为/决策</TableHead>
             <TableHead className="text-right">操作</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {applications.map((app) => (
-            <TableRow key={app.id}>
-              <TableCell className="font-medium">{app.displayName}</TableCell>
+            <TableRow
+              key={app.id}
+              className="cursor-pointer"
+              onClick={() => onNavigate(app.id)}
+            >
+              <TableCell className="font-medium text-primary hover:underline">{app.displayName}</TableCell>
               <TableCell className="font-mono text-xs text-text-tertiary">{app.name}</TableCell>
               <TableCell>
                 <TypeBadge type={app.type} />
@@ -218,13 +233,16 @@ function AppTable({ applications, onEdit, onDelete }: AppTableProps) {
               <TableCell className="max-w-[200px] truncate text-xs text-text-secondary">
                 {app.description ?? '—'}
               </TableCell>
+              <TableCell className="text-xs text-text-tertiary">
+                {(app.actions?.length ?? 0)}/{(app.decisions?.length ?? 0)}
+              </TableCell>
               <TableCell className="text-right">
                 <div className="flex items-center justify-end gap-2">
                   <Button
                     variant="ghost"
                     size="sm"
                     className="h-7 px-2 text-xs"
-                    onClick={() => onEdit(app)}
+                    onClick={(e) => { e.stopPropagation(); onEdit(app); }}
                   >
                     <Pencil className="h-3 w-3 mr-1" />
                     编辑
@@ -233,7 +251,7 @@ function AppTable({ applications, onEdit, onDelete }: AppTableProps) {
                     variant="ghost"
                     size="sm"
                     className="h-7 px-2 text-xs text-destructive hover:text-destructive"
-                    onClick={() => onDelete(app)}
+                    onClick={(e) => { e.stopPropagation(); onDelete(app); }}
                   >
                     <Trash2 className="h-3 w-3 mr-1" />
                     删除
@@ -566,6 +584,7 @@ function DeleteApplicationDialog({ app, open, onOpenChange, onConfirm }: DeleteA
  */
 export default function ApplicationsPage() {
   const { projectId } = useParams<{ projectId: string }>();
+  const navigate = useNavigate();
 
   // 视图模式持久化（UI-M1-14）
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
@@ -650,19 +669,21 @@ export default function ApplicationsPage() {
 
   return (
     <div className="space-y-5">
-      {/* ===== 顶部操作栏 ===== */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-2">
-          <Layers className="h-5 w-5 text-primary" />
-          <h1 className="text-[18px] font-semibold text-text-primary">应用管理</h1>
-          {meta && (
-            <span className="text-sm text-text-tertiary">（共 {meta.total} 个）</span>
-          )}
+      {/* ===== 页头 ===== */}
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-text-primary flex items-center gap-2">
+            <Layers className="h-6 w-6 text-primary" />
+            应用管理
+          </h2>
+          <p className="mt-1 text-sm text-text-secondary">
+            管理本产品的各平台应用实例，用于业务流程的系统参与者挂载
+          </p>
         </div>
         <Button size="sm" onClick={() => setCreateOpen(true)}>
-          <Plus className="h-4 w-4 mr-1" />
-          新建应用
-        </Button>
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            新建应用
+          </Button>
       </div>
 
       {/* ===== 筛选栏 ===== */}
@@ -740,12 +761,14 @@ export default function ApplicationsPage() {
           applications={applications}
           onEdit={(app) => setEditTarget(app)}
           onDelete={(app) => setDeleteTarget(app)}
+          onNavigate={(appId) => navigate(`/p/${projectId}/applications/${appId}`)}
         />
       ) : (
         <AppTable
           applications={applications}
           onEdit={(app) => setEditTarget(app)}
           onDelete={(app) => setDeleteTarget(app)}
+          onNavigate={(appId) => navigate(`/p/${projectId}/applications/${appId}`)}
         />
       )}
 

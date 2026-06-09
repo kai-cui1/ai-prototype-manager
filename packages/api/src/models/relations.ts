@@ -8,7 +8,7 @@ import {
   businessProcesses,
   processNodes,
   processEdges,
-  processNodeMap,
+  processLayouts,
   applications,
   pages,
   pageLayoutRegions,
@@ -100,7 +100,6 @@ export const businessProcessesRelations = relations(businessProcesses, ({ many, 
     relationName: 'business_processes_parent_child',
   }),
   subProcesses: many(businessProcesses, { relationName: 'business_processes_parent_child' }),
-  nodes: many(processNodeMap),
   pages: many(pages),
   architectureMappings: many(bizArchProcessMap),
 }));
@@ -115,7 +114,6 @@ export const processNodesRelations = relations(processNodes, ({ many, one }) => 
   //        必须用不同 relationName 区分"作为出边起点"和"作为入边终点"两个关系。
   asSource: many(processEdges, { relationName: 'process_edges_source' }),
   asTarget: many(processEdges, { relationName: 'process_edges_target' }),
-  mappings: many(processNodeMap),
 }));
 
 // ── Table 8: process_edges ─────────────────────────────────
@@ -136,15 +134,11 @@ export const processEdgesRelations = relations(processEdges, ({ one }) => ({
   }),
 }));
 
-// ── Table 9: process_node_map ──────────────────────────────
-export const processNodeMapRelations = relations(processNodeMap, ({ one }) => ({
+// ── Table 9: process_layouts ───────────────────────────────
+export const processLayoutsRelations = relations(processLayouts, ({ one }) => ({
   process: one(businessProcesses, {
-    fields: [processNodeMap.processId],
+    fields: [processLayouts.processId],
     references: [businessProcesses.id],
-  }),
-  node: one(processNodes, {
-    fields: [processNodeMap.nodeId],
-    references: [processNodes.id],
   }),
 }));
 

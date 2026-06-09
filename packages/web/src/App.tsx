@@ -18,8 +18,12 @@ import OrganizationPage from './pages/OrganizationPage.js';
 import ExternalEntitiesPage from './pages/ExternalEntitiesPage.js';
 import RolesPage from './pages/RolesPage.js';
 import RoleDetailPage from './pages/RoleDetailPage.js';
+import ExternalEntityDetailPage from './pages/ExternalEntityDetailPage.js';
 import ApplicationsPage from './pages/ApplicationsPage.js';
+import ApplicationDetailPage from './pages/ApplicationDetailPage.js';
 import DomainModelPage from './pages/DomainModelPage.js';
+import ProcessListPage from './pages/ProcessListPage.js';
+import ProcessEditorPage from './pages/ProcessEditorPage.js';
 
 export default function App() {
   return (
@@ -56,6 +60,14 @@ export default function App() {
             }
           />
           <Route
+            path="/p/:projectId/external-entities/:eeId"
+            element={
+              <ProjectRouteGuard>
+                <ExternalEntityDetailPage />
+              </ProjectRouteGuard>
+            }
+          />
+          <Route
             path="/p/:projectId/roles"
             element={
               <ProjectRouteGuard>
@@ -84,6 +96,30 @@ export default function App() {
             element={
               <ProjectRouteGuard>
                 <ApplicationsPage />
+              </ProjectRouteGuard>
+            }
+          />
+          <Route
+            path="/p/:projectId/applications/:appId"
+            element={
+              <ProjectRouteGuard>
+                <ApplicationDetailPage />
+              </ProjectRouteGuard>
+            }
+          />
+          <Route
+            path="/p/:projectId/processes"
+            element={
+              <ProjectRouteGuard>
+                <ProcessListPage />
+              </ProjectRouteGuard>
+            }
+          />
+          <Route
+            path="/p/:projectId/processes/:processId"
+            element={
+              <ProjectRouteGuard>
+                <ProcessEditorPage />
               </ProjectRouteGuard>
             }
           />

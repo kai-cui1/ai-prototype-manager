@@ -141,6 +141,9 @@ function toApplication(row: typeof applications.$inferSelect): Application {
     icon: row.icon,
     sortOrder: row.sortOrder,
     config: row.config as Record<string, unknown>,
+    actions: (row.actions as unknown[] | null) ?? [],
+    decisions: (row.decisions as unknown[] | null) ?? [],
+    version: row.version,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };

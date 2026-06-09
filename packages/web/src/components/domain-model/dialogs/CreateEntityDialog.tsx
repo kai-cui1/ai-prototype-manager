@@ -2,6 +2,9 @@
  * @module CreateEntityDialog
  * @description 新建实体 Dialog。
  * 字段：name（标识符，格式校验）+ displayName + description + category
+ *
+ * initialPosition：可选，拖放创建时传入 drop 坐标。
+ * 由于 createEntity API 不支持 canvasPosition，创建成功后立即调用 updateEntity 保存位置。
  */
 
 import { useState } from 'react';
@@ -32,10 +35,12 @@ const CATEGORY_OPTIONS = [
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** 拖放创建时传入，实体创建后将放置在此画布坐标 */
+  initialPosition?: { x: number; y: number } | null;
 }
 
-export default function CreateEntityDialog({ open, onOpenChange }: Props) {
-  const { createEntity } = useDomainModelContext();
+export default function CreateEntityDialog({ open, onOpenChange, initialPosition }: Props) {
+  const { createEntity, updateEntity } = useDomainModelContext();
   const [name, setName] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [description, setDescription] = useState('');
@@ -57,12 +62,20 @@ export default function CreateEntityDialog({ open, onOpenChange }: Props) {
 
     setSubmitting(true);
     try {
-      await createEntity({
+      const entity = await createEntity({
         name: name.trim(),
         displayName: displayName.trim(),
         description: description.trim() || undefined,
         category: category === '__none__' ? undefined : category,
       });
+
+      // 拖放创建：创建后立即保存 drop 位置到画布
+      if (initialPosition && entity?.id) {
+        await updateEntity(entity.id, {
+          canvasPosition: { x: Math.round(initialPosition.x), y: Math.round(initialPosition.y) },
+        });
+      }
+
       toast.success('实体创建成功');
       handleClose();
     } catch (err) {

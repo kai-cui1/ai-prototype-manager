@@ -71,6 +71,7 @@ export interface ExternalEntity {
   decisions: DecisionDef[];
   sortOrder: number;
   config: Record<string, unknown>;
+  version: number;           // optimistic lock version
   createdAt: string;
   updatedAt: string;
 }
