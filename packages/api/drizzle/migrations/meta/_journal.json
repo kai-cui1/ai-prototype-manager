@@ -50,6 +50,13 @@
       "when": 1780539677748,
       "tag": "0006_mean_rachel_grey",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1781090000000,
+      "tag": "0007_add_edge_handles",
+      "breakpoints": true
     }
   ]
 }

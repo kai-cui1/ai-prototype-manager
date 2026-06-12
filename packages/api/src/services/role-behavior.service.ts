@@ -348,12 +348,17 @@ export async function createDecision(
   const branches = (input.branches as DecisionBranchDef[] | undefined) ?? [];
   validateBranches(branches);
 
+  // Decision inputs 校验
+  const decisionInputs = (input.inputs as DecisionDef['inputs'] | undefined) ?? [];
+  validateNodeIOArray(decisionInputs, 'inputs');
+
   // 构造新 Decision 对象
   const newDecision: DecisionDef = {
     id: crypto.randomUUID(),
     name: newName,
     displayName: input.displayName as string,
     description: (input.description as string | undefined) ?? undefined,
+    inputs: decisionInputs,
     branches,
   };
 
@@ -406,12 +411,17 @@ export async function updateDecision(
   const branches = (input.branches as DecisionBranchDef[] | undefined) ?? decisions[idx].branches;
   validateBranches(branches);
 
+  // Decision inputs 校验
+  const updatedInputs = input.inputs !== undefined ? (input.inputs as DecisionDef['inputs']) : decisions[idx].inputs;
+  validateNodeIOArray(updatedInputs, 'inputs');
+
   // 构造更新后的 Decision
   const updatedDecision: DecisionDef = {
     ...decisions[idx],
     name: newName,
     displayName: input.displayName as string,
     description: (input.description as string | undefined) ?? undefined,
+    inputs: updatedInputs,
     branches,
   };
 

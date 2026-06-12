@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: web_app/domain_model_editor/dialogs
+title: 领域模型编辑器对话框组件
+scope:
+    - packages/web/src/components/domain-model/dialogs/
+source_files: []
+depends_on: []
+related_to: []

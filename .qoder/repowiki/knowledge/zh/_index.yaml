@@ -2,21 +2,21 @@
 schema_version: 1
 locale: zh-CN
 branch: qoder-phase2
-exported_at: "2026-06-06T07:07:05Z"
+exported_at: "2026-06-09T08:51:48Z"
 modules:
     "":
         dir_name: AI 原型管理平台单体仓库
         title: AI 原型管理平台单体仓库
         scope:
-            - README.md
+            - .env
             - .gitignore
+            - AGENTS.md
+            - CLAUDE.md
+            - README.md
             - package.json
             - pnpm-lock.yaml
             - pnpm-workspace.yaml
             - turbo.json
-            - AGENTS.md
-            - CLAUDE.md
-            - .env
         source_files: []
         children: []
         depends_on: []
@@ -30,33 +30,16 @@ modules:
         children: []
         depends_on: []
         related_to:
-            - path: web_app
             - path: shared_libs
-            - path: e2e_tests
-            - path: environments
-            - path: docs
-            - path: web_app/domain_model_editor/editor_core
-            - path: web_app/project_management
-            - path: web_app/organization_and_roles
-            - path: web_app/external_entities
-            - path: web_app/applications_and_dashboard
-            - path: web_app/domain_model_editor
     docs:
-        dir_name: 项目工程化与研发规范体系
-        title: 项目工程化与研发规范体系
+        dir_name: 项目全生命周期文档与规范中心
+        title: 项目全生命周期文档与规范中心
         scope:
             - docs/
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: api_service
-            - path: web_app
-            - path: environments
-            - path: e2e_tests
-            - path: web_app/domain_model_editor
-            - path: shared_libs
-            - path: web_app/domain_model_editor/editor_core
+        related_to: []
     e2e_tests:
         dir_name: 端到端（E2E）自动化测试
         title: 端到端（E2E）自动化测试
@@ -65,13 +48,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: web_app
-            - path: api_service
-            - path: shared_libs
-            - path: environments
-            - path: docs
-            - path: web_app/applications_and_dashboard
+        related_to: []
     environments:
         dir_name: 多环境配置与服务管理
         title: 多环境配置与服务管理
@@ -80,16 +57,10 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: api_service
-            - path: web_app
-            - path: docs
-            - path: e2e_tests
-            - path: shared_libs
-            - path: web_app/project_management
+        related_to: []
     shared_libs:
-        dir_name: 共享类型定义与数据校验模式库
-        title: 共享类型定义与数据校验模式库
+        dir_name: 共享类型定义与数据校验
+        title: 共享类型定义与数据校验
         scope:
             - packages/shared/
             - packages/validation-schemas/
@@ -98,38 +69,21 @@ modules:
         depends_on: []
         related_to:
             - path: api_service
-            - path: web_app
-            - path: e2e_tests
-            - path: docs
-            - path: environments
-            - path: web_app/domain_model_editor/editor_core
-            - path: web_app/external_entities
-            - path: web_app/organization_and_roles
-            - path: web_app/project_management
-            - path: web_app/applications_and_dashboard
-            - path: web_app/domain_model_editor
-            - path: web_app/domain_model_editor/inspector
-            - path: web_app/domain_model_editor/dialogs
     web_app:
-        dir_name: AI 原型管理平台前端应用
-        title: AI 原型管理平台前端应用
+        dir_name: Web 应用编排与项目上下文管理
+        title: Web 应用编排与项目上下文管理
         scope:
             - packages/web/
         source_files: []
         children:
-            - web_app/external_entities
-            - web_app/organization_and_roles
-            - web_app/project_management
             - web_app/shared_ui_core
             - web_app/domain_model_editor
+            - web_app/external_entities
             - web_app/applications_and_dashboard
+            - web_app/project_management
+            - web_app/organization_and_roles
         depends_on: []
-        related_to:
-            - path: api_service
-            - path: shared_libs
-            - path: e2e_tests
-            - path: environments
-            - path: docs
+        related_to: []
     web_app/applications_and_dashboard:
         dir_name: 应用管理与系统仪表盘
         title: 应用管理与系统仪表盘
@@ -143,13 +97,6 @@ modules:
         depends_on: []
         related_to:
             - path: web_app/project_management
-            - path: web_app/shared_ui_core
-            - path: web_app/organization_and_roles
-            - path: web_app/domain_model_editor/editor_core
-            - path: e2e_tests
-            - path: web_app/domain_model_editor/inspector
-            - path: shared_libs
-            - path: api_service
     web_app/domain_model_editor:
         dir_name: 领域模型可视化编辑器
         title: 领域模型可视化编辑器
@@ -161,16 +108,14 @@ modules:
         source_files: []
         children:
             - web_app/domain_model_editor/editor_core
-            - web_app/domain_model_editor/canvas
-            - web_app/domain_model_editor/inspector
             - web_app/domain_model_editor/dialogs
+            - web_app/domain_model_editor/inspector
+            - web_app/domain_model_editor/canvas
         depends_on: []
         related_to:
+            - path: web_app/project_management
             - path: web_app/organization_and_roles
             - path: web_app/shared_ui_core
-            - path: docs
-            - path: shared_libs
-            - path: api_service
     web_app/domain_model_editor/canvas:
         dir_name: 领域模型可视化编辑器_2
         title: 领域模型可视化编辑器
@@ -179,10 +124,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: web_app/domain_model_editor/inspector
-            - path: web_app/domain_model_editor/editor_core
-            - path: web_app/shared_ui_core
+        related_to: []
     web_app/domain_model_editor/dialogs:
         dir_name: 领域模型编辑器对话框组件
         title: 领域模型编辑器对话框组件
@@ -191,13 +133,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: web_app/domain_model_editor/inspector
-            - path: web_app/domain_model_editor/editor_core
-            - path: web_app/organization_and_roles
-            - path: web_app/external_entities
-            - path: web_app/project_management
-            - path: shared_libs
+        related_to: []
     web_app/domain_model_editor/editor_core:
         dir_name: 领域模型可视化编辑器
         title: 领域模型可视化编辑器
@@ -211,15 +147,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: web_app/domain_model_editor/canvas
-            - path: web_app/domain_model_editor/dialogs
-            - path: web_app/applications_and_dashboard
-            - path: docs
-            - path: web_app/project_management
-            - path: shared_libs
-            - path: web_app/shared_ui_core
-            - path: api_service
+        related_to: []
     web_app/domain_model_editor/inspector:
         dir_name: 领域模型检查器面板
         title: 领域模型检查器面板
@@ -228,15 +156,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: web_app/domain_model_editor/canvas
-            - path: web_app/domain_model_editor/dialogs
-            - path: web_app/external_entities
-            - path: web_app/project_management
-            - path: web_app/shared_ui_core
-            - path: web_app/organization_and_roles
-            - path: web_app/applications_and_dashboard
-            - path: shared_libs
+        related_to: []
     web_app/external_entities:
         dir_name: 外部实体行为管理
         title: 外部实体行为管理
@@ -249,14 +169,9 @@ modules:
         depends_on: []
         related_to:
             - path: web_app/organization_and_roles
-            - path: web_app/shared_ui_core
-            - path: web_app/domain_model_editor/inspector
-            - path: web_app/domain_model_editor/dialogs
-            - path: shared_libs
-            - path: api_service
     web_app/organization_and_roles:
-        dir_name: 组织架构与角色行为管理
-        title: 组织架构与角色行为管理
+        dir_name: 组织与角色行为管理
+        title: 组织与角色行为管理
         scope:
             - packages/web/src/pages/OrganizationPage.tsx
             - packages/web/src/pages/RolesPage.tsx
@@ -269,18 +184,11 @@ modules:
         children: []
         depends_on: []
         related_to:
-            - path: web_app/project_management
-            - path: web_app/external_entities
             - path: web_app/domain_model_editor
-            - path: web_app/shared_ui_core
-            - path: web_app/applications_and_dashboard
-            - path: web_app/domain_model_editor/dialogs
-            - path: web_app/domain_model_editor/inspector
-            - path: shared_libs
-            - path: api_service
+            - path: web_app/external_entities
     web_app/project_management:
-        dir_name: 项目全生命周期管理
-        title: 项目全生命周期管理
+        dir_name: 项目管理模块
+        title: 项目管理模块
         scope:
             - packages/web/src/pages/ProjectList.tsx
             - packages/web/src/pages/ProjectDetail.tsx
@@ -292,18 +200,11 @@ modules:
         children: []
         depends_on: []
         related_to:
-            - path: web_app/organization_and_roles
+            - path: web_app/domain_model_editor
             - path: web_app/applications_and_dashboard
-            - path: web_app/shared_ui_core
-            - path: web_app/domain_model_editor/inspector
-            - path: web_app/domain_model_editor/editor_core
-            - path: web_app/domain_model_editor/dialogs
-            - path: shared_libs
-            - path: api_service
-            - path: environments
     web_app/shared_ui_core:
-        dir_name: 共享 UI 核心与布局架构
-        title: 共享 UI 核心与布局架构
+        dir_name: Web UI 核心与布局架构
+        title: Web UI 核心与布局架构
         scope:
             - packages/web/src/components/common/
             - packages/web/src/components/ui/
@@ -323,11 +224,4 @@ modules:
         children: []
         depends_on: []
         related_to:
-            - path: web_app/project_management
             - path: web_app/domain_model_editor
-            - path: web_app/applications_and_dashboard
-            - path: web_app/organization_and_roles
-            - path: web_app/external_entities
-            - path: web_app/domain_model_editor/inspector
-            - path: web_app/domain_model_editor/editor_core
-            - path: web_app/domain_model_editor/canvas

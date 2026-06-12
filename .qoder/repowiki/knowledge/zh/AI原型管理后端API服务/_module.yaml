@@ -6,14 +6,4 @@ scope:
 source_files: []
 depends_on: []
 related_to:
-    - path: web_app
     - path: shared_libs
-    - path: e2e_tests
-    - path: environments
-    - path: docs
-    - path: web_app/domain_model_editor/editor_core
-    - path: web_app/project_management
-    - path: web_app/organization_and_roles
-    - path: web_app/external_entities
-    - path: web_app/applications_and_dashboard
-    - path: web_app/domain_model_editor

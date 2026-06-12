@@ -23,6 +23,7 @@ import SwimlaneToolbar from './SwimlaneToolbar';
 import ProcessCanvas from './canvas/ProcessCanvas';
 import NodePool from './NodePool';
 import PropertyPanel from './PropertyPanel';
+import CanvasSettingsSheet from './CanvasSettingsSheet';
 import { CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -177,6 +178,9 @@ export default function ProcessEditor() {
         {/* 右侧：属性面板 */}
         <PropertyPanel />
       </div>
+
+      {/* Canvas 设置侧滑面板 */}
+      <CanvasSettingsSheet />
     </div>
   );
 }

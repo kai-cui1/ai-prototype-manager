@@ -44,12 +44,21 @@ import {
   type ValidationResult,
   type BehaviorOption,
 } from '@/hooks/useProcess';
+import { apiClient } from '@/lib/api-client';
 
 // ============================================================
 // Types
 // ============================================================
 
 export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
+/** 失效的 mapping 信息，用于画布高亮提示 */
+export interface StaleMapping {
+  edgeId: string;
+  /** 'input_removed' | 'output_removed' | 'branch_removed' */
+  kind: string;
+  fieldName: string;
+}
 
 export interface ProcessEditorContextValue {
   // ---- 项目/流程标识 ----
@@ -112,11 +121,24 @@ export interface ProcessEditorContextValue {
   // ---- 参与者行为定义 ----
   holderActions: BehaviorOption[];
   holderDecisions: BehaviorOption[];
+  holderVersion: number;
   holderBehaviorsLoading: boolean;
   fetchHolderBehaviors: (holderType: string, holderId: string) => void;
 
+  // ---- Canvas 偏好设置 ----
+  showBehaviorParams: boolean;
+  setShowBehaviorParams: (v: boolean) => void;
+  canvasSettingsOpen: boolean;
+  setCanvasSettingsOpen: (v: boolean) => void;
+
   // ---- 刷新 ----
   refreshAll: () => void;
+
+  // ---- 映射有效性校验（§3.10.2）----
+  /** 失效的 mapping 列表（初始加载后自动检测）*/
+  staleMappings: StaleMapping[];
+  /** 清除失效标记（用户重新配置后调用）*/
+  clearStaleMappings: () => void;
 }
 
 // ============================================================
@@ -162,6 +184,16 @@ export function ProcessEditorProvider({ projectId, processId, children }: Proces
 
   // ---- ReactFlow 实例 ----
   const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
+
+  // ---- Canvas 偏好设置 ----
+  const [showBehaviorParams, setShowBehaviorParams] = useState(true);
+  const [canvasSettingsOpen, setCanvasSettingsOpen] = useState(false);
+
+  // ---- 映射有效性校验（§3.10.2）----
+  const [staleMappings, setStaleMappings] = useState<StaleMapping[]>([]);
+  const clearStaleMappings = useCallback(() => setStaleMappings([]), []);
+  /** 标记是否已对当前 nodes+edges组合执行过校验 */
+  const lastValidatedKeyRef = useRef('');
 
   // ---- 加载流程详情 ----
   const loadProcess = useCallback(async () => {
@@ -337,6 +369,136 @@ export function ProcessEditorProvider({ projectId, processId, children }: Proces
     layoutHook.fetchLayout();
   }, [loadProcess, nodeHook, edgeHook, layoutHook]);
 
+  // ---- 初始加载完成后执行映射校验（§3.10.2）----
+  useEffect(() => {
+    const nodes = nodeHook.nodes;
+    const edges = edgeHook.edges;
+    // 尚未完成加载时不执行
+    if (nodeHook.loading || edgeHook.loading) return;
+    if (nodes.length === 0) return;
+
+    // 用 nodes+edges 的内容生成 key，避免重复校验
+    const key = nodes.map((n) => `${n.id}:${n.actionRef ?? n.decisionRef}`).join(',') +
+      '|' + edges.map((e) => `${e.id}:${(e.mappings ?? []).map((m) => `${m.sourceField}->${m.targetField}`).join(';')};${e.label ?? ''}`).join(',');
+    if (key === lastValidatedKeyRef.current) return;
+    lastValidatedKeyRef.current = key;
+
+    // 收集需要查询的 holder
+    const holderSet = new Map<string, { holderType: string; holderId: string; nodeIds: string[] }>();
+    for (const node of nodes) {
+      if (!node.holderType || !node.holderId) continue;
+      if (!node.actionRef && !node.decisionRef) continue;
+      const hkey = `${node.holderType}:${node.holderId}`;
+      if (!holderSet.has(hkey)) holderSet.set(hkey, { holderType: node.holderType, holderId: node.holderId, nodeIds: [] });
+      holderSet.get(hkey)!.nodeIds.push(node.id);
+    }
+    if (holderSet.size === 0) return;
+
+    (async () => {
+      const stale: StaleMapping[] = [];
+
+      for (const [, { holderType, holderId }] of holderSet) {
+        const basePath =
+          holderType === 'role'
+            ? `/projects/${projectId}/roles/${holderId}`
+            : holderType === 'service'
+              ? `/projects/${projectId}/applications/${holderId}`
+              : `/projects/${projectId}/external-entities/${holderId}`;
+
+        try {
+          const [actRes, decRes] = await Promise.allSettled([
+            apiClient.get<{ data: { items: Array<{ name: string; inputs?: Array<{ name: string }>; outputs?: Array<{ name: string }> }> } }>(`${basePath}/actions`),
+            apiClient.get<{ data: { items: Array<{ name: string; branches?: Array<{ name: string; outputs?: Array<{ name: string }> }> }> } }>(`${basePath}/decisions`),
+          ]);
+
+          const actionMap = new Map<string, { inputs: Set<string>; outputs: Set<string> }>();
+          if (actRes.status === 'fulfilled') {
+            for (const a of actRes.value.data.data?.items ?? []) {
+              actionMap.set(a.name, {
+                inputs: new Set((a.inputs ?? []).map((p) => p.name)),
+                outputs: new Set((a.outputs ?? []).map((p) => p.name)),
+              });
+            }
+          }
+
+          const decisionMap = new Map<string, { branchNames: Set<string>; branchOutputs: Map<string, Set<string>> }>();
+          if (decRes.status === 'fulfilled') {
+            for (const d of decRes.value.data.data?.items ?? []) {
+              const branchOutputs = new Map<string, Set<string>>();
+              for (const b of d.branches ?? []) {
+                branchOutputs.set(b.name, new Set((b.outputs ?? []).map((p) => p.name)));
+              }
+              decisionMap.set(d.name, {
+                branchNames: new Set((d.branches ?? []).map((b) => b.name)),
+                branchOutputs,
+              });
+            }
+          }
+
+          // 逐个节点检查引用关系
+          for (const node of nodes) {
+            if (node.holderType !== holderType || node.holderId !== holderId) continue;
+
+            if (node.actionRef) {
+              const actionDef = actionMap.get(node.actionRef);
+              if (!actionDef) continue;
+
+              // 检查入边的 mappings.targetField
+              const inEdges = edges.filter((e) => e.targetNodeId === node.id);
+              for (const edge of inEdges) {
+                for (const m of edge.mappings ?? []) {
+                  if (!actionDef.inputs.has(m.targetField)) {
+                    stale.push({ edgeId: edge.id, kind: 'input_removed', fieldName: m.targetField });
+                  }
+                }
+              }
+              // 检查出边的 mappings.sourceField
+              const outEdges = edges.filter((e) => e.sourceNodeId === node.id);
+              for (const edge of outEdges) {
+                for (const m of edge.mappings ?? []) {
+                  if (!actionDef.outputs.has(m.sourceField)) {
+                    stale.push({ edgeId: edge.id, kind: 'output_removed', fieldName: m.sourceField });
+                  }
+                }
+              }
+            }
+
+            if (node.decisionRef) {
+              const decDef = decisionMap.get(node.decisionRef);
+              if (!decDef) continue;
+
+              // 检查出边 label 对应的分支是否还存在
+              const outEdges = edges.filter((e) => e.sourceNodeId === node.id);
+              for (const edge of outEdges) {
+                if (edge.label && !decDef.branchNames.has(edge.label)) {
+                  stale.push({ edgeId: edge.id, kind: 'branch_removed', fieldName: edge.label });
+                }
+                // 检查分支出参 mappings.sourceField
+                if (edge.label) {
+                  const branchOutputs = decDef.branchOutputs.get(edge.label);
+                  if (branchOutputs) {
+                    for (const m of edge.mappings ?? []) {
+                      if (!branchOutputs.has(m.sourceField)) {
+                        stale.push({ edgeId: edge.id, kind: 'output_removed', fieldName: m.sourceField });
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch {
+          // 单个 holder 请求失败不影响其他
+        }
+      }
+
+      if (stale.length > 0) {
+        setStaleMappings(stale);
+        toast.warning('行为定义已更新，部分参数映射已失效，请检查高亮的连线', { duration: 6000 });
+      }
+    })();
+  }, [nodeHook.nodes, edgeHook.edges, nodeHook.loading, edgeHook.loading, projectId]);
+
   // ---- Context Value ----
   const value: ProcessEditorContextValue = {
     projectId,
@@ -374,9 +536,16 @@ export function ProcessEditorProvider({ projectId, processId, children }: Proces
     updateLayout: updateLayoutOp,
     holderActions: behaviorHook.actions,
     holderDecisions: behaviorHook.decisions,
+    holderVersion: behaviorHook.holderVersion,
     holderBehaviorsLoading: behaviorHook.loading,
     fetchHolderBehaviors: behaviorHook.fetchBehaviors,
+    showBehaviorParams,
+    setShowBehaviorParams,
+    canvasSettingsOpen,
+    setCanvasSettingsOpen,
     refreshAll,
+    staleMappings,
+    clearStaleMappings,
   };
 
   return (

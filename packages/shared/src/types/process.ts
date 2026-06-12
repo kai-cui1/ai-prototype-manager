@@ -42,12 +42,20 @@ export interface ProcessNode {
   updatedAt: string;
 }
 
+/** 映射关系：source 输出字段 → target 输入字段 */
+export interface EdgeMapping {
+  sourceField: string;
+  targetField: string;
+}
+
 export interface ProcessEdge {
   id: string;
   projectId: string;
   sourceNodeId: string;
   targetNodeId: string;
-  mappings: Array<Record<string, unknown>>;
+  sourceHandle: string | null;
+  targetHandle: string | null;
+  mappings: EdgeMapping[];
   label: string | null;
   condition: string | null;
   config: Record<string, unknown>;

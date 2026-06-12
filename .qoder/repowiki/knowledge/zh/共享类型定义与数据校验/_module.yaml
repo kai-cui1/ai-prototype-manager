@@ -1,0 +1,10 @@
+schema_version: 1
+module_path: shared_libs
+title: 共享类型定义与数据校验
+scope:
+    - packages/shared/
+    - packages/validation-schemas/
+source_files: []
+depends_on: []
+related_to:
+    - path: api_service

@@ -795,6 +795,12 @@ APM
 │ 描述                                                │
 │ [根据订单金额决定审批路线...                       ] │
 │                                                     │
+│ ── 输入参数 ────────────────── [+ 添加参数] ────── │
+│ name * [amount      ] type * [number ▼]  必填 [✓]   │
+│ 描述 [订单金额]     默认值 [         ]       [🗑]   │
+│ name * [currency    ] type * [string▼]             │
+│ 描述 [币种]                                [🗑]   │
+│                                                     │
 │ ── 分支定义 ─────────────── [+ 添加分支] ───────── │
 │                                                     │
 │ ▼ 分支 1: approved                                  │
@@ -803,7 +809,7 @@ APM
 │ │ 条件表达式   [amount <= 10000    ]              │ │
 │ │ 输出参数:                                      │ │
 │ │   name * [result    ] type * [string▼]          │ │
-│ │   required [✓]  描述 [审批结果]        [🗑]     │ │
+│ │   描述 [审批结果]                        [🗑]   │ │
 │ └────────────────────────────────────────────────┘ │
 │                                                     │
 │ ▼ 分支 2: rejected                                  │
@@ -812,7 +818,7 @@ APM
 │ │ 条件表达式   [amount > 10000     ]              │ │
 │ │ 输出参数:                                      │ │
 │ │   name * [result    ] type * [string▼]          │ │
-│ │   required [✓]  描述 [审批结果]        [🗑]     │ │
+│ │   描述 [审批结果]                        [🗑]   │ │
 │ └────────────────────────────────────────────────┘ │
 │                                                     │
 │ ⚠ 至少需要 2 个分支                                 │
@@ -829,6 +835,7 @@ APM
 | name（标识符） | `Input` | 必填；`/^[a-zA-Z0-9_-]+$/`；2-50 字符；同 role 内唯一 | — |
 | displayName（显示名称） | `Input` | 必填；1-100 字符 | — |
 | description（描述） | `Textarea` | 可选；0-500 字符 | — |
+| inputs（输入参数） | `NodeIOEditor` | 同 Action 的 inputs | 必填字段，Decision 无状态，判断逻辑依赖输入参数 |
 | branches（分支列表） | 可折叠动态列表 | ≥2 个；分支名同 Decision 内唯一 | 见下方 |
 
 **每个分支的字段：**
@@ -836,9 +843,15 @@ APM
 | 字段 | 组件 | 校验 | 说明 |
 |------|------|------|------|
 | name（分支名称） | `Input` | 必填；1-50 字符；同 Decision 内唯一 | 如 approved/rejected/escalated |
-| condition（条件表达式） | `Input` | 可选；0-500 字符 | Phase 1 为原始字符串 |
-| outputs（输出参数） | 动态列表 | 同 Action 的 inputs/outputs | 见 §11.6 |
+| condition（条件表达式） | `Input` | 可选；0-500 字符 | 引用 Decision.inputs 中的字段，Phase 1 为原始字符串 |
+| outputs（输出参数） | 动态列表 | 同 Action 的 outputs | 见 §11.6（无 required、无 defaultValue） |
 | edgeIds | 隐藏 | Phase 1 始终 []，不展示 | M3 填充 |
+
+**Decision inputs 设计说明：**
+- Decision 必须定义输入参数（inputs），因为 Decision 本身无状态，其判断逻辑完全依赖输入
+- inputs 的 condition 引用：分支条件表达式引用 inputs 中的字段名（如 `amount <= 10000` 引用了 `amount` 字段）
+- inputs 的透传：branch.outputs 可从 inputs 透传字段到下游（在 outputs 中声明与 input 同名的字段即可）
+- 输入参数编辑器使用 §11.6 的 NodeIOEditor，`showRequired=true`，`showDefaultValue=true`
 
 **交互细节：**
 
@@ -855,26 +868,47 @@ APM
 
 Action 的 inputs/outputs 和 Decision 分支的 outputs 共用同一套参数行编辑器。
 
-**单行参数布局：**
+**单行参数布局（输入参数 — 含 defaultValue）：**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ name *  [orderId          ]  type * [string ▼]  required [✓] │
+│ 描述 [订单编号           ]  默认值 [         ]       [🗑]     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**单行参数布局（输出参数 — 无 defaultValue）：**
 
 ```
 ┌──────────────────────────────────────────────────────────┐
-│ name *  [orderId          ]  type * [string ▼]  required [✓] │
+│ name *  [orderId          ]  type * [string ▼]            │
 │ 描述 [订单编号           ]                        [🗑]     │
 └──────────────────────────────────────────────────────────┘
 ```
 
 **参数行字段：**
 
-| 字段 | 组件 | 宽度 | 校验 | 说明 |
-|------|------|------|------|------|
-| name | `Input` | flex 2 | 必填；1-50 字符；同数组唯一 | 参数名 |
-| type | `Select` | 120px | 必填 | 常用类型下拉：string/number/boolean/datetime/text/enum/email/url/phone/object/array |
-| required | `Checkbox` | — | — | 是否必填，默认 false |
-| description | `Input` | flex 2 | 可选；0-200 字符 | 参数描述 |
-| 删除按钮 | `IconButton` | — | — | 删除此行 |
+| 字段 | 组件 | 宽度 | 校验 | 适用范围 | 说明 |
+|------|------|------|------|----------|------|
+| name | `Input` | flex 2 | 必填；1-50 字符；同数组唯一 | 全部 | 参数名 |
+| type | `Select` | 130px | 必填 | 全部 | 常用类型下拉：string/number/boolean/datetime/text/enum/email/url/phone/object/array；**新增参数行时默认预选 `object`** |
+| required | `Checkbox` | — | — | 仅 inputs | 是否必填，默认 false |
+| description | `Input` | flex 2 | 可选；0-200 字符 | 全部 | 参数描述 |
+| defaultValue | `Input` | flex 1 | 可选；0-200 字符 | 仅 inputs | 默认值，仅输入参数显示；勾选 required 后仍可填写（表示必填但有兜底值） |
+| 删除按钮 | `IconButton` | — | — | 全部 | 删除此行 |
 
-> **简化设计说明**：Phase 1 的 NodeIO 编辑器仅暴露核心字段（name/type/required/description），`defaultValue` 和 `constraints` 暂不在 UI 暴露（保留在 JSONB 存储中，Phase 2+ 扩展编辑器）。type 下拉仅列 9 种基础类型，与领域模型字段类型一致。
+**defaultValue 交互细节：**
+
+| 场景 | 行为 |
+|------|------|
+| 仅输入参数显示 | 输出参数和 Decision 分支 outputs 不显示 defaultValue 行 |
+| 输入为空 | 不提交 defaultValue 字段（省略），API 层视为 undefined |
+| 输入有值 | 按原始字符串提交，API 层存储为 JSONB（支持 string/number/boolean/object 任意 JSON 值） |
+| type 为 boolean | defaultValue 输入框变为 Checkbox（true/false），而非文本 Input |
+| type 为 number | defaultValue 输入框增加 `type=number` 属性，仅允许数字输入 |
+| required + defaultValue 组合 | 勾选 required 后 defaultValue 输入框仍可填写，表示「必填但有兜底值，未映射时使用默认值」 |
+
+> **补充说明**：`constraints` 仍保留在 JSONB 不在 UI 暴露（Phase 2+ 扩展）。type 下拉列 11 种基础类型，与领域模型字段类型一致。
 
 ### 11.7 ToolRef 工具选择器
 

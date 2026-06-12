@@ -3,7 +3,7 @@
  * @description NodeIO 参数行编辑器 — Action inputs/outputs 和 Decision 分支 outputs 共用。
  *
  * S3 交互设计规格: project-management-interaction.md §11.6
- * Phase 1 仅暴露 name/type/required/description，defaultValue 和 constraints 保留在 JSONB 不在 UI 暴露。
+ * 暴露 name/type/required/description/defaultValue（仅输入参数），constraints 保留在 JSONB 不在 UI 暴露。
  */
 
 import { Input } from '@/components/ui/input';
@@ -29,6 +29,8 @@ export interface NodeIOItem {
   type: string;
   required: boolean;
   description: string;
+  /** 默认值（字符串形式，API 层存储为 JSONB） */
+  defaultValue: string;
 }
 
 export interface NodeIOEditorProps {
@@ -40,6 +42,8 @@ export interface NodeIOEditorProps {
   onChange: (items: NodeIOItem[]) => void;
   /** 是否显示 required 列（outputs 通常不显示 required） */
   showRequired?: boolean;
+  /** 是否显示 defaultValue 列（仅输入参数显示） */
+  showDefaultValue?: boolean;
   /** 校验错误：key 为 "index-field" 格式，如 "0-name" */
   errors?: Record<string, string>;
   /** 是否禁用 */
@@ -65,9 +69,9 @@ const TYPE_OPTIONS = [
   'array',
 ] as const;
 
-/** 创建空参数行 */
+/** 创建空参数行（type 默认 object，方便人工快速创建） */
 function blankItem(): NodeIOItem {
-  return { name: '', type: '', required: false, description: '' };
+  return { name: '', type: 'object', required: false, description: '', defaultValue: '' };
 }
 
 // ============================================================
@@ -79,6 +83,7 @@ export function NodeIOEditor({
   items,
   onChange,
   showRequired = true,
+  showDefaultValue = false,
   errors = {},
   disabled = false,
 }: NodeIOEditorProps) {
@@ -195,7 +200,7 @@ export function NodeIOEditor({
               </div>
             )}
 
-            {/* 第二行：description */}
+            {/* 第二行：description + defaultValue */}
             <div className="flex items-center gap-2">
               <div className="flex-[2]">
                 <Input
@@ -206,8 +211,34 @@ export function NodeIOEditor({
                   className="h-7 text-sm"
                 />
               </div>
-              {/* 占位对齐 type 列 + required 列 + 删除按钮列 */}
-              <div className="w-[130px] shrink-0" />
+              {showDefaultValue ? (
+                <div className="flex-1">
+                  {item.type === 'boolean' ? (
+                    <label className="flex items-center gap-1.5 h-7 cursor-pointer select-none">
+                      <Checkbox
+                        checked={item.defaultValue === 'true'}
+                        onCheckedChange={(checked) =>
+                          updateItem(index, 'defaultValue', checked ? 'true' : 'false')
+                        }
+                        disabled={disabled}
+                        className="size-3.5"
+                      />
+                      <span className="text-xs text-text-secondary">默认值</span>
+                    </label>
+                  ) : (
+                    <Input
+                      placeholder="默认值（可选）"
+                      value={item.defaultValue}
+                      onChange={(e) => updateItem(index, 'defaultValue', (e.target as HTMLInputElement).value)}
+                      disabled={disabled}
+                      type={item.type === 'number' ? 'number' : 'text'}
+                      className="h-7 text-sm"
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className="w-[130px] shrink-0" />
+              )}
               {showRequired && <div className="w-[52px] shrink-0" />}
               <div className="w-[28px] shrink-0" />
             </div>
@@ -230,6 +261,7 @@ export function toNodeIOItems(items: NodeIO[] | undefined): NodeIOItem[] {
     type: item.type,
     required: item.required ?? false,
     description: item.description ?? '',
+    defaultValue: item.defaultValue != null ? String(item.defaultValue) : '',
   }));
 }
 
@@ -243,6 +275,15 @@ export function fromNodeIOItems(items: NodeIOItem[]): NodeIO[] {
     };
     if (item.description) {
       result.description = item.description;
+    }
+    if (item.defaultValue) {
+      // 尝试解析为 JSON 值（number/boolean/object），否则保留为 string
+      try {
+        const parsed = JSON.parse(item.defaultValue);
+        result.defaultValue = parsed;
+      } catch {
+        result.defaultValue = item.defaultValue;
+      }
     }
     return result;
   });

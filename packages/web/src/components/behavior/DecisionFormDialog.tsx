@@ -18,7 +18,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, AlertTriangle } from 'lucide-react';
 import {
   NodeIOEditor,
   toNodeIOItems,
@@ -27,6 +27,12 @@ import {
 } from '@/components/role-behavior/NodeIOEditor';
 import type { NodeIOItem } from '@/components/role-behavior/NodeIOEditor';
 import type { DecisionDef } from '@apm/shared';
+import {
+  detectBehaviorImpact,
+  enrichImpactWithEdgeCounts,
+  formatImpactItem,
+  type ImpactItem,
+} from '@/lib/behavior-impact';
 
 export interface DecisionFormDialogProps {
   open: boolean;
@@ -36,23 +42,33 @@ export interface DecisionFormDialogProps {
   initialValues?: DecisionDef;
   version: number;
   onSubmit: (data: Record<string, unknown>) => Promise<unknown>;
+  /** 当前流程图的连线，用于影响判断 */
+  processEdges?: Array<{ mappings?: Array<{ sourceField: string; targetField: string }>; label?: string | null; sourceNodeId: string; targetNodeId: string }>;
+  /** 当前节点 id */
+  nodeId?: string;
 }
 
 export function DecisionFormDialog({
-  open, onOpenChange, mode, holderLabel, initialValues, version, onSubmit,
+  open, onOpenChange, mode, holderLabel, initialValues, version, onSubmit, processEdges, nodeId,
 }: DecisionFormDialogProps) {
   interface BranchForm { name: string; condition: string; outputs: NodeIOItem[]; }
   const blankBranches: BranchForm[] = [
     { name: '', condition: '', outputs: [] },
     { name: '', condition: '', outputs: [] },
   ];
-  const blank = { name: '', displayName: '', description: '', branches: blankBranches };
+  const blank = { name: '', displayName: '', description: '', inputs: [] as NodeIOItem[], branches: blankBranches };
 
   const [form, setForm] = useState(blank);
   const [errors, setErrors] = useState<Record<string, string | undefined>>({});
+  const [inputIoErrors, setInputIoErrors] = useState<Record<string, string>>({});
   const [branchIoErrors, setBranchIoErrors] = useState<Record<string, Record<string, string>>>({});
   const [submitError, setSubmitError] = useState<string | undefined>();
   const [submitting, setSubmitting] = useState(false);
+  // 二次确认 Dialog 状态
+  const [impactItems, setImpactItems] = useState<ImpactItem[]>([]);
+  const [pendingPayload, setPendingPayload] = useState<Record<string, unknown> | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -61,6 +77,7 @@ export function DecisionFormDialog({
           name: initialValues.name,
           displayName: initialValues.displayName,
           description: initialValues.description ?? '',
+          inputs: toNodeIOItems(initialValues.inputs),
           branches: initialValues.branches.map((b) => ({
             name: b.name,
             condition: b.condition ?? '',
@@ -71,6 +88,7 @@ export function DecisionFormDialog({
         setForm(blank);
       }
       setErrors({});
+      setInputIoErrors({});
       setBranchIoErrors({});
       setSubmitError(undefined);
     }
@@ -95,9 +113,13 @@ export function DecisionFormDialog({
       if (b.name) branchNames.add(b.name);
     });
 
+    // 校验 inputs
+    const inputErrs = validateNodeIOItems(form.inputs);
+    setInputIoErrors(inputErrs);
+
     // 校验各分支的 outputs
     const allBranchIoErrors: Record<string, Record<string, string>> = {};
-    let hasIoErrors = false;
+    let hasIoErrors = Object.keys(inputErrs).length > 0;
     form.branches.forEach((b, i) => {
       const errs = validateNodeIOItems(b.outputs);
       if (Object.keys(errs).length > 0) {
@@ -112,20 +134,50 @@ export function DecisionFormDialog({
       return;
     }
 
+    const payload: Record<string, unknown> = {
+      name: form.name,
+      displayName: form.displayName,
+      description: form.description || undefined,
+      inputs: fromNodeIOItems(form.inputs),
+      branches: form.branches.map((b) => ({
+        name: b.name,
+        condition: b.condition || undefined,
+        outputs: fromNodeIOItems(b.outputs),
+        edgeIds: [],
+      })),
+    };
+    if (mode === 'edit') {
+      payload.version = version;
+    }
+
+    // 编辑模式：影响判断
+    if (mode === 'edit' && initialValues && processEdges !== undefined && nodeId !== undefined) {
+      const rawImpact = detectBehaviorImpact(
+        {
+          inputs: initialValues.inputs,
+          branches: initialValues.branches,
+        },
+        {
+          inputs: payload.inputs as { name: string }[],
+          branches: payload.branches as { name: string }[],
+        },
+      );
+      const enriched = enrichImpactWithEdgeCounts(rawImpact, processEdges, nodeId);
+      const affectingItems = enriched.filter((it) => (it.affectedEdgeCount ?? 0) > 0);
+      if (affectingItems.length > 0) {
+        setImpactItems(enriched);
+        setPendingPayload(payload);
+        setConfirmOpen(true);
+        return;
+      }
+    }
+
+    await doSubmit(payload);
+  };
+
+  const doSubmit = async (payload: Record<string, unknown>) => {
     setSubmitting(true);
     try {
-      const payload: Record<string, unknown> = {
-        name: form.name,
-        displayName: form.displayName,
-        description: form.description || undefined,
-        branches: form.branches.map((b) => ({
-          name: b.name,
-          condition: b.condition || undefined,
-          outputs: fromNodeIOItems(b.outputs),
-          edgeIds: [],
-        })),
-        version,
-      };
       await onSubmit(payload);
       onOpenChange(false);
     } catch (err: unknown) {
@@ -140,7 +192,16 @@ export function DecisionFormDialog({
     }
   };
 
-  return (
+  const handleConfirm = async () => {
+    if (!pendingPayload) return;
+    setConfirming(true);
+    setConfirmOpen(false);
+    await doSubmit(pendingPayload);
+    setConfirming(false);
+    setPendingPayload(null);
+  };
+
+  return (<>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" onKeyDown={(e) => {
         if (e.key === 'Enter' && !e.shiftKey && e.nativeEvent.target instanceof HTMLInputElement) {
@@ -193,6 +254,17 @@ export function DecisionFormDialog({
               disabled={submitting}
             />
           </div>
+
+          {/* 输入参数 */}
+          <NodeIOEditor
+            label="输入参数"
+            items={form.inputs}
+            onChange={(items) => setForm((prev) => ({ ...prev, inputs: items }))}
+            showRequired={true}
+            showDefaultValue={true}
+            errors={inputIoErrors}
+            disabled={submitting}
+          />
 
           {/* Branches editor */}
           <div className="space-y-2">
@@ -279,12 +351,43 @@ export function DecisionFormDialog({
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>取消</Button>
-          <Button onClick={handleSubmit} disabled={submitting}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting || confirming}>取消</Button>
+          <Button onClick={handleSubmit} disabled={submitting || confirming}>
             {submitting ? '提交中...' : mode === 'create' ? '确认创建' : '保存修改'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+
+    {/* 二次确认 Dialog */}
+    <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            此修改将影响引用该行为的流程图
+          </DialogTitle>
+          <DialogDescription>
+            以下变更将导致相关流程图的参数映射或分支绑定被清空，需要重新配置：
+          </DialogDescription>
+        </DialogHeader>
+        <div className="px-4 py-2 space-y-2">
+          {impactItems.map((item, i) => (
+            <div key={i} className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm">
+              <span className="text-amber-600 text-xs mt-0.5">●</span>
+              <span>{formatImpactItem(item)}</span>
+            </div>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setConfirmOpen(false); setPendingPayload(null); }}>
+            取消
+          </Button>
+          <Button variant="default" onClick={handleConfirm} disabled={confirming}>
+            {confirming ? '提交中...' : '确认修改'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </>);
 }

@@ -1,0 +1,12 @@
+schema_version: 1
+module_path: web_app/applications_and_dashboard
+title: 应用管理与系统仪表盘
+scope:
+    - packages/web/src/pages/ApplicationsPage.tsx
+    - packages/web/src/pages/Dashboard.tsx
+    - packages/web/src/pages/MenuManagement.tsx
+    - packages/web/src/hooks/useApplications.ts
+source_files: []
+depends_on: []
+related_to:
+    - path: web_app/project_management

@@ -26,6 +26,13 @@ import {
 } from '@/components/role-behavior/NodeIOEditor';
 import type { NodeIOItem } from '@/components/role-behavior/NodeIOEditor';
 import type { RoleAction } from '@apm/shared';
+import { AlertTriangle } from 'lucide-react';
+import {
+  detectBehaviorImpact,
+  enrichImpactWithEdgeCounts,
+  formatImpactItem,
+  type ImpactItem,
+} from '@/lib/behavior-impact';
 
 export interface ActionFormDialogProps {
   open: boolean;
@@ -35,10 +42,14 @@ export interface ActionFormDialogProps {
   initialValues?: RoleAction;
   version: number;
   onSubmit: (data: Record<string, unknown>) => Promise<unknown>;
+  /** 当前流程图的连线，用于影响判断（编辑模式下必填） */
+  processEdges?: Array<{ mappings?: Array<{ sourceField: string; targetField: string }>; label?: string | null; sourceNodeId: string; targetNodeId: string }>;
+  /** 当前节点 id，用于影响判断 */
+  nodeId?: string;
 }
 
 export function ActionFormDialog({
-  open, onOpenChange, mode, holderLabel, initialValues, version, onSubmit,
+  open, onOpenChange, mode, holderLabel, initialValues, version, onSubmit, processEdges, nodeId,
 }: ActionFormDialogProps) {
   const blank = { name: '', displayName: '', description: '', logicUserDesc: '', logicData: '' };
   const [form, setForm] = useState(blank);
@@ -48,6 +59,11 @@ export function ActionFormDialog({
   const [ioErrors, setIoErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | undefined>();
   const [submitting, setSubmitting] = useState(false);
+  // 二次确认 Dialog 状态
+  const [impactItems, setImpactItems] = useState<ImpactItem[]>([]);
+  const [pendingPayload, setPendingPayload] = useState<Record<string, unknown> | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (open) {
@@ -100,18 +116,42 @@ export function ActionFormDialog({
       return;
     }
 
+    const payload: Record<string, unknown> = {
+      name: form.name,
+      displayName: form.displayName,
+      description: form.description || undefined,
+      inputs: fromNodeIOItems(inputItems),
+      outputs: fromNodeIOItems(outputItems),
+      logic: { userDesc: form.logicUserDesc, data: form.logicData || undefined },
+      tool: null,
+    };
+    if (mode === 'edit') {
+      payload.version = version;
+    }
+
+    // 编辑模式：影响判断
+    if (mode === 'edit' && initialValues && processEdges !== undefined && nodeId !== undefined) {
+      const rawImpact = detectBehaviorImpact(
+        { inputs: initialValues.inputs, outputs: initialValues.outputs },
+        { inputs: payload.inputs as { name: string }[], outputs: payload.outputs as { name: string }[] },
+      );
+      const enriched = enrichImpactWithEdgeCounts(rawImpact, processEdges, nodeId);
+      // 将所有影响项展示（包括影响 0 条的）
+      const affectingItems = enriched.filter((it) => (it.affectedEdgeCount ?? 0) > 0);
+      if (affectingItems.length > 0) {
+        setImpactItems(enriched);
+        setPendingPayload(payload);
+        setConfirmOpen(true);
+        return;
+      }
+    }
+
+    await doSubmit(payload);
+  };
+
+  const doSubmit = async (payload: Record<string, unknown>) => {
     setSubmitting(true);
     try {
-      const payload: Record<string, unknown> = {
-        name: form.name,
-        displayName: form.displayName,
-        description: form.description || undefined,
-        inputs: fromNodeIOItems(inputItems),
-        outputs: fromNodeIOItems(outputItems),
-        logic: { userDesc: form.logicUserDesc, data: form.logicData || undefined },
-        tool: null,
-        version,
-      };
       await onSubmit(payload);
       onOpenChange(false);
     } catch (err: unknown) {
@@ -126,7 +166,16 @@ export function ActionFormDialog({
     }
   };
 
-  return (
+  const handleConfirm = async () => {
+    if (!pendingPayload) return;
+    setConfirming(true);
+    setConfirmOpen(false);
+    await doSubmit(pendingPayload);
+    setConfirming(false);
+    setPendingPayload(null);
+  };
+
+  return (<>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" onKeyDown={(e) => {
         if (e.key === 'Enter' && !e.shiftKey && e.nativeEvent.target instanceof HTMLInputElement) {
@@ -186,6 +235,7 @@ export function ActionFormDialog({
             items={inputItems}
             onChange={setInputItems}
             showRequired={true}
+            showDefaultValue={true}
             errors={Object.fromEntries(
               Object.entries(ioErrors).filter(([k]) => !k.startsWith('out-'))
             )}
@@ -236,12 +286,43 @@ export function ActionFormDialog({
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>取消</Button>
-          <Button onClick={handleSubmit} disabled={submitting}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting || confirming}>取消</Button>
+          <Button onClick={handleSubmit} disabled={submitting || confirming}>
             {submitting ? '提交中...' : mode === 'create' ? '确认创建' : '保存修改'}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+
+    {/* 二次确认 Dialog */}
+    <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            此修改将影响引用该行为的流程图
+          </DialogTitle>
+          <DialogDescription>
+            以下变更将导致相关流程图的参数映射被清空，需要重新配置：
+          </DialogDescription>
+        </DialogHeader>
+        <div className="px-4 py-2 space-y-2">
+          {impactItems.map((item, i) => (
+            <div key={i} className="flex items-start gap-2 rounded-md bg-amber-50 border border-amber-200 px-3 py-2 text-sm">
+              <span className="text-amber-600 text-xs mt-0.5">●</span>
+              <span>{formatImpactItem(item)}</span>
+            </div>
+          ))}
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { setConfirmOpen(false); setPendingPayload(null); }}>
+            取消
+          </Button>
+          <Button variant="default" onClick={handleConfirm} disabled={confirming}>
+            {confirming ? '提交中...' : '确认修改'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </>);
 }

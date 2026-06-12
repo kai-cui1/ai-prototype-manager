@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: web_app/domain_model_editor/canvas
+title: 领域模型可视化编辑器
+scope:
+    - packages/web/src/components/domain-model/canvas/
+source_files: []
+depends_on: []
+related_to: []

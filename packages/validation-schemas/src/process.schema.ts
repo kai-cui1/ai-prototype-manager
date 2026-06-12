@@ -120,6 +120,16 @@ export const UpdateNodeInput = Type.Object({
 });
 
 // ============================================================
+// Edge Mapping Schema
+// ============================================================
+
+/** 单条映射关系：source 输出字段 → target 输入字段 */
+export const EdgeMappingSchema = Type.Object({
+  sourceField: Type.String({ maxLength: 100 }),
+  targetField: Type.String({ maxLength: 100 }),
+});
+
+// ============================================================
 // Edge CRUD Input Schemas
 // ============================================================
 
@@ -129,18 +139,24 @@ export const CreateEdgeInput = Type.Object({
   targetNodeId: IdSchema,
   label: Type.Optional(Type.String({ maxLength: 100 })),
   condition: Type.Optional(Type.String({ maxLength: 500 })),
+  sourceHandle: Type.Optional(Type.String({ maxLength: 20 })),
+  targetHandle: Type.Optional(Type.String({ maxLength: 20 })),
   sourceAction: Type.Optional(Type.String({ maxLength: 100 })),
   sourceBranch: Type.Optional(Type.String({ maxLength: 100 })),
   targetAction: Type.Optional(Type.String({ maxLength: 100 })),
+  mappings: Type.Optional(Type.Array(EdgeMappingSchema)),
 });
 
 /** PUT /processes/:processId/edges/:edgeId — Update edge */
 export const UpdateEdgeInput = Type.Object({
   label: Type.Optional(Type.Union([Type.String({ maxLength: 100 }), Type.Null()])),
   condition: Type.Optional(Type.Union([Type.String({ maxLength: 500 }), Type.Null()])),
+  sourceHandle: Type.Optional(Type.Union([Type.String({ maxLength: 20 }), Type.Null()])),
+  targetHandle: Type.Optional(Type.Union([Type.String({ maxLength: 20 }), Type.Null()])),
   sourceAction: Type.Optional(Type.Union([Type.String({ maxLength: 100 }), Type.Null()])),
   sourceBranch: Type.Optional(Type.Union([Type.String({ maxLength: 100 }), Type.Null()])),
   targetAction: Type.Optional(Type.Union([Type.String({ maxLength: 100 }), Type.Null()])),
+  mappings: Type.Optional(Type.Array(EdgeMappingSchema)),
 });
 
 // ============================================================
@@ -239,7 +255,9 @@ export const EdgeDetailSchema = Type.Object({
   projectId: Type.String({ format: 'uuid' }),
   sourceNodeId: Type.String({ format: 'uuid' }),
   targetNodeId: Type.String({ format: 'uuid' }),
-  mappings: Type.Array(Type.Object({}, { additionalProperties: true })),
+  sourceHandle: Type.Union([Type.String(), Type.Null()]),
+  targetHandle: Type.Union([Type.String(), Type.Null()]),
+  mappings: Type.Array(EdgeMappingSchema),
   label: Type.Union([Type.String(), Type.Null()]),
   condition: Type.Union([Type.String(), Type.Null()]),
   config: Type.Object({}, { additionalProperties: true }),

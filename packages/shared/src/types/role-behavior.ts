@@ -77,5 +77,6 @@ export interface DecisionDef {
   name: string;                        // 编程标识符（同 role 的 decisions 内唯一）
   displayName: string;                 // 显示名称
   description?: string;                // 描述
+  inputs: NodeIO[];                    // 输入参数（Decision 无状态，判断逻辑依赖输入）
   branches: DecisionBranchDef[];       // 分支定义（>=2 个）
 }

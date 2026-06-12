@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: web_app/domain_model_editor/inspector
+title: 领域模型检查器面板
+scope:
+    - packages/web/src/components/domain-model/inspector/
+source_files: []
+depends_on: []
+related_to: []

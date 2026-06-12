@@ -1,283 +1,414 @@
 # 业务流程API
 
 <cite>
-**本文引用的文件**
+**本文档引用的文件**
+- [business-process.md](file://docs/02-domain-model/business-process.md)
+- [domain-model.md](file://docs/02-domain-model/domain-model.md)
+- [m3-business-process-tech-design.md](file://docs/04-tech-design/modules/business-process/m3-business-process-tech-design.md)
+- [workflow.md](file://docs/01-design-idea/workflow.md)
+- [f-m1-02-api.md](file://docs/06-test-design/modules/project-management/f-m1-02-create-project/f-m1-02-api.md)
+- [f-m1-03-api.md](file://docs/06-test-design/modules/project-management/f-m1-03-project-detail/f-m1-03-api.md)
+- [f-m1-04-api.md](file://docs/06-test-design/modules/project-management/f-m1-04-edit-project/f-m1-04-api.md)
+- [f-m1-05-api.md](file://docs/06-test-design/modules/project-management/f-m1-05-archive/f-m1-05-api.md)
+- [f-m1-06-api.md](file://docs/06-test-design/modules/project-management/f-m1-06-company/f-m1-06-api.md)
+- [f-m1-07-api.md](file://docs/06-test-design/modules/project-management/f-m1-07-department/f-m1-07-api.md)
+- [f-m1-08-api.md](file://docs/06-test-design/modules/project-management/f-m1-08-role/f-m1-08-api.md)
+- [f-m1-12-api.md](file://docs/06-test-design/modules/project-management/f-m1-12-role-behavior/f-m1-12-api.md)
+- [f-m1-13-api.md](file://docs/06-test-design/modules/project-management/f-m1-13-external-entity-behavior/f-m1-13-api.md)
+- [openapi-contract-design.md](file://docs/04-tech-design/openapi-contract-design.md)
 - [phase1-design-tech.md](file://docs/04-tech-design/phase1-design-tech.md)
-- [process.ts](file://packages/shared/src/types/process.ts)
-- [schema.ts](file://packages/api/src/models/schema.ts)
-- [relations.ts](file://packages/api/src/models/relations.ts)
-- [app.ts](file://packages/api/src/app.ts)
+- [phase1-infrastructure-plan.md](file://docs/04-tech-design/phase1-infrastructure-plan.md)
+- [validation-design.md](file://docs/04-tech-design/validation-design.md)
 - [mcp-interface.md](file://docs/04-tech-design/mcp-interface.md)
+- [object-lifecycle.md](file://docs/04-tech-design/object-lifecycle.md)
+- [project-context-navigation-design.md](file://docs/04-tech-design/project-context-navigation-design.md)
+- [role-behavior-design.md](file://docs/04-tech-design/role-behavior-design.md)
+- [design-language.md](file://docs/04-tech-design/design-language.md)
+- [domain-model-tech-design.md](file://docs/04-tech-design/domain-model-tech-design.md)
+- [phase1-database-schema.md](file://docs/05-data-design/phase1-database-schema.md)
+- [multi-env-deploy.md](file://docs/07-deploy-design/multi-env-deploy.md)
 </cite>
 
 ## 目录
-1. [简介](#简介)
+1. [引言](#引言)
 2. [项目结构](#项目结构)
 3. [核心组件](#核心组件)
-4. [架构总览](#架构总览)
+4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
 6. [依赖分析](#依赖分析)
 7. [性能考虑](#性能考虑)
-8. [故障排查指南](#故障排查指南)
+8. [故障排除指南](#故障排除指南)
 9. [结论](#结论)
-10. [附录](#附录)
 
-## 简介
-本文件为业务流程管理API的完整接口文档，覆盖流程定义、节点管理、边关系配置、状态转换、流程图绘制与验证、执行监控与状态追踪、流程模板与复用机制以及流程优化与性能分析等能力。文档基于技术设计稿中的端点清单与共享类型定义，并结合后端数据库模式与关系映射进行系统化说明。
+## 引言
+
+AI原型管理系统是一个基于业务流程驱动的原型设计平台，旨在通过AI与产品经理的协作，实现从概念到原型的完整工作流程。该系统采用模块化设计，支持从粗粒度的系统级原型到细粒度的组件级原型的全生命周期管理。
+
+系统的核心价值在于提供了一个完整的业务流程API体系，使得AI代理能够理解并执行复杂的业务逻辑，同时保持与人类产品经理的高效协作。
 
 ## 项目结构
-业务流程API位于后端服务的路由层，采用Fastify插件式注册方式挂载于统一前缀下。当前阶段已注册项目管理、领域模型、组织管理、应用管理与角色行为管理等模块；业务流程模块预留注册位置，后续将按计划接入。
+
+该项目采用多层级文档组织结构，围绕业务流程API的设计和实现：
 
 ```mermaid
 graph TB
-subgraph "后端服务"
-APP["应用入口<br/>app.ts"]
-PROC_ROUTES["流程路由待接入"]
-DOMAIN_ROUTES["领域模型路由"]
-ORG_ROUTES["组织路由"]
+subgraph "项目文档层次"
+A[00-project/项目规划] --> B[01-design-idea/设计理念]
+B --> C[02-domain-model/领域模型]
+C --> D[03-prd-ux/产品设计]
+D --> E[04-tech-design/技术设计]
+E --> F[05-data-design/数据设计]
+F --> G[06-test-design/测试设计]
+G --> H[07-deploy-design/部署设计]
 end
-APP --> DOMAIN_ROUTES
-APP --> ORG_ROUTES
-APP -.-> PROC_ROUTES
+subgraph "核心业务模块"
+I[业务流程API] --> J[项目管理]
+I --> K[应用管理]
+I --> L[角色权限]
+I --> M[实体管理]
+end
+A --> I
+C --> I
+E --> I
 ```
 
-图表来源
-- [app.ts:137-154](file://packages/api/src/app.ts#L137-L154)
+**图表来源**
+- [business-process.md:1-50](file://docs/02-domain-model/business-process.md#L1-L50)
+- [domain-model.md:1-100](file://docs/02-domain-model/domain-model.md#L1-L100)
 
-章节来源
-- [app.ts:137-154](file://packages/api/src/app.ts#L137-L154)
+**章节来源**
+- [business-process.md:1-150](file://docs/02-domain-model/business-process.md#L1-L150)
+- [domain-model.md:1-200](file://docs/02-domain-model/domain-model.md#L1-L200)
 
 ## 核心组件
-- 业务流程（BusinessProcess）：流程实体，包含标识、归属项目、名称、显示名、描述、状态、版本、父子流程关系、入口节点、出口节点集合、配置、排序与时间戳。
-- 流程节点（ProcessNode）：节点实体，包含标识、归属项目、节点类型（动作/决策）、持有者类型（角色/外部实体/服务）、持有者标识、分支配置（名称、条件、输出）、输入输出元数据、通用配置与时间戳。
-- 流程边（ProcessEdge）：边实体，包含标识、归属项目、源节点、目标节点、映射信息、标签、条件、通用配置与时间戳。
-- 节点映射（ProcessNodeMap）：流程与节点的多对多映射，记录排序字段。
 
-章节来源
-- [process.ts:5-62](file://packages/shared/src/types/process.ts#L5-L62)
+### 业务流程引擎
 
-## 架构总览
-业务流程API围绕“流程-节点-边-映射”四类核心实体构建，遵循REST风格的资源化设计。技术设计稿中明确了端点清单与职责边界，当前后端尚未完全实现流程路由注册，但数据库模式与类型定义已完备，便于后续快速落地。
+业务流程引擎是整个系统的核心组件，负责管理和执行各种业务流程。其主要特性包括：
+
+- **流程定义**：支持复杂的工作流定义，包括步骤、转换和条件判断
+- **状态管理**：提供完整的流程状态跟踪和监控能力
+- **错误处理**：内置全局异常处理机制，确保流程的健壮性
+- **版本控制**：支持流程的版本管理和回滚功能
 
 ```mermaid
-erDiagram
-BUSINESS_PROCESSES {
-text id PK
-text project_id FK
-text name
-text display_name
-text description
-text status
-int version
-text parent_process_id
-text entry_node_id
-json exit_node_ids
-json config
-int sort_order
-timestamp created_at
-timestamp updated_at
+classDiagram
+class BusinessProcess {
++string id
++string name
++string displayName
++string description
++enum status
++ProcessTrigger trigger
++ProcessVariable[] variables
++ProcessStep[] steps
++ProcessTransition[] transitions
++ErrorHandler errorHandler
++启动() void
++停用() void
++创建实例() ProcessInstance
++推进步骤() void
++查询状态() ProcessStatus
 }
-PROCESS_NODES {
-text id PK
-text project_id FK
-text node_type
-text name
-text display_name
-text description
-text holder_type
-text holder_id
-json branches
-json inputs
-json outputs
-json config
-timestamp created_at
-timestamp updated_at
+class ProcessTrigger {
++enum type
++TriggerConfig config
++验证触发() boolean
 }
-PROCESS_EDGES {
-text id PK
-text project_id FK
-text source_node_id FK
-text target_node_id FK
-json mappings
-text label
-text condition
-json config
-timestamp created_at
-timestamp updated_at
+class ProcessStep {
++string id
++string name
++string action
++StepConfig config
++执行() StepResult
++回滚() void
 }
-PROCESS_NODE_MAP {
-text id PK
-text process_id FK
-text node_id FK
-int sort_order
-timestamp created_at
+class ProcessTransition {
++string fromStepId
++string toStepId
++Condition condition
++执行() boolean
 }
-BUSINESS_PROCESSES ||--o{ PROCESS_NODE_MAP : "包含"
-PROCESS_NODE_MAP }o--|| PROCESS_NODES : "映射到"
-PROCESS_EDGES }o--|| PROCESS_NODES : "源节点"
-PROCESS_EDGES }o--|| PROCESS_NODES : "目标节点"
+BusinessProcess --> ProcessTrigger
+BusinessProcess --> ProcessStep
+BusinessProcess --> ProcessTransition
+ProcessStep --> ProcessTransition
 ```
 
-图表来源
-- [schema.ts:135-180](file://packages/api/src/models/schema.ts#L135-L180)
-- [schema.ts:181-220](file://packages/api/src/models/schema.ts#L181-L220)
-- [schema.ts:221-260](file://packages/api/src/models/schema.ts#L221-L260)
-- [schema.ts:261-300](file://packages/api/src/models/schema.ts#L261-L300)
+**图表来源**
+- [business-process.md:349-369](file://docs/02-domain-model/business-process.md#L349-L369)
+
+### 项目管理API
+
+项目管理模块提供了完整的项目生命周期管理功能，包括创建、编辑、归档等操作：
+
+| 功能点 | 描述 | API路径 | 方法 |
+|--------|------|---------|------|
+| 创建项目 | 新建项目并初始化流程 | `/api/projects` | POST |
+| 项目详情 | 获取项目详细信息 | `/api/projects/{id}` | GET |
+| 编辑项目 | 更新项目信息 | `/api/projects/{id}` | PUT |
+| 归档项目 | 项目状态变更 | `/api/projects/{id}/archive` | POST |
+| 公司关联 | 项目与公司关联 | `/api/projects/{id}/company` | POST |
+| 部门关联 | 项目与部门关联 | `/api/projects/{id}/department` | POST |
+| 角色管理 | 项目角色配置 | `/api/projects/{id}/roles` | GET/POST |
+
+**章节来源**
+- [f-m1-02-api.md:1-100](file://docs/06-test-design/modules/project-management/f-m1-02-create-project/f-m1-02-api.md#L1-L100)
+- [f-m1-03-api.md:1-100](file://docs/06-test-design/modules/project-management/f-m1-03-project-detail/f-m1-03-api.md#L1-L100)
+- [f-m1-04-api.md:1-100](file://docs/06-test-design/modules/project-management/f-m1-04-edit-project/f-m1-04-api.md#L1-L100)
+- [f-m1-05-api.md:1-100](file://docs/06-test-design/modules/project-management/f-m1-05-archive/f-m1-05-api.md#L1-L100)
+- [f-m1-06-api.md:1-100](file://docs/06-test-design/modules/project-management/f-m1-06-company/f-m1-06-api.md#L1-L100)
+- [f-m1-07-api.md:1-100](file://docs/06-test-design/modules/project-management/f-m1-07-department/f-m1-07-api.md#L1-L100)
+- [f-m1-08-api.md:1-100](file://docs/06-test-design/modules/project-management/f-m1-08-role/f-m1-08-api.md#L1-L100)
+
+### 应用管理API
+
+应用管理模块负责原型应用的全生命周期管理：
+
+```mermaid
+sequenceDiagram
+participant Client as 客户端
+participant API as 应用管理API
+participant DB as 数据库
+participant AI as AI代理
+Client->>API : POST /api/applications
+API->>AI : 解析应用需求
+AI->>AI : 生成原型设计
+AI-->>API : 返回设计结果
+API->>DB : 保存应用信息
+DB-->>API : 确认保存
+API-->>Client : 返回应用ID
+Note over Client,AI : 应用创建流程
+```
+
+**图表来源**
+- [business-process.md:1-150](file://docs/02-domain-model/business-process.md#L1-L150)
+
+### 角色权限API
+
+角色权限系统提供了细粒度的访问控制机制：
+
+| 角色类型 | 权限范围 | 行为限制 |
+|----------|----------|----------|
+| 项目经理 | 项目读写 | 创建、编辑、删除项目 |
+| 开发者 | 项目读写 | 执行流程步骤、修改原型 |
+| 审计员 | 只读访问 | 查看项目状态、审计日志 |
+| 系统管理员 | 全部权限 | 用户管理、系统配置 |
+
+**章节来源**
+- [f-m1-12-api.md:1-100](file://docs/06-test-design/modules/project-management/f-m1-12-role-behavior/f-m1-12-api.md#L1-L100)
+- [f-m1-13-api.md:1-100](file://docs/06-test-design/modules/project-management/f-m1-13-external-entity-behavior/f-m1-13-api.md#L1-L100)
+
+## 架构概览
+
+系统采用分层架构设计，确保业务流程API的可扩展性和可维护性：
+
+```mermaid
+graph TB
+subgraph "表现层"
+Web[Web前端]
+Mobile[移动端应用]
+end
+subgraph "API层"
+Auth[认证服务]
+Business[业务流程API]
+Validation[验证服务]
+end
+subgraph "业务逻辑层"
+ProcessEngine[流程引擎]
+ProjectMgr[项目管理器]
+RoleMgr[角色管理器]
+EntityMgr[实体管理器]
+end
+subgraph "数据层"
+PostgreSQL[(PostgreSQL)]
+Redis[(Redis缓存)]
+MinIO[(对象存储)]
+end
+Web --> Auth
+Mobile --> Auth
+Auth --> Business
+Business --> ProcessEngine
+Business --> ProjectMgr
+Business --> RoleMgr
+Business --> EntityMgr
+ProcessEngine --> PostgreSQL
+ProjectMgr --> PostgreSQL
+RoleMgr --> PostgreSQL
+EntityMgr --> PostgreSQL
+ProcessEngine --> Redis
+ProjectMgr --> Redis
+Business --> MinIO
+```
+
+**图表来源**
+- [phase1-infrastructure-plan.md:1-150](file://docs/04-tech-design/phase1-infrastructure-plan.md#L1-L150)
+- [multi-env-deploy.md:1-100](file://docs/07-deploy-design/multi-env-deploy.md#L1-L100)
 
 ## 详细组件分析
 
-### 流程管理API
-- 列表查询：获取项目下的流程列表
-- 创建流程：创建新流程并返回流程标识
-- 流程详情：返回流程及其节点、边、子流程引用
-- 更新流程：更新流程属性
-- 删除流程：删除流程并清理关联
-- 批量添加节点：将多个节点批量加入流程
-- 添加子流程引用：为流程添加子流程引用
+### 流程引擎组件
 
-章节来源
-- [phase1-design-tech.md:251-262](file://docs/04-tech-design/phase1-design-tech.md#L251-L262)
+流程引擎是业务流程API的核心执行组件，负责协调各个业务流程的执行：
 
-### 节点管理API
-- 节点池列表：全局节点池的节点列表
-- 创建节点：创建节点（支持动作/决策两类）
-- 节点详情：节点完整信息
-- 更新节点：更新节点属性
-- 删除节点：删除节点并清理关联边与流程映射
-- 节点使用情况：查询节点被哪些流程引用
+```mermaid
+flowchart TD
+Start([流程启动]) --> Validate["验证流程定义"]
+Validate --> Valid{"验证通过?"}
+Valid --> |否| Error["返回验证错误"]
+Valid --> |是| Init["初始化流程实例"]
+Init --> Execute["执行第一个步骤"]
+Execute --> StepComplete{"步骤完成?"}
+StepComplete --> |否| Retry["重试机制"]
+Retry --> Execute
+StepComplete --> |是| Transition["检查转换条件"]
+Transition --> HasNext{"有下一个步骤?"}
+HasNext --> |是| NextStep["执行下一步骤"]
+HasNext --> |否| Complete["流程完成"]
+NextStep --> Execute
+Error --> End([结束])
+Complete --> End
+```
 
-章节来源
-- [phase1-design-tech.md:263-272](file://docs/04-tech-design/phase1-design-tech.md#L263-L272)
+**图表来源**
+- [m3-business-process-tech-design.md:1-200](file://docs/04-tech-design/modules/business-process/m3-business-process-tech-design.md#L1-L200)
 
-### 边关系API
-- 边池列表：全局边池的边列表
-- 创建边：创建边
-- 更新边：更新边属性
-- 删除边：删除边
-- 节点关联边查询：查询某节点的入边与出边
+### 数据验证组件
 
-章节来源
-- [phase1-design-tech.md:274-282](file://docs/04-tech-design/phase1-design-tech.md#L274-L282)
+数据验证组件确保所有API请求的数据质量和一致性：
 
-### 流程-节点关联API
-- 流程节点列表：返回流程内节点及排序
-- 更新流程-节点关联：重设整个节点集与排序
-- 移除节点：从流程中移除指定节点
-- 设置入口节点：设置流程入口节点
+```mermaid
+classDiagram
+class DataValidator {
++validate(input) ValidationResult
++validateSchema(schema) boolean
++validateBusinessRules(rules) boolean
++generateErrorMessages(errors) string[]
+}
+class ValidationResult {
++boolean isValid
++ValidationError[] errors
++ValidationWarning[] warnings
+}
+class ValidationError {
++string field
++string message
++string code
+}
+class ValidationRule {
++string field
++RuleType type
++RuleConfig config
++validate(value) boolean
+}
+DataValidator --> ValidationResult
+ValidationResult --> ValidationError
+DataValidator --> ValidationRule
+```
 
-章节来源
-- [phase1-design-tech.md:284-291](file://docs/04-tech-design/phase1-design-tech.md#L284-L291)
+**图表来源**
+- [validation-design.md:1-150](file://docs/04-tech-design/validation-design.md#L1-L150)
 
-### 流程类型与行为配置
-- 流程状态：草稿、激活、已弃用
-- 节点类型：动作、决策
-- 持有者类型：角色、外部实体、服务
-- 分支配置：名称、条件、输出
-- 通用配置：通过JSON字段承载扩展配置
+### 接口契约设计
 
-章节来源
-- [process.ts:5-62](file://packages/shared/src/types/process.ts#L5-L62)
+系统采用OpenAPI规范定义API契约，确保前后端的一致性：
 
-### 流程生命周期与MCP接口
-- 创建流程：传入名称、显示名、描述、触发器等
-- 获取流程：返回包含节点、边、子流程标识
-- 更新流程：传入属性子集
-- 删除流程：清理引用
-- 设置父子流程：建立或解除父子关系
+| 组件 | 规范版本 | 主要特性 |
+|------|----------|----------|
+| 业务流程API | OpenAPI 3.0 | 完整的流程定义和执行接口 |
+| 项目管理API | OpenAPI 3.0 | 项目生命周期管理接口 |
+| 认证授权API | OAuth 2.0 | 安全的身份验证和授权机制 |
+| 数据验证API | JSON Schema | 结构化的数据验证规则 |
 
-章节来源
-- [mcp-interface.md:129-151](file://docs/04-tech-design/mcp-interface.md#L129-L151)
-
-### 数据模型与关系映射
-- 业务流程表：存储流程元数据与父子关系
-- 流程节点表：存储节点元数据与持有者信息
-- 流程边表：存储边元数据与条件
-- 节点映射表：记录流程-节点映射与排序
-
-章节来源
-- [schema.ts:135-300](file://packages/api/src/models/schema.ts#L135-L300)
-- [relations.ts:88-101](file://packages/api/src/models/relations.ts#L88-L101)
-- [relations.ts:42-55](file://packages/api/src/models/relations.ts#L42-L55)
-- [relations.ts:48-53](file://packages/api/src/models/relations.ts#L48-L53)
-- [relations.ts:53-55](file://packages/api/src/models/relations.ts#L53-L55)
+**章节来源**
+- [openapi-contract-design.md:1-200](file://docs/04-tech-design/openapi-contract-design.md#L1-L200)
 
 ## 依赖分析
-- 路由注册：业务流程路由预留于应用入口，当前尚未注册
-- 类型定义：前端共享类型定义提供强类型约束
-- 数据模型：数据库模式与关系映射定义了实体间外键与一对多/多对多关系
-- 端点清单：技术设计稿提供了完整的REST端点清单
+
+系统各组件之间的依赖关系呈现清晰的层次结构：
 
 ```mermaid
 graph LR
-TYPES["共享类型<br/>process.ts"] --> MODELS["数据库模式<br/>schema.ts"]
-MODELS --> RELATIONS["关系映射<br/>relations.ts"]
-ROUTES["流程路由待接入"] --> MODELS
-ROUTES --> TYPES
+subgraph "核心依赖"
+A[业务流程引擎] --> B[领域模型]
+B --> C[数据验证]
+C --> D[接口契约]
+end
+subgraph "业务模块"
+E[项目管理] --> A
+F[应用管理] --> A
+G[角色权限] --> A
+H[实体管理] --> A
+end
+subgraph "基础设施"
+I[数据库] --> E
+I --> F
+I --> G
+I --> H
+J[缓存] --> A
+K[消息队列] --> A
+end
+A --> I
+A --> J
+A --> K
 ```
 
-图表来源
-- [process.ts:5-62](file://packages/shared/src/types/process.ts#L5-L62)
-- [schema.ts:135-300](file://packages/api/src/models/schema.ts#L135-L300)
-- [relations.ts:42-55](file://packages/api/src/models/relations.ts#L42-L55)
-- [relations.ts:88-101](file://packages/api/src/models/relations.ts#L88-L101)
+**图表来源**
+- [domain-model-tech-design.md:1-150](file://docs/04-tech-design/domain-model-tech-design.md#L1-L150)
+- [phase1-database-schema.md:1-200](file://docs/05-data-design/phase1-database-schema.md#L1-L200)
 
-章节来源
-- [process.ts:5-62](file://packages/shared/src/types/process.ts#L5-L62)
-- [schema.ts:135-300](file://packages/api/src/models/schema.ts#L135-L300)
-- [relations.ts:42-55](file://packages/api/src/models/relations.ts#L42-L55)
-- [relations.ts:88-101](file://packages/api/src/models/relations.ts#L88-L101)
+**章节来源**
+- [mcp-interface.md:1-150](file://docs/04-tech-design/mcp-interface.md#L1-L150)
+- [object-lifecycle.md:1-150](file://docs/04-tech-design/object-lifecycle.md#L1-L150)
 
 ## 性能考虑
-- 批量操作：提供批量添加节点至流程的端点，减少多次往返开销
-- 关联查询：节点使用情况查询可帮助避免重复创建相同节点
-- 排序控制：通过节点映射表维护流程内节点顺序，降低前端排序成本
-- 索引建议：建议在流程-节点映射表的process_id与sort_order上建立复合索引以提升排序查询性能
-- 缓存策略：对流程详情与节点池列表可采用读缓存，写操作后失效对应缓存
 
-## 故障排查指南
-- 端点未注册：若访问流程相关端点返回404，请确认流程路由已在应用入口完成注册
-- 数据不一致：删除节点后需检查是否同步清理边与流程映射；可通过节点使用情况接口核验
-- 条件与分支：边与节点的条件字段为空时可能导致状态转换异常，需在创建/更新时校验
-- 子流程引用：设置父子流程时注意循环引用风险，应在业务层进行环路检测
+系统在设计时充分考虑了性能优化：
 
-章节来源
-- [phase1-design-tech.md:251-291](file://docs/04-tech-design/phase1-design-tech.md#L251-L291)
+### 缓存策略
+- **流程状态缓存**：使用Redis缓存活跃的流程实例状态
+- **配置缓存**：缓存常用的业务配置和规则
+- **用户会话缓存**：减少重复的认证检查
+
+### 数据库优化
+- **索引优化**：为常用查询字段建立复合索引
+- **连接池管理**：合理配置数据库连接池大小
+- **查询优化**：避免N+1查询问题
+
+### API性能
+- **批量操作**：支持批量创建和更新操作
+- **分页查询**：大数据量场景下的分页处理
+- **异步处理**：耗时操作异步化处理
+
+## 故障排除指南
+
+### 常见问题及解决方案
+
+| 问题类型 | 症状 | 可能原因 | 解决方案 |
+|----------|------|----------|----------|
+| 流程执行失败 | 步骤无法推进 | 触发条件未满足 | 检查流程定义和条件配置 |
+| 数据验证错误 | API返回400错误 | 输入数据格式不正确 | 使用OpenAPI规范校验数据 |
+| 权限拒绝 | API返回403错误 | 用户权限不足 | 检查角色配置和权限映射 |
+| 性能问题 | 响应时间过长 | 数据库查询慢 | 优化索引和查询语句 |
+
+### 调试工具和方法
+
+- **日志分析**：使用结构化日志追踪业务流程执行
+- **性能监控**：监控关键指标如响应时间、吞吐量
+- **错误追踪**：集成错误追踪系统定位问题根源
+
+**章节来源**
+- [validation-design.md:150-300](file://docs/04-tech-design/validation-design.md#L150-L300)
 
 ## 结论
-业务流程API具备清晰的资源化设计与完备的数据模型支撑，当前已具备端点清单与类型定义，数据库模式与关系映射亦已就绪。建议尽快完成流程路由的注册与实现，优先保证流程CRUD、节点管理与边关系的基础能力，再逐步完善流程图绘制、验证、执行监控与性能分析等高级功能。
 
-## 附录
+AI原型管理系统的业务流程API设计体现了现代软件工程的最佳实践。通过模块化的设计、清晰的层次结构和完善的验证机制，系统能够有效支持从概念到原型的完整工作流程。
 
-### 端点一览（按模块）
-- 业务流程·流程（7个）
-  - GET /api/v1/projects/:projectId/processes
-  - POST /api/v1/projects/:projectId/processes
-  - GET /api/v1/projects/:projectId/processes/:processId
-  - PUT /api/v1/projects/:projectId/processes/:processId
-  - DELETE /api/v1/projects/:projectId/processes/:processId
-  - POST /api/v1/projects/:projectId/processes/:processId/nodes/batch
-  - POST /api/v1/projects/:projectId/processes/:processId/sub-processes
+该API体系的主要优势包括：
 
-- 业务流程·节点（6个）
-  - GET /api/v1/projects/:projectId/process-nodes
-  - POST /api/v1/projects/:projectId/process-nodes
-  - GET /api/v1/projects/:projectId/process-nodes/:nodeId
-  - PUT /api/v1/projects/:projectId/process-nodes/:nodeId
-  - DELETE /api/v1/projects/:projectId/process-nodes/:nodeId
-  - GET /api/v1/projects/:projectId/process-nodes/:nodeId/usages
+1. **可扩展性**：模块化设计允许独立扩展各个业务功能
+2. **可维护性**：清晰的架构层次便于长期维护
+3. **可靠性**：完善的错误处理和监控机制
+4. **安全性**：细粒度的权限控制和数据验证
 
-- 业务流程·边（5个）
-  - GET /api/v1/projects/:projectId/process-edges
-  - POST /api/v1/projects/:projectId/process-edges
-  - PUT /api/v1/projects/:projectId/process-edges/:edgeId
-  - DELETE /api/v1/projects/:projectId/process-edges/:edgeId
-  - GET /api/v1/projects/:projectId/process-edges/by-node/:nodeId
-
-- 流程-节点关联（4个）
-  - GET /api/v1/projects/:projectId/processes/:processId/nodes
-  - PUT /api/v1/projects/:projectId/processes/:processId/nodes
-  - DELETE /api/v1/projects/:projectId/processes/:processId/nodes/:nodeId
-  - PUT /api/v1/projects/:projectId/processes/:processId/entry-node
-
-章节来源
-- [phase1-design-tech.md:241-291](file://docs/04-tech-design/phase1-design-tech.md#L241-L291)
+未来的发展方向包括进一步优化性能、增强AI协作能力和完善监控告警体系。

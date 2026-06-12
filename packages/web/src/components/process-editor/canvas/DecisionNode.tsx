@@ -1,10 +1,10 @@
 /**
  * @module DecisionNode
- * @description Decision 类型流程节点 — ReactFlow 自定义节点（菱形）。
+ * @description Decision 类型流程节点 — ReactFlow 自定义节点（菱形，极简设计）。
  *
  * 设计要点：
  * - 外层 clip-path 实现菱形外形
- * - 内层文字水平展示，不被 clip-path 裁剪
+ * - 内层仅展示 displayName，最大化文字可用空间
  * - 4 个固定 Handle（上下左右端点），不随分支数量变化
  * - 分支描述标注在 edge 上，不在节点上
  */
@@ -13,18 +13,23 @@ import { memo, useCallback } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { useProcessEditorContext } from '@/contexts/ProcessEditorContext';
 import { cn } from '@/lib/utils';
+import type { InputSatisfactionStatus } from './ActionNode';
 
 export interface DecisionNodeData {
   nodeId: string;
-  name: string;
   displayName: string;
-  holderType: string;
-  holderLabel: string;
-  decisionRef: string | null;
-  branchCount: number;
   isSelected: boolean;
   hasError: boolean;
+  /** 输入满足状态（纯视觉提示） */
+  inputSatisfaction?: InputSatisfactionStatus;
 }
+
+const STATUS_DOT_COLORS: Record<InputSatisfactionStatus, string> = {
+  satisfied: 'bg-green-500',
+  partial: 'bg-amber-500',
+  unsatisfied: 'bg-red-500',
+  none: 'bg-green-500',
+};
 
 /** 菱形尺寸 */
 const DIAMOND_SIZE = 120;
@@ -54,6 +59,17 @@ function DecisionNodeComponent({ data, id }: NodeProps & { data: DecisionNodeDat
           clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)',
         }}
       />
+
+      {/* 输入满足状态圆点 */}
+      {data.inputSatisfaction && data.inputSatisfaction !== 'none' && (
+        <div
+          className={cn(
+            'absolute z-10 w-[6px] h-[6px] rounded-full',
+            STATUS_DOT_COLORS[data.inputSatisfaction],
+          )}
+          style={{ top: 14, left: '50%', transform: 'translateX(-50%)' }}
+        />
+      )}
 
       {/* 选中态高亮层（与外形层叠加） */}
       {data.isSelected && (
@@ -99,21 +115,16 @@ function DecisionNodeComponent({ data, id }: NodeProps & { data: DecisionNodeDat
         style={{ top: '50%', left: 0, transform: 'translate(-50%, -50%)' }}
       />
 
-      {/* 文字内容层（水平展示，不被 clip-path 裁剪） */}
+      {/* 文字内容层：仅 displayName */}
       <div
-        className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none"
+        className="absolute inset-0 flex items-center justify-center pointer-events-none"
         style={{ padding: '20%' }}
       >
-        {/* Decision 标签 */}
-        <span className="text-[9px] font-medium text-amber-600 uppercase tracking-wide">
-          Decision
-        </span>
-        {/* 显示名 */}
         <h4
-          className="text-xs font-semibold text-gray-900 text-center leading-tight mt-0.5"
+          className="text-xs font-semibold text-gray-900 text-center leading-tight"
           style={{
             display: '-webkit-box',
-            WebkitLineClamp: 2,
+            WebkitLineClamp: 3,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
             wordBreak: 'break-all',
@@ -121,16 +132,6 @@ function DecisionNodeComponent({ data, id }: NodeProps & { data: DecisionNodeDat
         >
           {data.displayName}
         </h4>
-        {/* 标识名 */}
-        <p className="text-[9px] text-gray-500 font-mono mt-0.5 truncate max-w-full">
-          {data.name}
-        </p>
-        {/* decisionRef */}
-        {data.decisionRef && (
-          <p className="text-[8px] text-amber-500 font-mono mt-0.5 truncate max-w-full">
-            {data.decisionRef}
-          </p>
-        )}
       </div>
     </div>
   );

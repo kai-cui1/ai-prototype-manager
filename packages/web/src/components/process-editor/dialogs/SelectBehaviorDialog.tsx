@@ -19,11 +19,13 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Search, Zap, GitBranch, Check, Users, Monitor, Globe, Loader2 } from 'lucide-react';
+import { Search, Zap, GitBranch, Check, Users, Monitor, Globe, Loader2, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { HolderType, ParticipantLane } from '@apm/shared';
 import type { BehaviorOption } from '@/hooks/useProcess';
 import { apiClient } from '@/lib/api-client';
+import { ActionFormDialog } from '@/components/behavior/ActionFormDialog';
+import { DecisionFormDialog } from '@/components/behavior/DecisionFormDialog';
 
 interface SelectBehaviorDialogProps {
   open: boolean;
@@ -62,6 +64,8 @@ export default function SelectBehaviorDialog({
   const [behaviors, setBehaviors] = useState<BehaviorOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  // 内联新建行为 Dialog 状态
+  const [inlineFormOpen, setInlineFormOpen] = useState(false);
 
   // 对话框打开时加载行为列表
   useEffect(() => {
@@ -94,6 +98,30 @@ export default function SelectBehaviorDialog({
 
     return () => { cancelled = true; };
   }, [open, participantLane, projectId, nodeType]);
+
+  // 内联新建行为：调用对应 holder 的 API
+  const handleInlineCreate = useCallback(async (data: Record<string, unknown>) => {
+    if (!participantLane) return;
+    const { participantType: ht, participantId } = participantLane;
+    const basePath =
+      ht === 'role'
+        ? `/projects/${projectId}/roles/${participantId}`
+        : ht === 'service'
+          ? `/projects/${projectId}/applications/${participantId}`
+          : `/projects/${projectId}/external-entities/${participantId}`;
+    const endpoint = nodeType === 'action' ? `${basePath}/actions` : `${basePath}/decisions`;
+    const res = await apiClient.post<{ data: { action?: BehaviorOption; decision?: BehaviorOption; version: number } }>(endpoint, data);
+    // 创建成功后刷新列表，并自动选中新建的行为
+    const created = (res.data.data as Record<string, unknown>).action ?? (res.data.data as Record<string, unknown>).decision;
+    // 重新拉取行为列表
+    const listRes = await apiClient.get<{ data: { items: BehaviorOption[] } }>(
+      nodeType === 'action' ? `${basePath}/actions` : `${basePath}/decisions`,
+    );
+    setBehaviors(listRes.data.data?.items ?? []);
+    if (created && typeof created === 'object' && 'name' in created) {
+      setSelected((created as BehaviorOption).name);
+    }
+  }, [participantLane, projectId, nodeType]);
 
   // 搜索过滤
   const filtered = useMemo(() => {
@@ -161,8 +189,9 @@ export default function SelectBehaviorDialog({
 
   const HolderIcon = HOLDER_ICONS[participantLane.participantType] ?? Users;
   const refLabel = nodeType === 'action' ? 'Action' : 'Decision';
+  const holderLabel = HOLDER_LABELS[participantLane.participantType] ?? participantLane.participantType;
 
-  return (
+  return (<>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
@@ -235,13 +264,49 @@ export default function SelectBehaviorDialog({
           )}
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
-          <Button onClick={handleCreate} disabled={!selected || creating}>
-            {creating ? '创建中...' : '创建节点'}
+        <DialogFooter className="flex-col gap-2 sm:flex-col">
+          {/* 内联新建入口 */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start text-muted-foreground hover:text-foreground border border-dashed"
+            onClick={() => setInlineFormOpen(true)}
+          >
+            <Plus className="h-3.5 w-3.5 mr-1.5" />
+            新建 {refLabel}
           </Button>
+          <div className="flex gap-2 justify-end w-full">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>取消</Button>
+            <Button onClick={handleCreate} disabled={!selected || creating}>
+              {creating ? '创建中...' : '创建节点'}
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+
+    {/* 内联新建 Action Dialog */}
+    {nodeType === 'action' && (
+      <ActionFormDialog
+        open={inlineFormOpen}
+        onOpenChange={setInlineFormOpen}
+        mode="create"
+        holderLabel={holderLabel}
+        version={1}
+        onSubmit={handleInlineCreate}
+      />
+    )}
+
+    {/* 内联新建 Decision Dialog */}
+    {nodeType === 'decision' && (
+      <DecisionFormDialog
+        open={inlineFormOpen}
+        onOpenChange={setInlineFormOpen}
+        mode="create"
+        holderLabel={holderLabel}
+        version={1}
+        onSubmit={handleInlineCreate}
+      />
+    )}
+  </>);
 }

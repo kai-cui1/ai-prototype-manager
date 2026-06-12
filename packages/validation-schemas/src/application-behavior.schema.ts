@@ -62,3 +62,26 @@ export const UpdateAppActionInput = Type.Object({
   tool: Type.Optional(Type.Union([Type.Any(), Type.Null()])),
   version: VersionSchema,
 });
+
+// ============================================================
+// Decision CRUD Schemas (F-M1-14)
+// ============================================================
+
+/** POST /applications/:appId/decisions — Create Decision */
+export const CreateAppDecisionInput = Type.Object({
+  name: NameSchema,
+  displayName: DisplayNameSchema,
+  description: Type.Optional(Type.String({ maxLength: 500 })),
+  inputs: Type.Optional(Type.Array(Type.Any(), { default: [] })),
+  branches: Type.Array(Type.Any(), { minItems: 2 }),
+});
+
+/** PUT /applications/:appId/decisions/:decisionId — Update Decision */
+export const UpdateAppDecisionInput = Type.Object({
+  name: NameSchema,
+  displayName: DisplayNameSchema,
+  description: Type.Optional(Type.String({ maxLength: 500 })),
+  inputs: Type.Optional(Type.Array(Type.Any(), { default: [] })),
+  branches: Type.Array(Type.Any(), { minItems: 2 }),
+  version: VersionSchema,
+});

@@ -20,6 +20,7 @@ import type {
   ProcessNode,
   ProcessEdge,
   ProcessLayout,
+  EdgeMapping,
 } from '@apm/shared';
 import { apiClient } from '@/lib/api-client';
 import { toast } from 'sonner';
@@ -80,16 +81,20 @@ export interface UpdateNodeInput {
 export interface CreateEdgeInput {
   sourceNodeId: string;
   targetNodeId: string;
+  sourceHandle?: string;
+  targetHandle?: string;
   label?: string;
   condition?: string;
-  mappings?: Array<Record<string, unknown>>;
+  mappings?: EdgeMapping[];
   config?: Record<string, unknown>;
 }
 
 export interface UpdateEdgeInput {
   label?: string | null;
   condition?: string | null;
-  mappings?: Array<Record<string, unknown>>;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
+  mappings?: EdgeMapping[];
 }
 
 export interface UpdateLayoutInput {
@@ -465,11 +470,15 @@ export interface DecisionBranchOption {
   outputs: Array<{ name: string; type: string; description?: string }>;
 }
 
-/** 行为选项（简化版，用于下拉选择） */
+/** 行为选项（含 I/O 参数定义，用于映射配置） */
 export interface BehaviorOption {
+  id: string;
   name: string;
   displayName: string;
   description?: string;
+  inputs?: Array<{ name: string; type: string; description?: string; required?: boolean; defaultValue?: unknown }>;
+  outputs?: Array<{ name: string; type: string; description?: string; required?: boolean; defaultValue?: unknown }>;
+  logic?: { userDesc: string; data?: string };
   branches?: DecisionBranchOption[];
 }
 
@@ -482,6 +491,7 @@ export interface BehaviorOption {
 export function useHolderBehaviors(projectId: string | undefined) {
   const [actions, setActions] = useState<BehaviorOption[]>([]);
   const [decisions, setDecisions] = useState<BehaviorOption[]>([]);
+  const [holderVersion, setHolderVersion] = useState<number>(1);
   const [loading, setLoading] = useState(false);
 
   /** 获取指定参与者的行为列表 */
@@ -497,13 +507,20 @@ export function useHolderBehaviors(projectId: string | undefined) {
               ? `/projects/${projectId}/applications/${holderId}`
               : `/projects/${projectId}/external-entities/${holderId}`;
 
-        const [actionsRes, decisionsRes] = await Promise.all([
-          apiClient.get<{ data: { items: BehaviorOption[] } }>(`${basePath}/actions`),
-          apiClient.get<{ data: { items: BehaviorOption[] } }>(`${basePath}/decisions`),
+        // 使用 allSettled：任一请求失败不影响另一请求的结果
+        const [actionsResult, decisionsResult] = await Promise.allSettled([
+          apiClient.get<{ data: { items: BehaviorOption[]; version: number } }>(`${basePath}/actions`),
+          apiClient.get<{ data: { items: BehaviorOption[]; version: number } }>(`${basePath}/decisions`),
         ]);
-        setActions(actionsRes.data.data?.items ?? []);
+        setActions(actionsResult.status === 'fulfilled' ? (actionsResult.value.data.data?.items ?? []) : []);
         // decisions 保留完整的 branches 信息
-        setDecisions(decisionsRes.data.data?.items ?? []);
+        setDecisions(decisionsResult.status === 'fulfilled' ? (decisionsResult.value.data.data?.items ?? []) : []);
+        // 行级 version（actions 与 decisions 共享同一行，取任意一个都行）
+        const ver =
+          (actionsResult.status === 'fulfilled' ? actionsResult.value.data.data?.version : undefined) ??
+          (decisionsResult.status === 'fulfilled' ? decisionsResult.value.data.data?.version : undefined) ??
+          1;
+        setHolderVersion(ver);
       } catch {
         setActions([]);
         setDecisions([]);
@@ -514,5 +531,5 @@ export function useHolderBehaviors(projectId: string | undefined) {
     [projectId],
   );
 
-  return { actions, decisions, loading, fetchBehaviors };
+  return { actions, decisions, holderVersion, loading, fetchBehaviors };
 }

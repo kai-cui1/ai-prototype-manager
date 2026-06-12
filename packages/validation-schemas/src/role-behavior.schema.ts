@@ -119,6 +119,7 @@ export const CreateDecisionInput = Type.Object({
   name: NameSchema,
   displayName: DisplayNameSchema,
   description: Type.Optional(Type.String({ maxLength: 500 })),
+  inputs: Type.Optional(Type.Array(NodeIOSchema, { default: [] })),
   branches: Type.Array(DecisionBranchInputSchema, { minItems: 2 }),
 });
 
@@ -127,6 +128,7 @@ export const UpdateDecisionInput = Type.Object({
   name: NameSchema,
   displayName: DisplayNameSchema,
   description: Type.Optional(Type.String({ maxLength: 500 })),
+  inputs: Type.Optional(Type.Array(NodeIOSchema, { default: [] })),
   branches: Type.Array(DecisionBranchInputSchema, { minItems: 2 }),
   version: VersionSchema,
 });
@@ -161,6 +163,7 @@ export const DecisionDefResponse = Type.Object({
   name: NameSchema,
   displayName: DisplayNameSchema,
   description: Type.Optional(Type.String()),
+  inputs: Type.Optional(Type.Array(NodeIOSchema, { default: [] })),
   branches: Type.Array(DecisionBranchResponse),
 });
 

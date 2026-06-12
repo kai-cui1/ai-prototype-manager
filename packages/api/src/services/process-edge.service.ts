@@ -29,24 +29,36 @@ import type { ProcessEdge } from '@apm/shared';
 // Type Definitions
 // ============================================================
 
+/** 映射关系 */
+interface EdgeMapping {
+  sourceField: string;
+  targetField: string;
+}
+
 /** 创建边输入 */
 interface CreateEdgeInput {
   sourceNodeId: string;
   targetNodeId: string;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
   label?: string | null;
   condition?: string | null;
   sourceAction?: string | null;
   sourceBranch?: string | null;
   targetAction?: string | null;
+  mappings?: EdgeMapping[];
 }
 
 /** 编辑边输入 */
 interface UpdateEdgeInput {
   label?: string | null;
   condition?: string | null;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
   sourceAction?: string | null;
   sourceBranch?: string | null;
   targetAction?: string | null;
+  mappings?: EdgeMapping[];
 }
 
 // ============================================================
@@ -59,7 +71,9 @@ function toEdge(row: typeof processEdges.$inferSelect): ProcessEdge {
     projectId: row.projectId,
     sourceNodeId: row.sourceNodeId,
     targetNodeId: row.targetNodeId,
-    mappings: (row.mappings as Record<string, unknown>[] | null) ?? [],
+    sourceHandle: row.sourceHandle,
+    targetHandle: row.targetHandle,
+    mappings: (row.mappings as EdgeMapping[] | null) ?? [],
     label: row.label,
     condition: row.condition,
     config: row.config as Record<string, unknown>,
@@ -209,7 +223,9 @@ export async function createEdge(
       projectId,
       sourceNodeId: input.sourceNodeId,
       targetNodeId: input.targetNodeId,
-      mappings: [],
+      sourceHandle: input.sourceHandle ?? null,
+      targetHandle: input.targetHandle ?? null,
+      mappings: input.mappings ?? [],
       label: input.label ?? null,
       condition: input.condition ?? null,
       config,
@@ -265,6 +281,10 @@ export async function updateEdge(
 
   if (input.label !== undefined) updateData.label = input.label;
   if (input.condition !== undefined) updateData.condition = input.condition;
+  if (input.sourceHandle !== undefined) updateData.sourceHandle = input.sourceHandle;
+  if (input.targetHandle !== undefined) updateData.targetHandle = input.targetHandle;
+
+  if (input.mappings !== undefined) updateData.mappings = input.mappings;
 
   const [row] = await db
     .update(processEdges)

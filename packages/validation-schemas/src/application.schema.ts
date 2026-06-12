@@ -11,6 +11,7 @@ import {
   PaginationQuery,
   SearchQuery,
   OrderSchema,
+  VersionSchema,
 } from './base.js';
 import {
   SuccessEnvelope,
@@ -127,6 +128,7 @@ export const ApplicationDetailSchema = Type.Object({
   icon: Type.Union([Type.String(), Type.Null()]),
   sortOrder: Type.Number(),
   config: Type.Object({}, { additionalProperties: true }),
+  version: VersionSchema,
   createdAt: Type.String({ format: 'date-time' }),
   updatedAt: Type.String({ format: 'date-time' }),
 });

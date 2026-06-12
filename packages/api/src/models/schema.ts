@@ -220,6 +220,8 @@ export const processEdges = pgTable('process_edges', {
   projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
   sourceNodeId: text('source_node_id').notNull().references(() => processNodes.id, { onDelete: 'cascade' }),
   targetNodeId: text('target_node_id').notNull().references(() => processNodes.id, { onDelete: 'cascade' }),
+  sourceHandle: text('source_handle'),
+  targetHandle: text('target_handle'),
   mappings: jsonb('mappings').default('[]'),
   label: text('label'),
   condition: text('condition'),

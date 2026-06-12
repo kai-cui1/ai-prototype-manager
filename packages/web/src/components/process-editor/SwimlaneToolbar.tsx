@@ -12,9 +12,6 @@
 import { useState, useCallback } from 'react';
 import { useProcessEditorContext } from '@/contexts/ProcessEditorContext';
 import {
-  ZoomIn,
-  ZoomOut,
-  Maximize,
   LayoutGrid,
   ChevronDown,
   Plus,
@@ -22,9 +19,29 @@ import {
   X,
   ArrowUp,
   ArrowDown,
+  Pencil,
+  Settings2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogAction,
+  AlertDialogCancel,
+} from '@/components/ui/alert-dialog';
+import { toast } from 'sonner';
 import AddParticipantDialog from './dialogs/AddParticipantDialog';
 import {
   DropdownMenu,
@@ -37,7 +54,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 
 export default function SwimlaneToolbar() {
-  const { layout, updateLayout, rfInstanceRef } = useProcessEditorContext();
+  const { layout, nodes, deleteNode, updateLayout, rfInstanceRef, setCanvasSettingsOpen } = useProcessEditorContext();
 
   const participantLanes = layout?.participantLanes ?? [];
   const customLanes = layout?.customLanes ?? [];
@@ -45,15 +62,9 @@ export default function SwimlaneToolbar() {
   // ---- 添加 Participant Dialog ----
   const [showAddParticipant, setShowAddParticipant] = useState(false);
 
-  // ---- 缩放控制 ----
-  const handleZoomIn = () => {
-    rfInstanceRef.current?.zoomIn({ duration: 200 });
-  };
-  const handleZoomOut = () => {
-    rfInstanceRef.current?.zoomOut({ duration: 200 });
-  };
-  const handleFitView = () => {
-    rfInstanceRef.current?.fitView({ duration: 200, padding: 0.1 });
+  // ---- Canvas 设置 ----
+  const openCanvasSettings = () => {
+    setCanvasSettingsOpen(true);
   };
 
   // ---- 添加自定义泳道 ----
@@ -72,17 +83,123 @@ export default function SwimlaneToolbar() {
     setNewLaneName('');
   }, [newLaneName, customLanes, updateLayout]);
 
+  // ---- 重命名自定义泳道 ----
+  const [renamingLaneId, setRenamingLaneId] = useState<string | null>(null);
+  const [renamingLabel, setRenamingLabel] = useState('');
+
+  const handleStartRename = useCallback((laneId: string, currentLabel: string) => {
+    setRenamingLaneId(laneId);
+    setRenamingLabel(currentLabel);
+  }, []);
+
+  const handleConfirmRename = useCallback(async () => {
+    if (!renamingLaneId || !renamingLabel.trim()) return;
+    const updated = customLanes.map((l) =>
+      l.id === renamingLaneId
+        ? { ...l, label: renamingLabel.trim(), name: renamingLabel.trim().toLowerCase().replace(/\s+/g, '-') }
+        : l,
+    );
+    await updateLayout({ customLanes: updated });
+    setRenamingLaneId(null);
+  }, [renamingLaneId, renamingLabel, customLanes, updateLayout]);
+
   // ---- 移除自定义泳道 ----
   const handleRemoveCustomLane = useCallback(async (laneId: string) => {
-    const updated = customLanes.filter((l) => l.id !== laneId);
-    await updateLayout({ customLanes: updated });
-  }, [customLanes, updateLayout]);
+    // 至少保留一个自定义泳道
+    if (customLanes.length <= 1) {
+      toast.error('至少保留一个自定义泳道');
+      return;
+    }
 
-  // ---- 移除 Participant 泳道 ----
+    const deletedIdx = customLanes.findIndex((l) => l.id === laneId);
+    const updated = customLanes.filter((l) => l.id !== laneId);
+
+    // 确定迁移目标：优先右侧，其次左侧
+    let migrateToIdx = deletedIdx < updated.length ? deletedIdx : deletedIdx - 1;
+
+    // 构建 oldIdx→newIdx 映射（基于 lane ID），被删泳道的节点迁入目标泳道
+    const indexMap: Record<number, number> = {};
+    customLanes.forEach((lane, oldIdx) => {
+      if (lane.id === laneId) {
+        indexMap[oldIdx] = migrateToIdx; // 被删泳道节点迁入目标
+      } else {
+        const newIdx = updated.findIndex((l) => l.id === lane.id);
+        if (newIdx !== -1) indexMap[oldIdx] = newIdx;
+      }
+    });
+    const nodePositions = layout?.nodePositions ?? {};
+    const updatedPositions = Object.fromEntries(
+      Object.entries(nodePositions).map(([nodeId, pos]) => [
+        nodeId,
+        { ...pos, customLaneIndex: indexMap[pos.customLaneIndex] ?? pos.customLaneIndex },
+      ]),
+    );
+
+    await updateLayout({ customLanes: updated, nodePositions: updatedPositions });
+  }, [customLanes, layout, updateLayout]);
+
+  // ---- 移除 Participant 泳道（二次确认 + 同步删除节点 + 索引映射） ----
+  const [confirmRemoveParticipant, setConfirmRemoveParticipant] = useState<{ id: string; label: string; nodeCount: number } | null>(null);
+
   const handleRemoveParticipantLane = useCallback(async (participantId: string) => {
+    const lane = participantLanes.find((l) => l.participantId === participantId);
+    if (!lane) return;
+
+    // 至少保留一个角色泳道
+    if (participantLanes.length <= 1) {
+      toast.error('至少保留一个角色泳道');
+      return;
+    }
+
+    // 计算该泳道下节点数量
+    const deletedIdx = participantLanes.findIndex((l) => l.participantId === participantId);
+    const nodePositions = layout?.nodePositions ?? {};
+    const nodeIdsInLane = Object.entries(nodePositions)
+      .filter(([, pos]) => pos.participantLaneIndex === deletedIdx)
+      .map(([nodeId]) => nodeId);
+
+    if (nodeIdsInLane.length > 0) {
+      // 有节点，弹出二次确认
+      setConfirmRemoveParticipant({ id: participantId, label: lane.label, nodeCount: nodeIdsInLane.length });
+      return;
+    }
+
+    // 无节点，直接删除 + 索引映射
+    await doRemoveParticipantLane(participantId);
+  }, [participantLanes, layout, updateLayout]);
+
+  const doRemoveParticipantLane = useCallback(async (participantId: string) => {
+    const deletedIdx = participantLanes.findIndex((l) => l.participantId === participantId);
     const updated = participantLanes.filter((l) => l.participantId !== participantId);
-    await updateLayout({ participantLanes: updated });
-  }, [participantLanes, updateLayout]);
+
+    // 构建 participantIdx 映射
+    const indexMap: Record<number, number> = {};
+    participantLanes.forEach((lane, oldIdx) => {
+      const newIdx = updated.findIndex((l) => l.participantId === lane.participantId);
+      if (newIdx !== -1) indexMap[oldIdx] = newIdx;
+    });
+    const nodePositions = layout?.nodePositions ?? {};
+    const updatedPositions = Object.fromEntries(
+      Object.entries(nodePositions)
+        .filter(([nodeId]) => nodeId !== '__placeholder__') // 过滤掉占位符
+        .filter(([, pos]) => pos.participantLaneIndex !== deletedIdx) // 移除被删泳道的节点
+        .map(([nodeId, pos]) => [
+          nodeId,
+          { ...pos, participantLaneIndex: indexMap[pos.participantLaneIndex] ?? pos.participantLaneIndex },
+        ]),
+    );
+
+    await updateLayout({ participantLanes: updated, nodePositions: updatedPositions });
+
+    // 同步删除被删泳道下的所有节点
+    const nodesToDelete = nodes.filter((n) => {
+      const pos = nodePositions[n.id];
+      return pos && pos.participantLaneIndex === deletedIdx;
+    });
+    for (const node of nodesToDelete) {
+      await deleteNode(node.id);
+    }
+  }, [participantLanes, nodes, layout, deleteNode, updateLayout]);
 
   // ---- 移动自定义泳道顺序 ----
   const handleMoveCustomLane = useCallback(async (index: number, direction: -1 | 1) => {
@@ -91,8 +208,23 @@ export default function SwimlaneToolbar() {
     const updated = [...customLanes];
     const [moved] = updated.splice(index, 1);
     updated.splice(newIndex, 0, moved);
-    await updateLayout({ customLanes: updated });
-  }, [customLanes, updateLayout]);
+
+    // 构建 oldIdx→newIdx 映射（基于 lane ID），同步更新 nodePositions
+    const indexMap: Record<number, number> = {};
+    customLanes.forEach((lane, oldIdx) => {
+      const newIdx = updated.findIndex((l) => l.id === lane.id);
+      if (newIdx !== -1) indexMap[oldIdx] = newIdx;
+    });
+    const nodePositions = layout?.nodePositions ?? {};
+    const updatedPositions = Object.fromEntries(
+      Object.entries(nodePositions).map(([nodeId, pos]) => [
+        nodeId,
+        { ...pos, customLaneIndex: indexMap[pos.customLaneIndex] ?? pos.customLaneIndex },
+      ]),
+    );
+
+    await updateLayout({ customLanes: updated, nodePositions: updatedPositions });
+  }, [customLanes, layout, updateLayout]);
 
   return (
     <div className="flex h-9 items-center gap-2 border-b bg-gray-50 px-4">
@@ -154,6 +286,35 @@ export default function SwimlaneToolbar() {
         onOpenChange={setShowAddParticipant}
       />
 
+      {/* 删除角色泳道二次确认 AlertDialog */}
+      <AlertDialog
+        open={confirmRemoveParticipant !== null}
+        onOpenChange={(open) => { if (!open) setConfirmRemoveParticipant(null); }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除角色泳道</AlertDialogTitle>
+            <AlertDialogDescription>
+              确定要删除「{confirmRemoveParticipant?.label}」角色泳道吗？
+              该泳道下有 {confirmRemoveParticipant?.nodeCount} 个节点，删除后这些节点及其引用的 Action 将一并移除，无法恢复。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmRemoveParticipant) {
+                  doRemoveParticipantLane(confirmRemoveParticipant.id);
+                  setConfirmRemoveParticipant(null);
+                }
+              }}
+            >
+              确认删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* 自定义泳道管理 */}
       <DropdownMenu>
         <DropdownMenuTrigger
@@ -180,6 +341,13 @@ export default function SwimlaneToolbar() {
                 <GripVertical className="h-3 w-3 text-muted-foreground cursor-grab" />
                 <span className="flex-1 truncate">{lane.label}</span>
                 <div className="flex items-center">
+                  <button
+                    className="h-5 w-5 rounded p-0 hover:bg-muted inline-flex items-center justify-center"
+                    onClick={() => handleStartRename(lane.id, lane.label)}
+                    title="重命名"
+                  >
+                    <Pencil className="h-3 w-3 text-muted-foreground" />
+                  </button>
                   <button
                     className="h-5 w-5 rounded p-0 hover:bg-muted inline-flex items-center justify-center disabled:opacity-30"
                     disabled={index === 0}
@@ -231,6 +399,33 @@ export default function SwimlaneToolbar() {
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {/* 重命名自定义泳道 Dialog */}
+      <Dialog open={renamingLaneId !== null} onOpenChange={(open) => { if (!open) setRenamingLaneId(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>重命名泳道</DialogTitle>
+          </DialogHeader>
+          <div className="px-6 py-4">
+            <label className="text-sm font-medium mb-1.5 block">泳道名称</label>
+            <Input
+              value={renamingLabel}
+              onChange={(e) => setRenamingLabel((e.target as HTMLInputElement).value)}
+              placeholder="请输入泳道名称"
+              className="h-8"
+              maxLength={50}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && renamingLabel.trim()) handleConfirmRename();
+              }}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRenamingLaneId(null)}>取消</Button>
+            <Button onClick={handleConfirmRename} disabled={!renamingLabel.trim()}>确认</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <div className="h-4 w-px bg-border" />
 
       {/* 自动布局（Phase 2 预留） */}
@@ -247,36 +442,16 @@ export default function SwimlaneToolbar() {
 
       <div className="flex-1" />
 
-      {/* 缩放控制 */}
-      <div className="flex items-center gap-0.5">
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 w-7 p-0"
-          onClick={handleZoomOut}
-          title="缩小"
-        >
-          <ZoomOut className="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 w-7 p-0"
-          onClick={handleFitView}
-          title="适配视图"
-        >
-          <Maximize className="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 w-7 p-0"
-          onClick={handleZoomIn}
-          title="放大"
-        >
-          <ZoomIn className="h-3.5 w-3.5" />
-        </Button>
-      </div>
+      {/* Canvas 设置按钮 */}
+      <Button
+        variant="outline"
+        size="sm"
+        className="h-7 w-7 p-0"
+        onClick={openCanvasSettings}
+        title="Canvas 设置"
+      >
+        <Settings2 className="h-3.5 w-3.5" />
+      </Button>
     </div>
   );
 }

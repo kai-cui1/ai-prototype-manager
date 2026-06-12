@@ -11,8 +11,8 @@ import * as appBehaviorService from '../services/application-behavior.service.js
 import {
   CreateAppActionInput,
   UpdateAppActionInput,
-  CreateDecisionInput,
-  UpdateDecisionInput,
+  CreateAppDecisionInput,
+  UpdateAppDecisionInput,
   IdSchema,
   ErrorResponse,
   DeleteResponse,
@@ -108,7 +108,7 @@ export default async function applicationBehaviorRoutes(app: FastifyInstance) {
   app.post('/decisions', {
     schema: {
       params: AppIdParam,
-      body: CreateDecisionInput,
+      body: CreateAppDecisionInput,
       response: {
         201: DecisionCreateResponse,
         400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse,
@@ -123,7 +123,7 @@ export default async function applicationBehaviorRoutes(app: FastifyInstance) {
   app.put('/decisions/:decisionId', {
     schema: {
       params: DecisionIdParam,
-      body: UpdateDecisionInput,
+      body: UpdateAppDecisionInput,
       response: {
         200: DecisionUpdateResponse,
         400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse,

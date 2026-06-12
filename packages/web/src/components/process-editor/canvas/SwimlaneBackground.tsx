@@ -79,13 +79,13 @@ function HorizontalLanes({
 
   return (
     <div className="relative" style={{ width: canvasWidth, height: canvasHeight }}>
-      {/* 左上角空白区 */}
+      {/* 左上角空白区 — 随画布层保留，由 Sticky 列标题层视觉覆盖 */}
       <div
         className="absolute bg-gray-50 border-b border-r border-gray-200"
         style={{ left: 0, top: 0, width: LANE_HEADER_SIZE, height: LANE_HEADER_SIZE }}
       />
 
-      {/* 自定义泳道列标题 — 按列索引着色 */}
+      {/* 自定义泳道列标题 — 隐藏（保留布局占位），展示由 ProcessCanvas 的 Sticky 列标题层接管 */}
       {cLanes.reduce<{ acc: React.ReactNode[]; offset: number }>(
         ({ acc, offset }, lane, idx) => {
           const color = getLaneColor(idx);
@@ -102,6 +102,7 @@ function HorizontalLanes({
                 top: 0,
                 width: lane.size,
                 height: LANE_HEADER_SIZE,
+                visibility: 'hidden',
               }}
             >
               {lane.label}

@@ -164,7 +164,7 @@ interface ActivityNode {
 
 #### 类型二：decision（判断/分支节点）
 
-不做「做什么」，只做「判断」。根据条件决定走哪条路。**每个 decision 对应参与者身上的一个 DecisionDef**。
+不做「做什么」，只做「判断」。根据输入参数做条件判断，决定走哪条分支。**每个 decision 对应参与者身上的一个 DecisionDef**。Decision 本身无状态，其判断逻辑完全依赖输入参数。
 
 ```typescript
 interface DecisionNode {
@@ -192,8 +192,8 @@ interface DecisionNode {
 | | ActivityNode | DecisionNode |
 |---|---|---|
 | 引用 | `actionRef` → `Participant.actions[id]` | `decisionRef` → `Participant.decisions[id]` |
-| I/O 来源 | Action.inputs / Action.outputs | DecisionDef.branches[].outputs |
-| 含义 | 「做什么」 | 「判断什么」 |
+| I/O 来源 | Action.inputs / Action.outputs | DecisionDef.inputs / DecisionDef.branches[].outputs |
+| 含义 | 「做什么」 | 「判断什么 → 根据输入走哪条路」 |
 
 ---
 
@@ -223,14 +223,16 @@ interface ProcessEdge {
     // 目标是 activity 时：指定目标节点的哪个 action 的输入作为数据去向
     action?: string;              // actionRef（该 action 的 inputs 就是数据去向）
 
-    // 目标是 decision 时：不需要 action（decision 通过入边接收数据）
+    // 目标是 decision 时：不需要 action（decision 的 inputs 就是数据去向）
   };
 
   // === 数据传递（纯管道，无 variables）★ v1.1 更新 ===
   payload: {
     // 唯一的数据传递方式：源输出字段 → 目标输入字段
+    // 目标为 Action 时映射到 Action.inputs
+    // 目标为 Decision 时映射到 Decision.inputs
     mappings: {
-      [sourceOutputField]: string;   // = 目标 action / branch output 的 input 字段名
+      [sourceOutputField]: string;   // = 目标 Action.inputs / Decision.inputs 的字段名
     };
   };
 }
@@ -245,7 +247,7 @@ interface ProcessEdge {
 
 ② activity → decision
    source: { nodeId, action }    →  target: { nodeId }  (decision 无 action)
-   数据来源：source Action.outputs → mappings → decision 隐式输入
+   数据来源：source Action.outputs → mappings → Decision.inputs
 
 ③ decision → activity  ★ 更新
    source: { nodeId, branch }     →  target: { nodeId, action }
@@ -254,7 +256,7 @@ interface ProcessEdge {
 
 ④ decision → decision
    source: { nodeId, branch }     →  target: { nodeId }
-   数据来源：source branch.outputs → mappings → target decision 隐式输入
+   数据来源：source branch.outputs → mappings → target Decision.inputs
 ```
 
 **边唯一性规则**：
@@ -279,17 +281,21 @@ interface DecisionDef {
   displayName: string;
   description?: string;
 
+  // ★ 输入参数（Decision 必须有输入）
+  inputs: NodeIO[];              // Decision 的判断逻辑依赖这些输入参数
+                                  // 与 Action.inputs 对称：Decision 无状态，根据输入做判断
+
   // ★ 分支定义
   branches: DecisionBranchDef[];
 }
 
 interface DecisionBranchDef {
   name: string;                   // 分支标识名（如 "approved"/"rejected"/"escalate"）
-  condition?: Expression;         // 进入此分支的条件表达式
+  condition?: Expression;         // 进入此分支的条件表达式（引用 Decision.inputs 的字段）
 
   // ★ 本分支向下游输出的参数定义（v1.1 核心）
   outputs: NodeIO[];             // 该分支可传递给下游节点的数据字段
-                                  // 默认从入边 payload 继承，也可新增分支特有参数
+                                  // 可从 inputs 透传，也可新增分支特有参数
 
   // 出口边（outPort）
   edgeIds: string[];              // 连接到此分支出口的边 ID 列表

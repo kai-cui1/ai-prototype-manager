@@ -541,6 +541,7 @@ async function createEdgeHandler(
       sourceNodeId: string; targetNodeId: string;
       label?: string; condition?: string;
       sourceAction?: string; sourceBranch?: string; targetAction?: string;
+      mappings?: Array<{ sourceField: string; targetField: string }>;
     };
   }>,
   reply: FastifyReply,
@@ -554,6 +555,7 @@ async function createEdgeHandler(
     sourceAction: request.body.sourceAction,
     sourceBranch: request.body.sourceBranch,
     targetAction: request.body.targetAction,
+    mappings: request.body.mappings,
   });
   return reply.code(201).send({ data: edge });
 }
@@ -572,6 +574,7 @@ async function updateEdgeHandler(
     Body: {
       label?: string | null; condition?: string | null;
       sourceAction?: string | null; sourceBranch?: string | null; targetAction?: string | null;
+      mappings?: Array<{ sourceField: string; targetField: string }>;
     };
   }>,
   reply: FastifyReply,
@@ -582,6 +585,7 @@ async function updateEdgeHandler(
     sourceAction: request.body.sourceAction,
     sourceBranch: request.body.sourceBranch,
     targetAction: request.body.targetAction,
+    mappings: request.body.mappings,
   });
   return reply.send({ data: edge });
 }
