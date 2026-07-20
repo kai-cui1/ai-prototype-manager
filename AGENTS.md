@@ -118,6 +118,7 @@ This file provides guidance to AI coding agents (Qoder, Codex, etc.) when workin
 |------|------|---------|---------|
 | **API 后端** (Fastify) | **13180** | `packages/api/src/app.ts` | `API_PORT` |
 | **Web 前端** (Vite) | **13181** | `packages/web/vite.config.ts` | — |
+| **MCP Server** (Sidecar) | **13182** | `packages/mcp/` (待创建) | `MCP_PORT` |
 | **数据库** (PostgreSQL) | **5432** | `packages/api/src/db.ts` / `packages/api/drizzle/config.ts` | `DATABASE_URL` |
 
 **规则**：
@@ -131,10 +132,10 @@ This file provides guidance to AI coding agents (Qoder, Codex, etc.) when workin
 
 本表的端口值为 **dev1（日常开发）环境的默认值**。其他环境的端口定义见 `environments/*.json`：
 
-| 环境 | Web | API | DB | 数据库 |
-|------|-----|-----|-----|--------|
-| `dev1`（默认） | **13181** | **13180** | **5432** | `apm_dev1` |
-| `dev2`（隔离） | 13281 | 13280 | 5433 | `apm_dev2` |
+| 环境 | Web | API | MCP | DB | 数据库 |
+|------|-----|-----|-----|-----|--------|
+| `dev1`（默认） | **13181** | **13180** | **13182** | **5432** | `apm_dev1` |
+| `dev2`（隔离） | 13281 | 13280 | 13282 | 5433 | `apm_dev2` |
 
 ### 环境优先铁律 **（必须遵守 — 违反将导致连接错误数据库）**
 

@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 原型管理平台 — 应用系统架构图</title>
+<style>
+  :root {
+    --c-user: #6366f1;
+    --c-design-ai: #8b5cf6;
+    --c-implement-ai: #6d28d9;
+    --c-mcp: #0891b2;
+    --c-api: #059669;
+    --c-web: #d97706;
+    --c-db: #dc2626;
+    --c-env: #64748b;
+    --c-boundary: #94a3b8;
+    --bg: #0f172a;
+    --bg-card: #1e293b;
+    --bg-inner: #334155;
+    --text: #f1f5f9;
+    --text-dim: #94a3b8;
+    --text-label: #cbd5e1;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'SF Pro Text', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 32px;
+  }
+  h1 { text-align: center; font-size: 24px; margin-bottom: 4px; color: var(--text); }
+  .subtitle { text-align: center; font-size: 13px; color: var(--text-dim); margin-bottom: 32px; }
+
+  /* Legend */
+  .legend {
+    display: flex; justify-content: center; gap: 24px; flex-wrap: wrap;
+    margin-bottom: 28px; font-size: 12px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 12px; height: 12px; border-radius: 3px; }
+
+  /* Architecture Canvas */
+  .canvas {
+    max-width: 1200px; margin: 0 auto;
+    display: flex; flex-direction: column; gap: 20px;
+  }
+
+  /* Rows */
+  .row { display: flex; gap: 16px; align-items: stretch; }
+  .row-label {
+    writing-mode: vertical-lr; text-orientation: mixed;
+    font-size: 11px; color: var(--text-dim); letter-spacing: 2px;
+    display: flex; align-items: center; justify-content: center;
+    min-width: 24px; padding: 8px 0;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--c-boundary);
+    border-radius: 10px;
+    padding: 16px;
+    flex: 1;
+    position: relative;
+  }
+  .card-title {
+    font-size: 13px; font-weight: 700;
+    margin-bottom: 8px; letter-spacing: 0.5px;
+  }
+  .card-desc { font-size: 11px; color: var(--text-dim); margin-bottom: 8px; }
+
+  /* Boundary boxes */
+  .boundary {
+    border: 1.5px dashed var(--c-boundary);
+    border-radius: 12px;
+    padding: 16px;
+    position: relative;
+  }
+  .boundary-label {
+    position: absolute; top: -10px; left: 16px;
+    background: var(--bg);
+    padding: 0 8px;
+    font-size: 11px; color: var(--text-dim); letter-spacing: 1px;
+  }
+
+  /* Service node */
+  .svc {
+    background: var(--bg-inner);
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 6px;
+    font-size: 12px;
+  }
+  .svc:last-child { margin-bottom: 0; }
+  .svc-name { font-weight: 600; margin-bottom: 2px; }
+  .svc-detail { font-size: 10px; color: var(--text-dim); }
+  .svc-port { float: right; font-size: 10px; color: var(--text-dim); font-family: monospace; }
+
+  /* Color-coded borders */
+  .border-user { border-left: 3px solid var(--c-user); }
+  .border-design-ai { border-left: 3px solid var(--c-design-ai); }
+  .border-implement-ai { border-left: 3px solid var(--c-implement-ai); }
+  .border-mcp { border-left: 3px solid var(--c-mcp); }
+  .border-api { border-left: 3px solid var(--c-api); }
+  .border-web { border-left: 3px solid var(--c-web); }
+  .border-db { border-left: 3px solid var(--c-db); }
+  .border-env { border-left: 3px solid var(--c-env); }
+
+  /* Arrow area */
+  .arrow-row {
+    display: flex; align-items: center; justify-content: center;
+    gap: 48px; padding: 6px 0; font-size: 11px; color: var(--text-dim);
+  }
+  .arrow {
+    display: flex; align-items: center; gap: 4px;
+  }
+  .arrow-line { color: var(--text-dim); font-weight: bold; }
+  .arrow-label { font-size: 10px; }
+
+  /* Protocol tag */
+  .proto {
+    display: inline-block; font-size: 9px; font-family: monospace;
+    background: rgba(255,255,255,0.08); border-radius: 3px;
+    padding: 1px 5px; margin-left: 4px; color: var(--text-dim);
+  }
+
+  /* Constraint layers */
+  .layers {
+    display: flex; gap: 8px; margin-top: 8px;
+  }
+  .layer-tag {
+    font-size: 10px; padding: 3px 8px; border-radius: 4px;
+    font-weight: 600; letter-spacing: 0.5px;
+  }
+  .layer-a { background: rgba(5,150,105,0.15); color: #34d399; border: 1px solid rgba(5,150,105,0.3); }
+  .layer-b { background: rgba(8,145,178,0.15); color: #22d3ee; border: 1px solid rgba(8,145,178,0.3); }
+  .layer-c { background: rgba(139,92,246,0.15); color: #a78bfa; border: 1px solid rgba(139,92,246,0.3); }
+
+  /* Tool list */
+  .tool-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 4px; margin-top: 6px;
+  }
+  .tool-item {
+    font-size: 10px; font-family: monospace;
+    background: rgba(255,255,255,0.05); border-radius: 3px;
+    padding: 2px 6px; color: var(--text-label);
+  }
+
+  /* Route list */
+  .route-grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 4px; margin-top: 6px;
+  }
+  .route-item {
+    font-size: 10px; font-family: monospace;
+    background: rgba(255,255,255,0.05); border-radius: 3px;
+    padding: 2px 6px; color: var(--text-label);
+  }
+
+  /* Data flow annotations */
+  .flow-note {
+    font-size: 10px; color: var(--text-dim); font-style: italic;
+    margin-top: 4px; padding-left: 8px; border-left: 2px solid var(--c-boundary);
+  }
+
+  /* Responsive */
+  @media (max-width: 800px) {
+    .row { flex-direction: column; }
+    .row-label { writing-mode: horizontal-tb; }
+  }
+</style>
+</head>
+<body>
+
+<h1>AI 原型管理平台 — 应用系统架构图</h1>
+<p class="subtitle">包含外部用户、Design AI、Implement AI 的完整系统视图 &nbsp;|&nbsp; 最后更新：2026-06-24</p>
+
+<!-- Legend -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-user)"></div>人类用户</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-design-ai)"></div>Design AI</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-implement-ai)"></div>Implement AI</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-mcp)"></div>MCP Server</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-api)"></div>API 后端</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-web)"></div>Web 前端</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-db)"></div>数据库</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--c-env)"></div>环境管理</div>
+</div>
+
+<div class="canvas">
+
+  <!-- ═══════════════ Row 1: External Actors ═══════════════ -->
+  <div class="boundary">
+    <span class="boundary-label">外部参与者层</span>
+    <div class="row" style="padding-top: 4px;">
+      <div class="card" style="flex:1;">
+        <div class="svc border-user">
+          <div class="svc-name" style="color:var(--c-user)">PM（产品经理）</div>
+          <div class="svc-detail">与 Design AI 对话协作，输入决策和思考方向</div>
+        </div>
+      </div>
+      <div class="card" style="flex:1.2;">
+        <div class="svc border-design-ai">
+          <div class="svc-name" style="color:var(--c-design-ai)">Design AI <span class="proto">读写</span></div>
+          <div class="svc-detail">Claude Code / Codex / Qoder — 与 PM 有状态对话，调用 MCP tools 定义语义原型</div>
+          <div class="svc-detail" style="margin-top:2px">职责：将模糊业务想法 → 结构化语义定义，存入 APM</div>
+        </div>
+      </div>
+      <div class="card" style="flex:1.2;">
+        <div class="svc border-implement-ai">
+          <div class="svc-name" style="color:var(--c-implement-ai)">Implement AI <span class="proto">只读</span></div>
+          <div class="svc-detail">Coding AI / 文档 AI / 测试 AI — 消费语义原型，产出各种实现产物</div>
+          <div class="svc-detail" style="margin-top:2px">职责：消费 APM 中的语义结构 → 代码 / 文档 / 测试用例</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ Arrow: Actors → System ═══════════════ -->
+  <div class="arrow-row">
+    <div class="arrow">
+      <span class="arrow-line">↕</span>
+      <span class="arrow-label">对话 + 操作确认</span>
+    </div>
+    <div class="arrow">
+      <span class="arrow-line">↓</span>
+      <span class="arrow-label">MCP tool calls（SSE）</span>
+    </div>
+    <div class="arrow">
+      <span class="arrow-line">↓</span>
+      <span class="arrow-label">REST API（只读）</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════ Row 2: MCP Server + Web Frontend ═══════════════ -->
+  <div class="boundary">
+    <span class="boundary-label">接入层</span>
+    <div class="row" style="padding-top: 4px;">
+      <!-- MCP Server -->
+      <div class="card" style="flex:1.3;">
+        <div class="card-title" style="color:var(--c-mcp)">MCP Server（Sidecar）</div>
+        <div class="card-desc">被动工具，无状态，无对话；D-10 决策：不编排、不拦截、不对话</div>
+        <div class="svc border-mcp">
+          <div class="svc-name">Express + SSE Transport <span class="svc-port">:13182</span></div>
+          <div class="svc-detail">MCP 协议端点 /sse + /messages；健康检查 /health</div>
+        </div>
+        <div style="font-size:10px; color:var(--text-dim); margin: 6px 0 4px;">当前 12 个 MCP Tools：</div>
+        <div class="tool-grid">
+          <div class="tool-item">getProjectSnapshot</div>
+          <div class="tool-item">listProjects</div>
+          <div class="tool-item">createProject</div>
+          <div class="tool-item">getProject</div>
+          <div class="tool-item">listEntities</div>
+          <div class="tool-item">createEntity</div>
+          <div class="tool-item">addEntityField</div>
+          <div class="tool-item">createRole</div>
+          <div class="tool-item">addAction</div>
+          <div class="tool-item">createExternalEntity</div>
+          <div class="tool-item">createProcess</div>
+          <div class="tool-item">addActivityNode</div>
+        </div>
+        <div class="layers">
+          <span class="layer-tag layer-b">B 层：MCP 语义校验</span>
+          <span class="layer-tag layer-c">C 层：Tool Description 约束</span>
+        </div>
+        <div class="flow-note">D-11：增强返回（sideEffects）而非前置拦截</div>
+      </div>
+
+      <!-- Web Frontend -->
+      <div class="card" style="flex:1;">
+        <div class="card-title" style="color:var(--c-web)">Web 前端</div>
+        <div class="card-desc">PM 人工操作的图形界面</div>
+        <div class="svc border-web">
+          <div class="svc-name">React + Vite + TypeScript <span class="svc-port">:13181</span></div>
+          <div class="svc-detail">shadcn/ui + Tailwind CSS + ReactFlow</div>
+        </div>
+        <div style="font-size:10px; color:var(--text-dim); margin: 6px 0 4px;">核心功能模块：</div>
+        <div class="route-grid">
+          <div class="route-item">项目管理</div>
+          <div class="route-item">领域模型编辑器</div>
+          <div class="route-item">组织与角色管理</div>
+          <div class="route-item">外部实体管理</div>
+          <div class="route-item">应用管理</div>
+          <div class="route-item">业务流程编辑器</div>
+          <div class="route-item">业务架构视图</div>
+          <div class="route-item">系统仪表盘</div>
+        </div>
+        <div class="flow-note">ProjectContext 驱动导航：/p/:projectId/*</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ Arrow: Access → API ═══════════════ -->
+  <div class="arrow-row">
+    <div class="arrow">
+      <span class="arrow-line">↓</span>
+      <span class="arrow-label">callApi() → REST 代理</span>
+    </div>
+    <div class="arrow">
+      <span class="arrow-line">↓</span>
+      <span class="arrow-label">REST API</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════ Row 3: API Backend ═══════════════ -->
+  <div class="boundary">
+    <span class="boundary-label">业务服务层</span>
+    <div style="padding-top: 4px;">
+      <div class="card">
+        <div class="card-title" style="color:var(--c-api)">API 后端（Fastify）<span class="svc-port" style="font-size:12px">:13180</span></div>
+        <div class="card-desc">所有业务逻辑的单一入口；110+ OpenAPI 端点；A 层硬约束保障数据完整性</div>
+
+        <div class="row" style="gap:8px; margin-top: 8px;">
+          <div style="flex:1;">
+            <div style="font-size:10px; color:var(--text-dim); margin-bottom:4px;">路由模块（9 个）</div>
+            <div class="route-grid">
+              <div class="route-item">projects.ts</div>
+              <div class="route-item">domain.ts</div>
+              <div class="route-item">organization.ts</div>
+              <div class="route-item">role-behavior.ts</div>
+              <div class="route-item">ext-entity-behavior.ts</div>
+              <div class="route-item">applications.ts</div>
+              <div class="route-item">app-behavior.ts</div>
+              <div class="route-item">process.ts</div>
+              <div class="route-item">architecture.ts</div>
+              <div class="route-item">snapshot.ts</div>
+            </div>
+          </div>
+          <div style="flex:1;">
+            <div style="font-size:10px; color:var(--text-dim); margin-bottom:4px;">共享校验 Schema</div>
+            <div class="svc border-api" style="padding:6px 10px;">
+              <div class="svc-name" style="font-size:11px;">@apm/validation-schemas</div>
+              <div class="svc-detail">TypeBox + Ajv — 请求校验 + 响应序列化 + OpenAPI 生成</div>
+            </div>
+            <div style="font-size:10px; color:var(--text-dim); margin: 6px 0 4px;">约束三层分治（D-8）</div>
+            <div class="layers">
+              <span class="layer-tag layer-a">A 层：服务端硬约束</span>
+              <span class="layer-tag layer-b">B 层：MCP 语义校验</span>
+              <span class="layer-tag layer-c">C 层：System Prompt</span>
+            </div>
+          </div>
+        </div>
+        <div class="flow-note">A 层职责：外键约束、引用完整性、删除级联检查、Decision 分支存在性校验、返回明确错误码</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ Arrow: API → DB ═══════════════ -->
+  <div class="arrow-row">
+    <div class="arrow">
+      <span class="arrow-line">↓</span>
+      <span class="arrow-label">Drizzle ORM（SQL）</span>
+    </div>
+  </div>
+
+  <!-- ═══════════════ Row 4: Database ═══════════════ -->
+  <div class="boundary">
+    <span class="boundary-label">数据持久层</span>
+    <div style="padding-top: 4px;">
+      <div class="card">
+        <div class="svc border-db">
+          <div class="svc-name" style="color:var(--c-db)">PostgreSQL <span class="svc-port">:5432</span></div>
+          <div class="svc-detail">19 张业务表（Phase 1）；apm_dev1 / apm_dev2 多库隔离</div>
+          <div class="svc-detail" style="margin-top:2px">核心表：projects, entities, entity_fields, relations, roles, actions, decisions, external_entities, applications, processes, nodes, edges, business_architectures, biz_arch_process_map, boundaries …</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ Cross-cutting: Environment ═══════════════ -->
+  <div style="margin-top: 12px;">
+    <div class="boundary">
+      <span class="boundary-label">横切关注点 — 环境管理</span>
+      <div style="padding-top: 4px;">
+        <div class="row" style="gap:8px;">
+          <div class="svc border-env">
+            <div class="svc-name" style="color:var(--c-env)">environments/ 体系</div>
+            <div class="svc-detail">set-env.sh → export DATABASE_URL / API_PORT / WEB_PORT / MCP_PORT / DB_PORT</div>
+            <div class="svc-detail">restart-env.sh → 清理端口 + 启动 Web + API + MCP + 健康检查</div>
+          </div>
+          <div style="flex:0.6;">
+            <table style="width:100%; font-size:10px; border-collapse:collapse;">
+              <tr style="color:var(--text-dim)"><th style="text-align:left;padding:2px 6px">环境</th><th style="padding:2px 6px">Web</th><th style="padding:2px 6px">API</th><th style="padding:2px 6px">MCP</th><th style="padding:2px 6px">DB</th></tr>
+              <tr><td style="padding:2px 6px">dev1</td><td style="padding:2px 6px;text-align:center">13181</td><td style="padding:2px 6px;text-align:center">13180</td><td style="padding:2px 6px;text-align:center">13182</td><td style="padding:2px 6px;text-align:center">5432</td></tr>
+              <tr><td style="padding:2px 6px">dev2</td><td style="padding:2px 6px;text-align:center">13281</td><td style="padding:2px 6px;text-align:center">13280</td><td style="padding:2px 6px;text-align:center">13282</td><td style="padding:2px 6px;text-align:center">5433</td></tr>
+            </table>
+          </div>
+          <div class="svc border-env" style="flex:0.6;">
+            <div class="svc-name" style="color:var(--c-env)">Monorepo 工具链</div>
+            <div class="svc-detail">pnpm workspaces + Turborepo</div>
+            <div class="svc-detail">packages: api / web / shared / validation-schemas / mcp</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ Data Flow Summary ═══════════════ -->
+  <div style="margin-top: 16px;">
+    <div class="boundary">
+      <span class="boundary-label">关键数据流</span>
+      <div style="padding-top: 8px; font-size: 11px; color: var(--text-label);">
+        <div style="margin-bottom: 8px;">
+          <strong style="color:var(--c-design-ai)">Design AI 数据流：</strong>
+          PM ↔ Design AI（对话）→ MCP tool calls → MCP Server（callApi 代理）→ API 后端 → PostgreSQL
+          <br><span style="color:var(--text-dim); font-size:10px;">System Prompt 提供 L1 概念元信息 + L2 操作依赖规则；Level 0 快照提供 L3 引用级属性（D-15 三层支撑）</span>
+        </div>
+        <div style="margin-bottom: 8px;">
+          <strong style="color:var(--c-implement-ai)">Implement AI 数据流：</strong>
+          Implement AI → REST API（只读）→ API 后端 → PostgreSQL
+          <br><span style="color:var(--text-dim); font-size:10px;">按实现类型消费不同切面：/spec/code（Coding AI）、/spec/test（测试 AI）、/spec/document（文档 AI）— 待设计</span>
+        </div>
+        <div>
+          <strong style="color:var(--c-web)">Web 前端数据流：</strong>
+          PM → Browser → Vite SPA → REST API → API 后端 → PostgreSQL
+          <br><span style="color:var(--text-dim); font-size:10px;">ProjectContext 驱动导航；ReactFlow 渲染领域模型/业务流程 Canvas</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══════════════ Design Decisions ═══════════════ -->
+  <div style="margin-top: 12px; font-size: 10px; color: var(--text-dim); text-align: center;">
+    关键决策：D-9 Sidecar 部署 | D-10 被动工具定位 | D-11 增强返回 | D-14 Level 0 引用级属性 | D-15 三层信息支撑 | D-8 A+B+C 约束分治
+  </div>
+
+</div>
+
+</body>
+</html>

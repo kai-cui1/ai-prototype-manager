@@ -2,17 +2,18 @@
 schema_version: 1
 locale: zh-CN
 branch: qoder-phase2
-exported_at: "2026-06-09T08:51:48Z"
+exported_at: "2026-06-12T10:46:08Z"
 modules:
     "":
-        dir_name: AI 原型管理平台单体仓库
-        title: AI 原型管理平台单体仓库
+        dir_name: AI原型管理平台单体仓库
+        title: AI原型管理平台单体仓库
         scope:
             - .env
             - .gitignore
             - AGENTS.md
             - CLAUDE.md
             - README.md
+            - business-process-editor-analysis.png
             - package.json
             - pnpm-lock.yaml
             - pnpm-workspace.yaml
@@ -22,15 +23,14 @@ modules:
         depends_on: []
         related_to: []
     api_service:
-        dir_name: AI原型管理后端API服务
-        title: AI原型管理后端API服务
+        dir_name: APM 核心业务 API 服务
+        title: APM 核心业务 API 服务
         scope:
             - packages/api/
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: shared_libs
+        related_to: []
     docs:
         dir_name: 项目全生命周期文档与规范中心
         title: 项目全生命周期文档与规范中心
@@ -59,29 +59,28 @@ modules:
         depends_on: []
         related_to: []
     shared_libs:
-        dir_name: 共享类型定义与数据校验
-        title: 共享类型定义与数据校验
+        dir_name: 共享类型定义与数据校验模式
+        title: 共享类型定义与数据校验模式
         scope:
             - packages/shared/
             - packages/validation-schemas/
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: api_service
+        related_to: []
     web_app:
-        dir_name: Web 应用编排与项目上下文管理
-        title: Web 应用编排与项目上下文管理
+        dir_name: AI原型管理平台Web前端
+        title: AI原型管理平台Web前端
         scope:
             - packages/web/
         source_files: []
         children:
+            - web_app/organization_and_roles
             - web_app/shared_ui_core
-            - web_app/domain_model_editor
             - web_app/external_entities
             - web_app/applications_and_dashboard
             - web_app/project_management
-            - web_app/organization_and_roles
+            - web_app/domain_model_editor
         depends_on: []
         related_to: []
     web_app/applications_and_dashboard:
@@ -183,9 +182,7 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: web_app/domain_model_editor
-            - path: web_app/external_entities
+        related_to: []
     web_app/project_management:
         dir_name: 项目管理模块
         title: 项目管理模块
@@ -203,8 +200,8 @@ modules:
             - path: web_app/domain_model_editor
             - path: web_app/applications_and_dashboard
     web_app/shared_ui_core:
-        dir_name: Web UI 核心与布局架构
-        title: Web UI 核心与布局架构
+        dir_name: 共享UI核心与项目上下文管理
+        title: 共享UI核心与项目上下文管理
         scope:
             - packages/web/src/components/common/
             - packages/web/src/components/ui/
@@ -223,5 +220,4 @@ modules:
         source_files: []
         children: []
         depends_on: []
-        related_to:
-            - path: web_app/domain_model_editor
+        related_to: []

@@ -1,8 +1,0 @@
-schema_version: 1
-module_path: web_app
-title: Web 应用编排与项目上下文管理
-scope:
-    - packages/web/
-source_files: []
-depends_on: []
-related_to: []

@@ -1,0 +1,21 @@
+schema_version: 1
+module_path: web_app/shared_ui_core
+title: 共享UI核心与项目上下文管理
+scope:
+    - packages/web/src/components/common/
+    - packages/web/src/components/ui/
+    - packages/web/src/components/layout/
+    - packages/web/src/components/behavior/
+    - packages/web/src/components/ErrorBoundary.tsx
+    - packages/web/src/components/Layout.tsx
+    - packages/web/src/components/ProjectRouteGuard.tsx
+    - packages/web/src/contexts/ProjectContext.tsx
+    - packages/web/src/hooks/useDebouncedValue.ts
+    - packages/web/src/hooks/useThemeToggle.ts
+    - packages/web/src/api/
+    - packages/web/src/lib/
+    - packages/web/src/App.tsx
+    - packages/web/src/main.tsx
+source_files: []
+depends_on: []
+related_to: []
