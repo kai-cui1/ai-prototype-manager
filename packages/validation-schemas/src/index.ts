@@ -15,3 +15,5 @@ export * from './role-behavior.schema.js';
 export * from './external-entity-behavior.schema.js';
 export * from './application-behavior.schema.js';
 export * from './process.schema.js';
+export * from './architecture.schema.js';
+export * from './snapshot.schema.js';

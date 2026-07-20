@@ -43,6 +43,13 @@ await app.register(swagger, {
       { name: 'External Entity Behavior', description: '外部实体行为管理 (M1 子模块)' },
       { name: 'Application Behavior', description: '应用行为管理 (M1 子模块)' },
       { name: 'Domain', description: '领域模型管理 (M2)' },
+      { name: 'Processes', description: '业务流程管理 (M3)' },
+      { name: 'Process Nodes', description: '流程节点管理 (M3)' },
+      { name: 'Process Edges', description: '流程连线管理 (M3)' },
+      { name: 'Process Layout', description: '流程布局管理 (M3)' },
+      { name: 'Process Validate', description: '流程验证 (M3)' },
+      { name: 'Architecture', description: '业务架构管理 (M4)' },
+      { name: 'Snapshot', description: '项目快照 (Design AI 入口)' },
     ],
     components: {
       securitySchemes: {
@@ -143,6 +150,9 @@ await app.register(domainRoutes, { prefix: '/api/v1/projects/:projectId/domain' 
 // TODO(M3): app.register(processRoutes, { prefix: '/api/v1/projects/:projectId/processes' })
 import processRoutes from './routes/process.js';
 await app.register(processRoutes, { prefix: '/api/v1/projects/:projectId/processes' });
+// M4: 业务架构管理（F-M4-01~08）
+import architectureRoutes from './routes/architecture.js';
+await app.register(architectureRoutes, { prefix: '/api/v1/projects/:projectId/architectures' });
 // M4: 组织管理（F-M1-06 公司 / F-M1-07 部门 / F-M1-08 角色 / F-M1-09 外部实体）
 import organizationRoutes, { companyResourceRoutes } from './routes/organization.js';
 await app.register(organizationRoutes, { prefix: '/api/v1/projects/:projectId' });
@@ -157,10 +167,12 @@ await app.register(roleBehaviorRoutes, { prefix: '/api/v1/projects/:projectId/ro
 // M1 补充: 外部实体行为管理（F-M1-13 Actions/Decisions CRUD）
 import eeBehaviorRoutes from './routes/external-entity-behavior.js';
 await app.register(eeBehaviorRoutes, { prefix: '/api/v1/projects/:projectId/external-entities/:eeId' });
+// M1 补充: 项目快照（Design AI 入口仪式）
+import snapshotRoutes from './routes/snapshot.js';
+await app.register(snapshotRoutes, { prefix: '/api/v1/projects/:projectId' });
 // M1 补充: 应用行为管理（F-M1-14 Actions/Decisions CRUD）
 import appBehaviorRoutes from './routes/application-behavior.js';
 await app.register(appBehaviorRoutes, { prefix: '/api/v1/projects/:projectId/applications/:appId' });
-// TODO(M5): app.register(architectureRoutes, { prefix: '/api/v1/projects/:projectId/business-architectures' })
 // TODO(M6): app.register(menuRoutes, { prefix: '/api/v1/menus' })
 
 // ============================================

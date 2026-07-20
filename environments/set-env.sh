@@ -81,6 +81,7 @@ DB_NAME=$(python3 -c "import json; print(json.load(open('$ENV_FILE'))['db']['dat
 DB_HOST=$(python3 -c "import json; print(json.load(open('$ENV_FILE'))['db']['host'])")
 API_PORT=$(python3 -c "import json; print(json.load(open('$ENV_FILE'))['api']['port'])")
 WEB_PORT=$(python3 -c "import json; print(json.load(open('$ENV_FILE'))['web']['port'])")
+MCP_PORT=$(python3 -c "import json; d=json.load(open('$ENV_FILE')); print(d.get('mcp',{}).get('port',13182))")
 
 # 构造 DATABASE_URL
 DB_USER="apm_dev"
@@ -91,6 +92,7 @@ DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_
 export DATABASE_URL
 export API_PORT
 export WEB_PORT
+export MCP_PORT
 export DB_PORT
 
 # 更新 .active
@@ -100,4 +102,5 @@ echo "✅ 环境 [$ENV_NAME] 已激活"
 echo "   DATABASE_URL = ${DATABASE_URL}"
 echo "   API_PORT     = ${API_PORT}"
 echo "   WEB_PORT     = ${WEB_PORT}"
+echo "   MCP_PORT     = ${MCP_PORT}"
 echo "   DB_PORT      = ${DB_PORT}"

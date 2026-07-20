@@ -1,1 +1,32 @@
-{"name": "dev1", "description": "日常开发环境 — 默认环境，用于日常编码和功能点测试", "web": {"port": 13181, "url": "http://localhost:13181", "protocol": "http"}, "api": {"port": 13180, "url": "http://localhost:13180", "basePath": "/api/v1", "protocol": "http"}, "db": {"port": 5432, "host": "localhost", "database": "apm_dev1", "protocol": "postgresql"}, "_meta": {"createdBy": "system", "createdAt": "2026-05-12", "isDefault": true}}
+{
+  "name": "dev1",
+  "description": "\u65e5\u5e38\u5f00\u53d1\u73af\u5883 \u2014 \u9ed8\u8ba4\u73af\u5883\uff0c\u7528\u4e8e\u65e5\u5e38\u7f16\u7801\u548c\u529f\u80fd\u70b9\u6d4b\u8bd5",
+  "web": {
+    "port": 13181,
+    "url": "http://localhost:13181",
+    "protocol": "http"
+  },
+  "api": {
+    "port": 13180,
+    "url": "http://localhost:13180",
+    "basePath": "/api/v1",
+    "protocol": "http"
+  },
+  "db": {
+    "port": 5432,
+    "host": "localhost",
+    "database": "apm_dev1",
+    "protocol": "postgresql"
+  },
+  "_meta": {
+    "createdBy": "system",
+    "createdAt": "2026-05-12",
+    "isDefault": true
+  },
+  "mcp": {
+    "port": 13182,
+    "url": "http://localhost:13182",
+    "protocol": "http",
+    "description": "MCP Server (Design AI sidecar)"
+  }
+}

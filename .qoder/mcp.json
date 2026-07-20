@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "apm-prototype": {
+      "url": "http://localhost:13182/sse"
+    }
+  }
+}

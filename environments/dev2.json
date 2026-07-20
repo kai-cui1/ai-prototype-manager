@@ -1,1 +1,32 @@
-{"name": "dev2", "description": "隔离测试环境 — 用于并行开发或需要独立数据集的测试场景，避免与 dev1 的数据和端口冲突", "web": {"port": 13281, "url": "http://localhost:13281", "protocol": "http"}, "api": {"port": 13280, "url": "http://localhost:13280", "basePath": "/api/v1", "protocol": "http"}, "db": {"port": 5433, "host": "localhost", "database": "apm_dev2", "protocol": "postgresql"}, "_meta": {"createdBy": "system", "createdAt": "2026-05-12", "isDefault": false}}
+{
+  "name": "dev2",
+  "description": "\u9694\u79bb\u6d4b\u8bd5\u73af\u5883 \u2014 \u7528\u4e8e\u5e76\u884c\u5f00\u53d1\u6216\u9700\u8981\u72ec\u7acb\u6570\u636e\u96c6\u7684\u6d4b\u8bd5\u573a\u666f\uff0c\u907f\u514d\u4e0e dev1 \u7684\u6570\u636e\u548c\u7aef\u53e3\u51b2\u7a81",
+  "web": {
+    "port": 13281,
+    "url": "http://localhost:13281",
+    "protocol": "http"
+  },
+  "api": {
+    "port": 13280,
+    "url": "http://localhost:13280",
+    "basePath": "/api/v1",
+    "protocol": "http"
+  },
+  "db": {
+    "port": 5433,
+    "host": "localhost",
+    "database": "apm_dev2",
+    "protocol": "postgresql"
+  },
+  "_meta": {
+    "createdBy": "system",
+    "createdAt": "2026-05-12",
+    "isDefault": false
+  },
+  "mcp": {
+    "port": 13282,
+    "url": "http://localhost:13282",
+    "protocol": "http",
+    "description": "MCP Server (Design AI sidecar)"
+  }
+}
