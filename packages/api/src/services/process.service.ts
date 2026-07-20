@@ -15,6 +15,7 @@ import {
   businessProcesses,
   processNodes,
   processEdges,
+  projects,
 } from '../models/schema.js';
 import {
   ERROR_CODES,
@@ -392,6 +393,51 @@ export async function deleteProcess(
 // ============================================================
 // Internal Helpers
 // ============================================================
+
+/**
+ * F-M4-08: 流程模糊搜索——供业务架构节点关联选择使用。
+ *
+ * @param projectId - 项目 ID（限定搜索范围）
+ * @param q - 搜索关键词（应用于 name 和 displayName 的 ILIKE 匹配）
+ * @returns 最多 20 条匹配结果，q 为空时返回空数组
+ *
+ * PRD 规则: B-M4-17~21, G-M4-01
+ */
+export async function searchProcesses(
+  db: Db,
+  projectId: string,
+  q: string,
+): Promise<Array<{ id: string; name: string; displayName: string; status: string }>> {
+  // 验证项目存在（B-M4-17）
+  const project = await db
+    .select({ id: projects.id })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+  if (project.length === 0) throw notFound('项目', projectId);
+
+  if (!q || q.trim() === '') return [];
+
+  const keyword = `%${q.trim()}%`;
+  const rows = await db
+    .select({
+      id: businessProcesses.id,
+      name: businessProcesses.name,
+      displayName: businessProcesses.displayName,
+      status: businessProcesses.status,
+    })
+    .from(businessProcesses)
+    .where(
+      and(
+        eq(businessProcesses.projectId, projectId),
+        sql`(${ilike(businessProcesses.name, keyword)} OR ${ilike(businessProcesses.displayName, keyword)})`,
+      ),
+    )
+    .orderBy(asc(businessProcesses.sortOrder), asc(businessProcesses.name))
+    .limit(20);
+
+  return rows;
+}
 
 /**
  * 检测 PostgreSQL UNIQUE 约束冲突错误。

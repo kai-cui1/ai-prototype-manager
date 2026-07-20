@@ -37,6 +37,9 @@ import {
   ValidateResponseSchema,
   DeleteResponse,
   ErrorResponse,
+  // Architecture search schemas (F-M4-08)
+  ProcessSearchQuery,
+  ProcessSearchResponse,
   // Base
   IdSchema,
 } from '@apm/validation-schemas';
@@ -59,6 +62,23 @@ export default async function processRoutes(app: FastifyInstance) {
   // ================================================================
   // Process CRUD (前缀: /processes)
   // ================================================================
+
+  // GET /search — F-M4-08: 流程模糊搜索（供业务架构关联使用）
+  // 注意：必须在 GET /:processId 之前注册，否则 'search' 会被当成 processId 路径参数
+  app.get('/search', {
+    schema: {
+      querystring: ProcessSearchQuery,
+      params: Type.Object({ projectId: IdSchema }),
+      response: {
+        200: ProcessSearchResponse,
+        400: ErrorResponse,
+        500: ErrorResponse,
+      },
+      tags: ['Processes'],
+      summary: '流程模糊搜索（F-M4-08）',
+      description: '按 name/displayName ILIKE 搜索，最多返回 20 条，供业务架构节点关联选择使用',
+    },
+  }, searchProcessesHandler);
 
   // GET / — 查询流程列表
   app.get('/', {
@@ -355,6 +375,23 @@ export default async function processRoutes(app: FastifyInstance) {
       description: 'DAG 循环检测 + 孤立节点检测 + 引用完整性检查',
     },
   }, validateProcessHandler);
+}
+
+// ================================================================
+// Handler Functions — Process Search (F-M4-08)
+// ================================================================
+
+async function searchProcessesHandler(
+  request: FastifyRequest<{
+    Params: { projectId: string };
+    Querystring: { q: string };
+  }>,
+  reply: FastifyReply,
+) {
+  const { projectId } = request.params;
+  const { q } = request.query;
+  const results = await processService.searchProcesses(db, projectId, q);
+  return reply.send({ data: results });
 }
 
 // ================================================================

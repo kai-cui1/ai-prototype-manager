@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Trash2, X, Zap, GitBranch, ArrowRight, Loader2, Pencil, Plus } from 'lucide-react';
+import { Trash2, X, Zap, GitBranch, ArrowRight, Loader2, Pencil, Plus, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { EdgeMapping, RoleAction, DecisionDef } from '@apm/shared';
 import type { BehaviorOption } from '@/hooks/useProcess';
@@ -100,6 +100,9 @@ function ActionNodePanel({ node }: { node: { id: string; name: string; displayNa
   const [editActionOpen, setEditActionOpen] = useState(false);
   const [editActionVersion, setEditActionVersion] = useState(1);
   const [editActionInitial, setEditActionInitial] = useState<RoleAction | undefined>();
+  // 内联查看 Action Dialog
+  const [viewActionOpen, setViewActionOpen] = useState(false);
+  const [viewActionInitial, setViewActionInitial] = useState<RoleAction | undefined>();
   // 内联新建 Action Dialog
   const [createActionOpen, setCreateActionOpen] = useState(false);
 
@@ -157,6 +160,14 @@ function ActionNodePanel({ node }: { node: { id: string; name: string; displayNa
     setEditActionVersion(holderVersion);
     setEditActionOpen(true);
   }, [holderActions, holderVersion, node.actionRef]);
+
+  // 打开查看 Action Dialog
+  const handleOpenView = useCallback(() => {
+    const action = holderActions.find((a) => a.name === node.actionRef);
+    if (!action) return;
+    setViewActionInitial(action as unknown as RoleAction);
+    setViewActionOpen(true);
+  }, [holderActions, node.actionRef]);
 
   // 提交编辑 Action
   const handleEditActionSubmit = useCallback(async (data: Record<string, unknown>) => {
@@ -281,15 +292,24 @@ function ActionNodePanel({ node }: { node: { id: string; name: string; displayNa
                 </SelectContent>
               </Select>
             </div>
-            {/* 已绑定时显示编辑按钮 */}
+            {/* 已绑定时显示查看+编辑按钮 */}
             {node.actionRef && (
-              <button
-                className="h-8 w-8 flex items-center justify-center rounded border border-input hover:bg-muted/50 transition-colors flex-shrink-0"
-                title="编辑 Action"
-                onClick={handleOpenEdit}
-              >
-                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
+              <>
+                <button
+                  className="h-8 w-8 flex items-center justify-center rounded border border-input hover:bg-muted/50 transition-colors flex-shrink-0"
+                  title="查看 Action"
+                  onClick={handleOpenView}
+                >
+                  <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+                <button
+                  className="h-8 w-8 flex items-center justify-center rounded border border-input hover:bg-muted/50 transition-colors flex-shrink-0"
+                  title="编辑 Action"
+                  onClick={handleOpenEdit}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              </>
             )}
           </div>
         )}
@@ -475,7 +495,16 @@ function ActionNodePanel({ node }: { node: { id: string; name: string; displayNa
         nodeId={node.id}
       />
 
-      {/* 内联新建 Action Dialog */}
+      {/* 内联查看 Action Dialog */}
+      <ActionFormDialog
+        open={viewActionOpen}
+        onOpenChange={setViewActionOpen}
+        mode="view"
+        holderLabel={HOLDER_LABELS[node.holderType] ?? node.holderType}
+        initialValues={viewActionInitial}
+      />
+
+{/* 内联新建 Action Dialog */}
       <ActionFormDialog
         open={createActionOpen}
         onOpenChange={setCreateActionOpen}
@@ -502,6 +531,9 @@ function DecisionNodePanel({ node }: { node: { id: string; name: string; display
   const [editDecisionOpen, setEditDecisionOpen] = useState(false);
   const [editDecisionVersion, setEditDecisionVersion] = useState(1);
   const [editDecisionInitial, setEditDecisionInitial] = useState<DecisionDef | undefined>();
+  // 内联查看 Decision Dialog
+  const [viewDecisionOpen, setViewDecisionOpen] = useState(false);
+  const [viewDecisionInitial, setViewDecisionInitial] = useState<DecisionDef | undefined>();
   // 内联新建 Decision Dialog
   const [createDecisionOpen, setCreateDecisionOpen] = useState(false);
 
@@ -560,6 +592,14 @@ function DecisionNodePanel({ node }: { node: { id: string; name: string; display
     setEditDecisionVersion(holderVersion);
     setEditDecisionOpen(true);
   }, [holderDecisions, holderVersion, node.decisionRef]);
+
+  // 打开查看 Decision Dialog
+  const handleOpenDecisionView = useCallback(() => {
+    const decision = holderDecisions.find((d) => d.name === node.decisionRef);
+    if (!decision) return;
+    setViewDecisionInitial(decision as unknown as DecisionDef);
+    setViewDecisionOpen(true);
+  }, [holderDecisions, node.decisionRef]);
 
   // 提交编辑 Decision
   const handleEditDecisionSubmit = useCallback(async (data: Record<string, unknown>) => {
@@ -682,15 +722,24 @@ function DecisionNodePanel({ node }: { node: { id: string; name: string; display
                 </SelectContent>
               </Select>
             </div>
-            {/* 已绑定时显示编辑按钮 */}
+            {/* 已绑定时显示查看+编辑按钮 */}
             {node.decisionRef && (
-              <button
-                className="h-8 w-8 flex items-center justify-center rounded border border-input hover:bg-muted/50 transition-colors flex-shrink-0"
-                title="编辑 Decision"
-                onClick={handleOpenDecisionEdit}
-              >
-                <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
-              </button>
+              <>
+                <button
+                  className="h-8 w-8 flex items-center justify-center rounded border border-input hover:bg-muted/50 transition-colors flex-shrink-0"
+                  title="查看 Decision"
+                  onClick={handleOpenDecisionView}
+                >
+                  <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+                <button
+                  className="h-8 w-8 flex items-center justify-center rounded border border-input hover:bg-muted/50 transition-colors flex-shrink-0"
+                  title="编辑 Decision"
+                  onClick={handleOpenDecisionEdit}
+                >
+                  <Pencil className="h-3.5 w-3.5 text-muted-foreground" />
+                </button>
+              </>
             )}
           </div>
         )}
@@ -820,6 +869,15 @@ function DecisionNodePanel({ node }: { node: { id: string; name: string; display
         onSubmit={handleEditDecisionSubmit}
         processEdges={edges}
         nodeId={node.id}
+      />
+
+      {/* 内联查看 Decision Dialog */}
+      <DecisionFormDialog
+        open={viewDecisionOpen}
+        onOpenChange={setViewDecisionOpen}
+        mode="view"
+        holderLabel={HOLDER_LABELS[node.holderType] ?? node.holderType}
+        initialValues={viewDecisionInitial}
       />
 
       {/* 内联新建 Decision Dialog */}

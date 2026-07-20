@@ -1,6 +1,6 @@
 /**
  * @module DecisionFormDialog
- * @description 决策（Decision）新建/编辑 Dialog — F-M1-12 / F-M1-13 共享组件。
+ * @description 决策（Decision）新建/编辑/查看 Dialog — F-M1-12 / F-M1-13 共享组件。
  *              由 RoleDetailPage 和 ExternalEntityDetailPage 共同引用。
  */
 
@@ -37,11 +37,11 @@ import {
 export interface DecisionFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  mode: 'create' | 'edit';
+  mode: 'create' | 'edit' | 'view';
   holderLabel: string;              // "角色" 或 "外部实体"，用于 Dialog 标题
   initialValues?: DecisionDef;
-  version: number;
-  onSubmit: (data: Record<string, unknown>) => Promise<unknown>;
+  version?: number;
+  onSubmit?: (data: Record<string, unknown>) => Promise<unknown>;
   /** 当前流程图的连线，用于影响判断 */
   processEdges?: Array<{ mappings?: Array<{ sourceField: string; targetField: string }>; label?: string | null; sourceNodeId: string; targetNodeId: string }>;
   /** 当前节点 id */
@@ -51,6 +51,7 @@ export interface DecisionFormDialogProps {
 export function DecisionFormDialog({
   open, onOpenChange, mode, holderLabel, initialValues, version, onSubmit, processEdges, nodeId,
 }: DecisionFormDialogProps) {
+  const isView = mode === 'view';
   interface BranchForm { name: string; condition: string; outputs: NodeIOItem[]; }
   const blankBranches: BranchForm[] = [
     { name: '', condition: '', outputs: [] },
@@ -72,7 +73,7 @@ export function DecisionFormDialog({
 
   useEffect(() => {
     if (open) {
-      if (mode === 'edit' && initialValues) {
+      if ((mode === 'edit' || mode === 'view') && initialValues) {
         setForm({
           name: initialValues.name,
           displayName: initialValues.displayName,
@@ -101,6 +102,7 @@ export function DecisionFormDialog({
   };
 
   const handleSubmit = async () => {
+    if (isView || !onSubmit) return;
     const newErrors: Record<string, string | undefined> = {};
     const nameErr = validateName(form.name);
     if (nameErr) newErrors.name = nameErr;
@@ -176,6 +178,7 @@ export function DecisionFormDialog({
   };
 
   const doSubmit = async (payload: Record<string, unknown>) => {
+    if (!onSubmit) return;
     setSubmitting(true);
     try {
       await onSubmit(payload);
@@ -204,15 +207,16 @@ export function DecisionFormDialog({
   return (<>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" onKeyDown={(e) => {
+        if (isView) return;
         if (e.key === 'Enter' && !e.shiftKey && e.nativeEvent.target instanceof HTMLInputElement) {
           e.preventDefault();
           handleSubmit();
         }
       }}>
         <DialogHeader>
-          <DialogTitle>{mode === 'create' ? '新建决策' : '编辑决策'}</DialogTitle>
+          <DialogTitle>{isView ? '查看决策' : mode === 'create' ? '新建决策' : '编辑决策'}</DialogTitle>
           <DialogDescription>
-            {mode === 'create' ? `定义${holderLabel}的一个决策点（至少 2 个分支）` : '修改决策信息'}
+            {isView ? `${holderLabel}的决策（Decision）详情` : mode === 'create' ? `定义${holderLabel}的一个决策点（至少 2 个分支）` : '修改决策信息'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-[18px] px-6 py-5 overflow-y-auto flex-1">
@@ -227,7 +231,7 @@ export function DecisionFormDialog({
                 if (val) setErrors((prev) => ({ ...prev, name: validateName(val) }));
                 else setErrors((prev) => ({ ...prev, name: undefined }));
               }}
-              disabled={submitting}
+              disabled={isView || submitting}
             />
             {errors.name && <p className="text-sm text-danger">{errors.name}</p>}
           </div>
@@ -240,7 +244,7 @@ export function DecisionFormDialog({
                 setForm((prev) => ({ ...prev, displayName: (e.target as HTMLInputElement).value }));
                 if (errors.displayName) setErrors((prev) => ({ ...prev, displayName: undefined }));
               }}
-              disabled={submitting}
+              disabled={isView || submitting}
             />
             {errors.displayName && <p className="text-sm text-danger">{errors.displayName}</p>}
           </div>
@@ -251,7 +255,7 @@ export function DecisionFormDialog({
               value={form.description}
               onChange={(e) => setForm((prev) => ({ ...prev, description: (e.target as HTMLTextAreaElement).value }))}
               rows={2}
-              disabled={submitting}
+              disabled={isView || submitting}
             />
           </div>
 
@@ -263,20 +267,22 @@ export function DecisionFormDialog({
             showRequired={true}
             showDefaultValue={true}
             errors={inputIoErrors}
-            disabled={submitting}
+            disabled={isView || submitting}
           />
 
           {/* Branches editor */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label>分支定义 <span className="text-danger">*</span>（至少 2 个）</Label>
-              <Button
-                variant="outline" size="sm"
-                onClick={() => setForm((prev) => ({ ...prev, branches: [...prev.branches, { name: '', condition: '', outputs: [] }] }))}
-                disabled={submitting || form.branches.length >= 10}
-              >
-                <Plus className="h-3 w-3 mr-1" /> 添加分支
-              </Button>
+              {!isView && (
+                <Button
+                  variant="outline" size="sm"
+                  onClick={() => setForm((prev) => ({ ...prev, branches: [...prev.branches, { name: '', condition: '', outputs: [] }] }))}
+                  disabled={submitting || form.branches.length >= 10}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> 添加分支
+                </Button>
+              )}
             </div>
             {form.branches.map((branch, i) => (
               <div key={i} className="p-3 rounded border border-card-border bg-muted/30 space-y-2">
@@ -298,7 +304,7 @@ export function DecisionFormDialog({
                           return next;
                         });
                       }}
-                      disabled={submitting}
+                      disabled={isView || submitting}
                       className="h-8 text-sm"
                     />
                     {errors[`branch_${i}_name`] && <p className="text-xs text-danger">{errors[`branch_${i}_name`]}</p>}
@@ -312,11 +318,11 @@ export function DecisionFormDialog({
                           branches: prev.branches.map((b, idx) => idx === i ? { ...b, condition: val } : b),
                         }));
                       }}
-                      disabled={submitting}
+                      disabled={isView || submitting}
                       className="h-8 text-sm"
                     />
                   </div>
-                  {form.branches.length > 2 && (
+                  {!isView && form.branches.length > 2 && (
                     <button
                       className="p-1 mt-1 text-text-tertiary hover:text-danger transition-colors"
                       onClick={() => setForm((prev) => ({ ...prev, branches: prev.branches.filter((_, idx) => idx !== i) }))}
@@ -339,7 +345,7 @@ export function DecisionFormDialog({
                     }}
                     showRequired={false}
                     errors={branchIoErrors[String(i)] ?? {}}
-                    disabled={submitting}
+                    disabled={isView || submitting}
                   />
                 </div>
               </div>
@@ -351,10 +357,16 @@ export function DecisionFormDialog({
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting || confirming}>取消</Button>
-          <Button onClick={handleSubmit} disabled={submitting || confirming}>
-            {submitting ? '提交中...' : mode === 'create' ? '确认创建' : '保存修改'}
-          </Button>
+          {isView ? (
+            <Button variant="outline" onClick={() => onOpenChange(false)}>关闭</Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting || confirming}>取消</Button>
+              <Button onClick={handleSubmit} disabled={submitting || confirming}>
+                {submitting ? '提交中...' : mode === 'create' ? '确认创建' : '保存修改'}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -17,6 +17,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import type {
   BusinessProcess,
+  ProcessListItem,
   ProcessNode,
   ProcessEdge,
   ProcessLayout,
@@ -122,7 +123,7 @@ export interface ValidationResult {
 // ============================================================
 
 export function useProcessList(projectId: string | undefined) {
-  const [processes, setProcesses] = useState<BusinessProcess[]>([]);
+  const [processes, setProcesses] = useState<ProcessListItem[]>([]);
   const [meta, setMeta] = useState<ListMeta | null>(null);
   const [loading, setLoading] = useState(true);
   const [params, setParamsState] = useState<UseProcessListParams>({
@@ -146,7 +147,7 @@ export function useProcessList(projectId: string | undefined) {
       if (debouncedSearch) query.search = debouncedSearch;
       if (params.status) query.status = params.status;
 
-      const res = await apiClient.get<{ data: BusinessProcess[]; meta: ListMeta }>(
+      const res = await apiClient.get<{ data: ProcessListItem[]; meta: ListMeta }>(
         `/projects/${projectId}/processes`,
         { params: query },
       );

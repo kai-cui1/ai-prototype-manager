@@ -2,8 +2,8 @@
 
 > **模块**：M2-领域模型管理
 > **状态**：draft
-> **版本**：v1.5
-> **日期**：2026-06-04
+> **版本**：v1.6
+> **日期**：2026-06-XX
 > **作者**：AI/PM
 > **关联文档**：
 >   - PRD → `domain-model-prd.md`
@@ -31,7 +31,8 @@
 | 编辑实体 | Inspector 右滑面板 | 点击画布节点或列表行 |
 | 删除实体 | Dialog 二次确认 | 危险操作，需确认 |
 | 新建/编辑字段 | Dialog | 表单较复杂，Dialog 更合适 |
-| 新建/编辑关系 | Dialog | 在 Inspector 的关系 Tab 中触发 |
+| 新建关系 | Toolbox 图标（单击进入绘制模式） 或 Inspector 关系 Tab 内 `[+ 添加关系]` | 见 §3.6 / §3.1A.6 |
+| 编辑关系 | Dialog | 在 Inspector 的关系 Tab 中触发 |
 | 新建领域 | Toolbox 图标（单击 / 拖放至画布） | 见 §3.8 |
 | 编辑领域 | Inspector 右滑面板 | 点击领域框或 Inspector 入口 |
 | 删除领域 | Dialog 二次确认 | 解除所有实体归属，需确认 |
@@ -195,7 +196,7 @@ Phase 1 主要适配桌面端（`lg` 以上）。ER 图画布在较小屏幕上�
 
 ```
 ┌──────────────────────────────────────────────────┐
-│  ▾  [📦 实体]  [⊞ 领域]                          │
+│  ▾  [📦 实体]  [⊞ 领域]  │  [→ 关联] [⇢ 依赖] [◇ 聚合] [◆ 组合] [△ 泛化]      │
 └──────────────────────────────────────────────────┘
 ```
 
@@ -229,10 +230,24 @@ Phase 1 主要适配桌面端（`lg` 以上）。ER 图画布在较小屏幕上�
 
 #### 3.1A.3 元素图标
 
-| 元素 | 图标 (lucide-react) | Tooltip | 光标 | draggable |
-|------|---------------------|---------|------|-----------|
-| 实体 | `Database` | "新建实体" | `grab` | `true` |
-| 领域 | `BoxSelect` | "新建领域" | `grab` | `true` |
+**实体/领域图标（元素创建区）**：
+
+| 元素 | 图标 (lucide-react) | Tooltip | 光标 | draggable | 单击行为 |
+|------|---------------------|---------|------|-----------|---------|
+| 实体 | `Database` | “新建实体” | `grab` | `true` | 弹 CreateEntityDialog |
+| 领域 | `BoxSelect` | “新建领域” | `grab` | `true` | 弹 CreateBoundaryDialog |
+
+**关系图标（关系创建区）**：
+
+| 关系类型 | 图标 (lucide-react) | Tooltip | 光标 | draggable | 单击行为 |
+|---------|---------------------|---------|------|-----------|---------|
+| 关联 association | `Minus`（无箭头组件风格）| “新建关联（双向）” | `pointer` | `false` | 进入绘制模式（kind=association）|
+| 依赖 dependency | `MoveRight`（虚线风格） | “新建依赖” | `pointer` | `false` | 进入绘制模式（kind=dependency）|
+| 聚合 aggregation | `Diamond` | “新建聚合” | `pointer` | `false` | 进入绘制模式（kind=aggregation）|
+| 组合 composition | `Gem`（实心菱形） | “新建组合” | `pointer` | `false` | 进入绘制模式（kind=composition）|
+| 泛化 generalization | `Triangle` | “新建泛化” | `pointer` | `false` | 进入绘制模式（kind=generalization）|
+
+> 关系图标**不支持拖拽**，因为关系需要指定两个端点实体，无法用“拖拽到一个位置”完成。
 
 **图标按钮样式**：
 
@@ -245,6 +260,7 @@ Phase 1 主要适配桌面端（`lg` 以上）。ER 图画布在较小屏幕上�
 | Hover 样式 | `bg-accent text-accent-foreground` + Tooltip 浮出 |
 | 按下样式 | `bg-accent/80 scale-95` |
 | 拖拽中样式 | `opacity-50`（源图标半透明） |
+| 选中态样式（仅关系图标） | `bg-primary text-primary-foreground` + 右上角小型关闭图标（`X`），提示绘制模式已激活 |
 
 #### 3.1A.4 单击创建（Click）
 
@@ -317,6 +333,73 @@ Dialog 创建成功后，新对象出现在 drop 位置，自动选中并打开 
 | `onDragLeave` | Canvas 容器 | 隐藏高亮层和幽灵预览 |
 | `onDrop` | Canvas 容器 | 计算 drop 坐标 → 打开 Dialog → 清除高亮 |
 | `onDragEnd` | 工具箱图标 | 清除所有拖拽状态 |
+
+#### 3.1A.6 关系绘制模式（Draft Relation）
+
+**设计动机**：
+
+一条关系需要两个端点实体（source + target），无法以“单击弹窗”或“拖拽到一个位置”完成。引入“绘制模式”：单击关系图标 → 画布进入选择端点模式 → 依次点击两个实体 → 弹出 RelationDialog（预填 kind + source + target）。
+
+**状态机**：
+
+```
+【idle】                                            【idle】
+  │ 单击关系图标                                  ↑
+  ↓                                                    │ 弹窗关闭 / Esc / 再次单击同图标
+【awaiting-source】                                     │
+  │ 点击实体 A                                       │
+  ↓                                                    │
+【awaiting-target（source 已锁定 A）】  ──点击实体 B──→ 弹出 RelationDialog (预填)
+```
+
+**各阶段交互**：
+
+| 阶段 | 画布表现 | 工具箱表现 | 退出方式 |
+|------|---------|-----------|---------|
+| `idle` | 无变化 | 关系图标默认样式 | — |
+| `awaiting-source` | Canvas 容器顶部浮现提示条：“请选择 {kind} 关系的**源实体**”。实体节点 hover 时外描 `ring-2 ring-primary`；非实体节点（领域框）不可点 | 当前关系图标高亮选中，右上角显示 `X` | 按 Esc / 再次点击同图标 / 点击工具箱其他关系图标切换 kind |
+| `awaiting-target` | 提示条文案变为：“已选中源：{A.displayName}，请选择**目标实体**”。实体 A 保持强高亮 `ring-2 ring-primary bg-primary/5`；其他实体 hover 时 `ring-2 ring-primary` | 同上 | 同上；另外弹窗开启/关闭均退出至 idle |
+
+**提示条（Canvas 顶部）**：
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│  ◇ 正在创建【聚合 aggregation】—— 请选择源实体   [按 Esc 取消] │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+位置：`absolute top-2 left-1/2 -translate-x-1/2`；背景 `bg-primary/95 text-primary-foreground`；圆角 `rounded-full`；内边距 `px-3 py-1`；字号 `text-xs`。z-index 需高于画布但低于 Dialog。
+
+**实体点击的行为优先级**：
+
+- 当处于绘制模式时，**点击实体节点不会触发选中（不打开 Inspector）**，仅用于选择关系端点
+- 点击空白区域也不退出绘制模式（需显式 Esc 或再次点关系图标）
+- 领域框节点点击时不响应（关系不能以领域为端点）
+
+**预填弹窗（presetSource + presetTarget + presetKind）**：
+
+点击目标实体 B 后，RelationDialog 以“新建模式”打开，但以下三项已预填：
+
+| 字段 | 预填值 | UI 表现 |
+|------|--------|---------|
+| 源实体 | 实体 A | Display（只读） |
+| 目标实体 | 实体 B | Display（只读，不再使用 Select） |
+| 关系类型 | 当前绘制的 kind | Select（可修改） |
+
+其余字段（基数、泛化维度、名称、描述）保持默认值。用户补充后提交。
+
+**异常处理**：
+
+| 场景 | 处理 |
+|------|------|
+| 目标实体 = 源实体（自引用） | 允许，RelationDialog 正常弹出（现有 API 允许自引用） |
+| 已存在相同关系（association 按无序对 `{source, target}+kind` 判重；其余四类按有序三元组 `(source, target, kind)` 判重）| Dialog 内展示 409 错误提示（现有兜底）|
+| 弹窗关闭后 | 绘制模式退出到 idle，工具箱图标取消选中 |
+| 编辑中切换到列表视图 | 绘制模式强制退出到 idle |
+
+**禁用条件**：
+
+- 项目实体数量 < 2 时，点击关系图标将 Toast 提示：“需至少两个实体才能创建关系”，不进入绘制模式
 
 ---
 
@@ -418,18 +501,42 @@ Dialog 创建成功后，新对象出现在 drop 位置，自动选中并打开 
 
 | 属性 | association | dependency | aggregation | composition | generalization |
 |------|-------------|-----------|-------------|-------------|----------------|
-| 线型 | 实线 | 实线 | 虚线（5 3） | 实线 | 实线 |
-| 线色 | `#4096ff`（蓝） | `#8c8c8c`（灰） | `#1677ff`（蓝） | `#08979c`（青） | `#722ed1`（紫） |
+| 方向性 | **双向** | 单向 s→t | 单向 s→t | 单向 s→t | 单向 s→t |
+| 线型 | 实线 | 实线 | 虚线（5 3）| 实线 | 实线 |
+| 线色 | `#4096ff`（蓝）| `#8c8c8c`（灰）| `#1677ff`（蓝）| `#08979c`（青）| `#722ed1`（紫）|
 | 线宽 | 1.5px | 1.5px | 1.5px | 1.5px | 1.5px |
-| 末端标记 | 普通箭头 ▶ | 普通箭头 ▶ | 空心菱形 ◇ | 实心菱形 ◆ | 空心三角 △ |
+| 末端标记 | **无**（无箭头，体现对称性）| 普通箭头 ▶ | 空心菱形 ◇ | 实心菱形 ◆ | 空心三角 △ |
 | 标签位置 | 线中部 | 线中部 | 线中部 | 线中部 | 线中部 |
 | 基数标注 | 显示 | 显示 | 显示 | 显示 | **不显示**（固定 1:1）|
 
 **末端标记实现方式**：
-- `association` / `dependency`：使用 SVG `<marker>` + `orient="auto"` 自动对齐贝塞尔切线方向
+- `association`：**不设置 markerEnd/markerStart**，渲染为纯实线，体现双向对称语义
+- `dependency`：使用 SVG `<marker>` + `orient="auto"` 自动对齐贝塞尔切线方向（仅 markerEnd）
 - `aggregation`：使用自定义内联 SVG `<defs>` 定义空心菱形（`<polygon>` 填充白色/描边色）
 - `composition`：使用自定义内联 SVG `<defs>` 定义实心菱形（`<polygon>` 填充线条色）
 - `generalization`：使用自定义内联 SVG `<defs>` 定义空心等腰三角形（`<polygon>` 填充白色/描边紫色）
+
+##### 平行边视觉分离（新增）
+
+同一对实体之间允许存在多种不同 kind 的关系，默认路径会完全重合，需在 Canvas 渲染时分离展示：
+
+**分离算法**：
+1. **方向标准化**：注意到 association 双向、其余四类单向，但就"视觉重合"而言，无论方向均需去重。先将同一对实体之间的全部关系按 `min(source, target) → max(source, target)` 标准化成同一分组，得到组内总数 `N` 与当前边的索引 `i ∈ [0, N-1]`。
+2. **法向偏移**：基于贝塞尔中点切线的法向量，为每条边施加一个偏移：`offset = (i - (N-1)/2) * SPACING`（`SPACING` 建议 24px）。偏移到中点后重新计算一条经过新中点的贝塞尔（取起点、新中点、终点三点的二阶 Bezier）。
+3. **方向保留**：单向关系的箭头方向仍然按实际 source → target 计算 markerEnd（不受标准化影响）。
+
+**自环（self-loop）不适用本算法**：source == target 时自然就不重合，保持现有默认自环渲染。
+
+**视觉示意**：
+
+```
+双关系（N=2）：                  三关系（N=3）：
+  A ------───----- B          A --───------- B
+  A ------───▶----- B          A --───▶------- B
+                                A --──◇─------- B
+  （上一条 association       （中心居中，上下对称偏移）
+   下一条 dependency）
+```
 
 ##### 线上的标签
 
@@ -438,7 +545,9 @@ Dialog 创建成功后，新对象出现在 drop 位置，自动选中并打开 
 - `target_cardinality` 标注在靠近目标实体的线段位置（约 22% 处）
 - **generalization 不展示基数标注**（固定 1:1，无需展示）
 - 样式：`text-[10px] text-muted-foreground bg-background/80 px-1 rounded`
-- 符合 UML 标准：基数标注在靠近约束实体的一端
+- 符合 UML 标准：基数标注在靠近约束实体的一端，读作"对面可见数量"
+
+> **UML 基数读法提示**：靠近源实体处标注的 `source_cardinality` 表示"从 target 视角看，对面能连到多少个 source"；靠近目标实体处的 `target_cardinality` 表示"从 source 视角看，对面能连到多少个 target"。对 association 而言，"源/目标"仅为存储标识，不代表方向语义。
 
 **generalization 常驻标签**（始终显示，不受 showLabel 开关影响）：
 - 单标签格式：`{display_name}(维度：{dimension})`（display_name 优先，否则"泛化"）
@@ -957,6 +1066,17 @@ Inspector 从右侧滑出，宽度 360px，高度 100%（从 Toolbar 下方到�
 
 ### 3.6 关系管理交互
 
+#### 3.6.0 关系创建入口
+
+Phase 1 提供两个共存的入口，适用于不同上下文：
+
+| 入口 | 触发方式 | 预填项 | 适用场景 |
+|------|---------|--------|---------|
+| **工具箱关系图标**（见 §3.1A.6） | 单击关系图标 → 绘制模式 → 依次选定源/目标实体 | `source` 锁定、`target` 锁定、`kind` 预填可改 | 从“关系类型”视角发起，已知想用哪种关系，锁定两个实体 |
+| **Inspector 关系 Tab `[+ 添加关系]`** | 实体 Inspector → 关系 Tab → “添加关系”按钮 | `source` 锁定为当前实体，`target` / `kind` 均需在弹窗内选择 | 从“当前实体”视角发起，快速添加从它发起的关系 |
+
+> 两种入口彼此不矛盾，不强制用户只能选一种。根据用户当前思路选择就近入口。
+
 #### 3.6.1 关系创建 / 编辑 Dialog
 
 **Dialog 尺寸**：宽度 480px
@@ -966,8 +1086,8 @@ Inspector 从右侧滑出，宽度 360px，高度 100%（从 Toolbar 下方到�
 | 字段 | 组件 | 必填 | 条件 | 说明 |
 |------|------|:----:|------|------|
 | 源实体 | Display | — | 始终显示 | 当前实体，只读展示 |
-| 目标实体 | Select | ✅ | 始终显示 | 下拉选择项目内其他实体（含自身，支持自引用）|
-| 关系类型 | Select | ✅ | 始终显示 | 5 种类型，带图标和说明 |
+| 目标实体 | Select 或 Display | ✅ | 始终显示 | Inspector 入口：Select（下拉选择，含自身）；工具箱入口：Display（锁定为绘制时选中的 target）|
+| 关系类型 | Select | ✅ | 始终显示 | 5 种类型，带图标和说明；工具箱入口时预填当前 kind、仍可修改 |
 | 泛化维度 | Combobox | ✅ | 仅 generalization | 支持从父实体字段 displayName 中选择，或手动输入自定义文本 |
 | 源端基数 | Input + 预设快选 | — | 非 generalization | 标签格式 `源端基数 — {源实体显示名}`；generalization 时隐藏并自动设为 1 |
 | 目标端基数 | Input + 预设快选 | — | 非 generalization | 标签格式 `目标端基数 — {目标实体显示名}`；generalization 时隐藏并自动设为 1 |
@@ -977,14 +1097,14 @@ Inspector 从右侧滑出，宽度 360px，高度 100%（从 Toolbar 下方到�
 **关系类型选择器**：
 
 Select 下拉中每个选项包含：
-- 图标：association→实线箭头，dependency→灰色箭头，aggregation→空心菱形，composition→实心菱形，generalization→空心三角
-- 中文名称 + 英文名称
+- 图标：association→实线（无箭头），dependency→灰色箭头，aggregation→空心菱形，composition→实心菱形，generalization→空心三角
+- 中文名称 + 英文名称（association 后附“双向”标签，其余四类默认单向不额外标注）
 - 一行说明文字（caption 样式）
 
 ```
 ┌──────────────────────────────────┐
-│  → 关联 (association)             │
-│    A 持久引用 B，无从属关系         │
+│  ─ 关联 (association) [双向]     │
+│    A 与 B 对称关联，双方均可导航  │
 │  ▶ 依赖 (dependency)              │
 │    A 临时使用 B，无持久引用         │
 │  ◇ 聚合 (aggregation)             │
@@ -1051,7 +1171,7 @@ Select 下拉中每个选项包含：
 
 **通用校验**：
 - 目标实体不能与源实体相同项目外（Select 已过滤，但后端仍需校验）
-- 同一项目内 (source, target, kind) 三元组唯一：后端返回 409，Dialog 内展示"该关系已存在"
+- 同一项目内关系唯一性（分档）：**association** 按无序对 `{source, target}+kind` 判重，正反向视为同一关系；**其余四类** 按有序三元组 `(source, target, kind)` 判重。后端返回 409，Dialog 内展示"该关系已存在"
 
 **generalization 特殊校验**：
 

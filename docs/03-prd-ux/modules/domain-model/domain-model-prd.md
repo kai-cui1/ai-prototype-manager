@@ -2,8 +2,8 @@
 
 > **模块**：M2-领域模型管理
 > **状态**：draft
-> **版本**：v1.2
-> **日期**：2026-06-04
+> **版本**：v1.3
+> **日期**：2026-06-XX
 > **作者**：AI/PM
 > **关联文档**：
 >   - 领域模型 → `docs/02-domain-model/domain-model.md#§5`
@@ -27,10 +27,11 @@
 
 这些定义是后续 M3 业务流程设计（流程节点绑定实体/字段）和 M4 业务架构设计的**数据基础**。
 
-> **核心设计决策**（2026-05-27 PM 确认）：
+> **核心设计决策**（2026-05-27 PM 确认，2026-06-XX v1.3 调整关系方向性）：
 > - DomainModelDef 层级**扁平化**：`Project → Entity → Field`，跳过中间层
 > - 字段类型**分期实现**：Phase 1 仅支持 8 种基础类型
-> - 关系**单向存储**，不合成双向，每个方向独立表达
+> - 关系**按方向性分类存储**：`association` 为**双向对称关系**（无箭头，语义上两端等价）；`dependency` / `aggregation` / `composition` / `generalization` 为**单向关系**（source → target 有明确方向）
+> - 两实体之间**允许多种不同类型的关系并存**，但同一类型只能有一条（对称关系按无序对判重，非对称关系按有序三元组判重）
 > - ER 图数据输出**通用格式**，前端自行映射到 ReactFlow
 
 ### 1.2 用户角色
@@ -160,7 +161,7 @@ flowchart TD
 |------|------|------|
 | DomainModelDef 中间层级 | PM 确认扁平化方案：Project 直接挂 Entity | Phase 1 不做 |
 | 复杂字段类型（formula / computed / reference / file / image / json / array / color / rating / icon / duration / status / currency / percentage / coordinate / rich_text） | Phase 1 聚焦基础类型，复杂类型涉及额外引擎 | Phase 2+ |
-| 双向关系自动创建 | PM 确认单向存储，每个方向独立标记说明 | 不做 |
+| 反向自动创建单向关系 | 单向关系（dependency/aggregation/composition/generalization）不自动补反向记录；`association` 天然双向，一条记录即代表两端等价关系 | 不做 |
 | ER 图可视化渲染 | 属于前端 ReactFlow 映射，由 S3/S6 处理 | S3/S6 |
 | 从数据库反向导入实体 | 需要额外扫描和映射能力 | Phase 2+ |
 | 领域模型版本管理 | 需要 diff / merge / 历史回溯能力 | Phase 3+ |
@@ -172,8 +173,8 @@ flowchart TD
 | **领域边界（DomainBoundary）** | 业务子域的分组容器，如 "订单域"、"用户域"，实体可选归属一个领域 |
 | **实体（Entity）** | 业务对象的抽象定义，如 "订单"、"用户"，对应数据库表或业务对象 |
 | **字段（Field）** | 实体的属性定义，如 "订单号"、"创建时间"，对应数据库列或对象属性 |
-| **关系（Relation）** | 两个实体之间的语义关联，有方向性，从 Source 指向 Target |
-| **关系类型（relation_kind）** | 关联(association) / 依赖(dependency) / 聚合(aggregation) / 组合(composition) / 泛化(generalization) |
+| **关系（Relation）** | 两个实体之间的语义关联。`association` 为**双向对称**（两端等价，无方向）；其余四类为**单向**（source → target 有明确方向）|
+| **关系类型（relation_kind）** | 关联(association，**双向**) / 依赖(dependency，单向) / 聚合(aggregation，单向) / 组合(composition，单向) / 泛化(generalization，单向) |
 | **泛化维度（dimension）** | 仅 generalization 关系使用，必填，描述"从哪个角度/标准进行分类"，如"物理结构"、"充换电能力" |
 | **基数（Cardinality）** | 关系两端的数量约束，分别用 source_cardinality 和 target_cardinality 独立描述，采用数学区间表示法，如 `*`（多个）、`1`（恰好一个）、`[0,1]`（零或一） |
 | **ER 图** | Entity-Relationship 图，可视化展示实体、字段和关系的图形 |
@@ -413,7 +414,7 @@ type FieldType =
 | 步骤 | 业务动作 | 输入 | 输出 | 前置条件 | 异常处理 |
 |------|---------|------|------|---------|---------|
 | 1 | 列出关系列表 | project_id | 关系列表 | 项目存在 | — |
-| 2 | 创建关系 | project_id + source_entity_id + target_entity_id + relation_kind + source_cardinality + target_cardinality + display_name? + description? + dimension?（generalization 必填） | 新关系对象 | 两实体存在且属于同一项目 | 关系已存在 → 409；跨项目 → 400；generalization 缺少 dimension → 422 |
+| 2 | 创建关系 | project_id + source_entity_id + target_entity_id + relation_kind + source_cardinality + target_cardinality + display_name? + description? + dimension?（generalization 必填） | 新关系对象 | 两实体存在且属于同一项目 | 关系已存在 → 409（association 按无序对判重，其余按有序三元组判重）；跨项目 → 400；generalization 缺少 dimension → 422 |
 | 3 | 编辑关系 | relation_id + 可更新字段 | 更新后的关系 | 关系存在 | 关系不存在 → 404 |
 | 4 | 删除关系 | relation_id | 删除成功确认 | 关系存在 | 关系不存在 → 404 |
 | 5 | 选中关系（ER 图入口） | relation_id（由 ER 图关系线点击触发） | 关系详情（Inspector 关系模式） | 关系存在 | — |
@@ -430,7 +431,7 @@ type FieldType =
 | source_cardinality | 数学区间表示法，格式见下方；generalization 固定为 `"1"`，后端强制覆盖，前端不展示 | "源基数格式无效" |
 | target_cardinality | 数学区间表示法，格式见下方；generalization 固定为 `"1"`，后端强制覆盖，前端不展示 | "目标基数格式无效" |
 | dimension | 仅 generalization 时必填（0-128 字符）；其他类型传入则忽略 | "泛化维度不能为空" |
-| (source, target, kind) | 同一项目内三元组唯一 | "该关系已存在" |
+| (source, target, kind) | 同一项目内唯一性分档：**association** 按无序对 `{source, target} + kind` 判重（正反向视为同一关系）；**其余四类** 按有序三元组 `(source, target, kind)` 判重（反向视为不同关系） | "该关系已存在" |
 
 **cardinality 格式规范（source_cardinality / target_cardinality 通用）**：
 
@@ -449,13 +450,18 @@ type Cardinality =
 
 **关系类型语义**：
 
-| relation_kind | 语义 | UML 对应 | 方向约定 | 基数 |
-|--------------|------|---------|---------|------|
-| association | 普通关联：A 持久引用 B，无从属关系 | 实线箭头 `——>` | source → target | 自定义 |
-| dependency | 依赖：A 临时使用 B，无持久引用 | 依赖箭头 `-->` | source → target | 自定义 |
-| aggregation | 聚合（弱拥有）：A 包含 B，B 可独立于 A 存在 | 空心菱形 ◇-- | source（整体）→ target（部分）| 自定义 |
-| composition | 组合（强拥有）：A 包含 B，B 随 A 消亡而消亡 | 实心菱形 ◆-- | source（整体）→ target（部分）| 自定义 |
-| generalization | 泛化（is-a）：A 是 B 的子类型，继承 B 的属性和行为 | 空心三角箭头 △-- | source（子类）→ target（父类）| 固定 1:1（后端强制）|
+| relation_kind | 语义 | UML 对应 | 方向性 | 基数 |
+|--------------|------|---------|:------:|------|
+| association | 普通关联：A 与 B 之间存在持久的对称结构关联，双方均可导航（如 `订单 ↔ 用户`）| 实线（无箭头）`———` | **双向对称** | 自定义 |
+| dependency | 依赖：A 临时使用 B，无持久引用 | 依赖箭头 `-->` | 单向 source → target | 自定义 |
+| aggregation | 聚合（弱拥有）：A 包含 B，B 可独立于 A 存在 | 空心菱形 ◇-- | 单向 source（整体）→ target（部分）| 自定义 |
+| composition | 组合（强拥有）：A 包含 B，B 随 A 消亡而消亡 | 实心菱形 ◆-- | 单向 source（整体）→ target（部分）| 自定义 |
+| generalization | 泛化（is-a）：A 是 B 的子类型，继承 B 的属性和行为 | 空心三角箭头 △-- | 单向 source（子类）→ target（父类）| 固定 1:1（后端强制）|
+
+> **基数读法（UML 惯例）**：`source_cardinality` 表示"从 target 视角看，对面能连到多少个 source 实例"；`target_cardinality` 表示"从 source 视角看，对面能连到多少个 target 实例"。
+> 例：`订单 —— 用户` 关系，`source_cardinality='*'` 表示"一个用户对应多个订单"，`target_cardinality='1'` 表示"一个订单对应一个用户"。
+>
+> **association 双向性**：Canvas 渲染为无箭头实线，两端基数按上述惯例读取；关系记录 source/target 仅作为数据存储标识，不代表方向语义。
 
 > **泛化维度说明**：同一父类可沿不同维度泛化，产生相互独立的子类群。`dimension` 字段标明"从哪个角度进行分类"，是区分多组泛化关系的关键。
 >
@@ -467,7 +473,9 @@ type Cardinality =
 | # | 规则 | 说明 |
 |---|------|------|
 | B-M2-07 | 允许自引用关系（source == target） | 实体可以依赖/聚合/组合/关联自身 |
-| B-M2-08 | 同一项目内，(source_entity_id, target_entity_id, relation_kind) 三元组必须唯一 | 避免重复定义同一方向上的同类型关系 |
+| B-M2-08a | 同一项目内，**非对称关系**（dependency / aggregation / composition / generalization）按 `(source_entity_id, target_entity_id, relation_kind)` 有序三元组唯一 | 避免重复定义同一方向上的同类型关系；反向记录视为不同关系 |
+| B-M2-08b | 同一项目内，**对称关系**（association）按 `{source_entity_id, target_entity_id} + relation_kind` 无序对唯一 | A↔B 的 association 与 B↔A 的 association 视为同一关系，不允许重复创建 |
+| B-M2-08c | 同一对实体之间**允许并存多种不同 kind 的关系** | 如 A→B 既可以有 dependency 也可以有 association，互不冲突 |
 | B-M2-09 | 关系的 project_id 必须与 source/target 实体所属项目一致 | 跨项目关系禁止 |
 | B-M2-F03-01 | ER 图中点击关系线与点击实体节点互斥 | 点击关系线时取消实体选中，点击实体时取消关系选中 |
 | B-M2-F03-02 | generalization 关系的 dimension 字段必填（1-128 字符），其他类型传入则忽略 | 维度是区分同一父类多组泛化关系的关键信息 |
@@ -477,7 +485,7 @@ type Cardinality =
 
 | 场景 | 触发条件 | 系统行为 |
 |------|---------|---------|
-| 关系已存在 | 同一项目内已有相同三元组 | 返回 409 |
+| 关系已存在 | association：无序对 `{source, target} + kind` 已存在；其余四类：有序三元组 `(source, target, kind)` 已存在 | 返回 409 |
 | 实体跨项目 | source 或 target 不属于当前项目 | 返回 400 |
 | 基数格式错误 | source_cardinality 或 target_cardinality 不符合规范 | 返回 400 |
 | 泛化维度缺失 | relation_kind = generalization 但未提供 dimension | 返回 422，错误提示"泛化维度不能为空" |
@@ -518,7 +526,7 @@ type Cardinality =
 
 #### 4.3.5 AI 编码提示
 
-- **[三元组唯一性校验]**：创建关系前需 SELECT 检查 (project_id, source_entity_id, target_entity_id, relation_kind) 是否已存在，存在则返回 409，避免依赖数据库唯一约束导致 500
+- **[唯一性校验分档]**：创建/更新关系前需 SELECT 检查是否已存在，避免依赖数据库唯一约束导致 500。**association** 使用 `OR` 条件查双向：`(source=A AND target=B) OR (source=B AND target=A)`；**其余四类** 按有序三元组 `(project_id, source_entity_id, target_entity_id, relation_kind)` 检查。存在则返回 409。建议在 service 层维护常量 `SYMMETRIC_RELATION_KINDS = new Set(['association'])` 统一分档；数据库唯一索引保持有序三元组不变，双向去重由 service 层保证
 - **[自引用关系]**：source_entity_id == target_entity_id 是合法的，无需特殊拦截，但前端展示时可能需要特殊处理避免自环箭头重叠
 - **[实体归属校验]**：创建关系时必须验证 source_entity_id 和 target_entity_id 都存在于 domain_entities 且 project_id 匹配当前项目
 - **[generalization 特殊逻辑]**：Service 层需对 generalization 做以下额外处理：(1) 校验 dimension 非空；(2) 强制将 source_cardinality 和 target_cardinality 覆盖为 `"1"`，无视前端传入值；(3) 非 generalization 类型传入 dimension 则静默忽略（不存储）

@@ -335,22 +335,25 @@ api 和 web 无直接依赖       (通过 API 通信，不共享代码运行时)
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/v1/projects/:projectId/business-architectures` | 业务架构树（扁平列表，含 parent_id 可前端组装） |
-| POST | `/api/v1/projects/:projectId/business-architectures` | 创建架构节点 |
-| GET | `/api/v1/projects/:projectId/business-architectures/:archId` | 架构节点详情（含子节点列表 + 关联流程） |
-| PUT | `/api/v1/projects/:projectId/business-architectures/:archId` | 更新架构节点 |
-| DELETE | `/api/v1/projects/:projectId/business-architectures/:archId` | 删除架构节点（级联删除子节点+映射关系） |
-| GET | `/api/v1/projects/:projectId/business-architectures/tree` | 完整树形结构（服务端递归查询返回嵌套 JSON） |
+| GET | `/api/v1/projects/:projectId/architectures` | 获取项目下所有架构节点（扁平列表 + 每节点关联流程） |
+| POST | `/api/v1/projects/:projectId/architectures` | 创建架构节点 |
+| GET | `/api/v1/projects/:projectId/architectures/:archId` | 单个架构节点详情（含关联流程） |
+| PATCH | `/api/v1/projects/:projectId/architectures/:archId` | 更新架构节点（部分更新） |
+| DELETE | `/api/v1/projects/:projectId/architectures/:archId` | 删除架构节点（有子节点时返回 409） |
 
-#### 业务架构·流程映射（5 个）
+#### 业务架构·流程映射（3 个）
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/api/v1/projects/:projectId/business-architectures/:archId/processes` | 某架构节点关联的流程列表 |
-| POST | `/api/v1/projects/:projectId/business-architectures/:archId/processes` | 将流程添加到架构节点下 |
-| DELETE | `/api/v1/projects/:projectId/business-architectures/:archId/processes/:processId` | 从架构节点下移除流程 |
-| PUT | `/api/v1/projects/:projectId/business-architectures/:archId/processes/reorder` | 调整架构节点内流程的排序 |
-| GET | `/api/v1/projects/:projectId/processes/:processId/architectures` | 查询某流程归属的所有架构节点 |
+| POST | `/api/v1/projects/:projectId/architectures/:archId/processes` | 关联流程到架构节点 |
+| DELETE | `/api/v1/projects/:projectId/architectures/:archId/processes/:processId` | 解除流程关联 |
+| PATCH | `/api/v1/projects/:projectId/architectures/:archId/processes/order` | 调整节点内流程排序 |
+
+#### 流程搜索（1 个，挂 M3 路由）
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/v1/projects/:projectId/processes/search?q=xxx` | 模糊搜索流程（供 M4 关联操作使用） |
 
 #### 系统菜单（6 个）
 
@@ -363,7 +366,7 @@ api 和 web 无直接依赖       (通过 API 通信，不共享代码运行时)
 | DELETE | `/api/v1/menus/:menuId` | 删除菜单项（级联删除子菜单） |
 | GET | `/api/v1/menus/tree` | 完整菜单树（扁平列表 + parent_id，或嵌套 JSON） |
 
-**总计：~91 个端点**
+**总计：~87 个端点（M4 实际实现 11 个）**
 
 ---
 

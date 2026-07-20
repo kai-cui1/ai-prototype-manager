@@ -24,12 +24,14 @@ import {
 } from '@xyflow/react';
 import { useDebouncedCallback } from 'use-debounce';
 import { toast } from 'sonner';
+import { ArrowRight, MoveRight, Diamond, Gem, Triangle } from 'lucide-react';
 import '@xyflow/react/dist/style.css';
 
-import { useDomainModelContext } from '@/contexts/DomainModelContext';
+import { useDomainModelContext, type RelationKind } from '@/contexts/DomainModelContext';
 import EntityNode from './EntityNode';
 import DomainNode from './DomainNode';
 import RelationEdge from './RelationEdge';
+import RelationDialog from '../dialogs/RelationDialog';
 
 // 注册自定义节点/边类型（R3 Why: 在组件外定义以避免每次渲染重新创建引用）
 const nodeTypes = { entity: EntityNode, domain: DomainNode };
@@ -42,6 +44,15 @@ function getAutoPosition(index: number): { x: number; y: number } {
   const row = Math.floor(index / cols);
   return { x: col * 220 + 40, y: row * 160 + 40 };
 }
+
+// 关系图标与中文名称映射（提示条使用）
+const RELATION_LABELS: Record<RelationKind, { icon: typeof ArrowRight; name: string }> = {
+  association: { icon: ArrowRight, name: '关联 association' },
+  dependency: { icon: MoveRight, name: '依赖 dependency' },
+  aggregation: { icon: Diamond, name: '聚合 aggregation' },
+  composition: { icon: Gem, name: '组合 composition' },
+  generalization: { icon: Triangle, name: '泛化 generalization' },
+};
 
 // ============================================================
 // 动态 Handle 选择：根据节点相对位置自动计算最优连接方向
@@ -118,6 +129,11 @@ export default function ERCanvas() {
     updateBoundary,
     searchQuery,
     canvasSettings,
+    drawRelation,
+    drawRelationPreset,
+    pickDrawRelationEntity,
+    cancelDrawRelation,
+    clearDrawRelationPreset,
   } = useDomainModelContext();
 
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
@@ -227,7 +243,18 @@ export default function ERCanvas() {
       fieldCountMap.set(entity.id, data.fields?.length ?? 0);
     }
 
-    const newEdges: Edge[] = (erGraph.relations ?? []).map((rel) => {
+    // 平行边分组：同一对实体之间的全部关系（方向无关）归为同一组，
+    // 为每条边分配 parallelIndex/parallelCount，驱动 RelationEdge 自行偏移。
+    const relations = erGraph.relations ?? [];
+    const pairKey = (a: string, b: string) => (a < b ? `${a}::${b}` : `${b}::${a}`);
+    const pairCountMap = new Map<string, number>();
+    for (const rel of relations) {
+      const key = pairKey(rel.source, rel.target);
+      pairCountMap.set(key, (pairCountMap.get(key) ?? 0) + 1);
+    }
+    const pairAssignedMap = new Map<string, number>();
+
+    const newEdges: Edge[] = relations.map((rel) => {
       const sourcePos = posMap.get(rel.source) ?? { x: 0, y: 0 };
       const targetPos = posMap.get(rel.target) ?? { x: 0, y: 0 };
       const sourceFieldCount = fieldCountMap.get(rel.source) ?? 0;
@@ -237,6 +264,11 @@ export default function ERCanvas() {
         sourcePos, targetPos, sourceFieldCount, targetFieldCount
       );
 
+      const key = pairKey(rel.source, rel.target);
+      const parallelCount = pairCountMap.get(key) ?? 1;
+      const parallelIndex = pairAssignedMap.get(key) ?? 0;
+      pairAssignedMap.set(key, parallelIndex + 1);
+
       return {
         id: rel.id,
         source: rel.source,
@@ -244,7 +276,13 @@ export default function ERCanvas() {
         sourceHandle,
         targetHandle,
         type: 'relation',
-        data: { ...rel.data, showLabel: canvasSettings.showRelationLabel, isSelected: selectedRelationId === rel.id },
+        data: {
+          ...rel.data,
+          showLabel: canvasSettings.showRelationLabel,
+          isSelected: selectedRelationId === rel.id,
+          parallelIndex,
+          parallelCount,
+        },
         animated: false,
       };
     });
@@ -519,20 +557,29 @@ export default function ERCanvas() {
     500
   );
 
-  // 点击节点：domain 节点选中领域，entity 节点选中实体
+  // 点击节点：绘制模式下拦截为选择关系端点；否则默认选中行为
   const handleNodeClick = useCallback(
-    (_event: React.MouseEvent, node: Node) => {
+    (event: React.MouseEvent, node: Node) => {
+      // 绘制模式下：仅实体可选，领域框忽略，阻止默认选中行为
+      if (drawRelation.phase !== 'idle') {
+        if (node.type !== 'entity') return;
+        event.stopPropagation();
+        pickDrawRelationEntity(node.id);
+        return;
+      }
       if (node.type === 'domain') {
         selectDomain(node.id);
       } else {
         selectEntity(node.id);
       }
     },
-    [selectDomain, selectEntity]
+    [drawRelation.phase, pickDrawRelationEntity, selectDomain, selectEntity]
   );
 
   // 点击画布空白：取消所有选中，并记录点击位置（用于新建对象放置定位）
+  // 绘制模式下点击空白不退出，仅不取消选中
   const handlePaneClick = useCallback((event: React.MouseEvent) => {
+    if (drawRelation.phase !== 'idle') return;
     selectEntity(null);
     selectRelation(null);
     selectDomain(null);
@@ -542,7 +589,7 @@ export default function ERCanvas() {
       const pos = rf.screenToFlowPosition({ x: event.clientX, y: event.clientY });
       lastCanvasClickRef.current = pos;
     }
-  }, [selectEntity, selectRelation, selectDomain, rfInstanceRef, lastCanvasClickRef]);
+  }, [drawRelation.phase, selectEntity, selectRelation, selectDomain, rfInstanceRef, lastCanvasClickRef]);
 
   // 点击关系线：选中关系（Inspector 切换为关系详情模式）
   const handleEdgeClick = useCallback(
@@ -556,6 +603,37 @@ export default function ERCanvas() {
   const handleConnect: OnConnect = useCallback(() => {
     // Phase 1 不支持直接拖拽连线
   }, []);
+
+  // Esc 监听：退出绘制模式（§3.1A.6）
+  useEffect(() => {
+    if (drawRelation.phase === 'idle') return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        cancelDrawRelation();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [drawRelation.phase, cancelDrawRelation]);
+
+  // 提示条文案构造（绘制模式）
+  const draftBanner = useMemo(() => {
+    if (drawRelation.phase === 'idle') return null;
+    const meta = RELATION_LABELS[drawRelation.kind];
+    const Icon = meta.icon;
+    let hint: string;
+    if (drawRelation.phase === 'awaiting-source') {
+      hint = '请选择源实体';
+    } else {
+      const src = erGraph?.entities?.find((e) => e.id === drawRelation.sourceEntityId);
+      const srcName =
+        (src?.data as { displayName?: string; name?: string } | undefined)?.displayName ??
+        (src?.data as { name?: string } | undefined)?.name ??
+        '已选中';
+      hint = `已锁定源：${srcName}，请选择目标实体`;
+    }
+    return { Icon, name: meta.name, hint };
+  }, [drawRelation, erGraph]);
 
   // 空状态（防御性检查：erGraph 可能为 {} 或 entities 缺失）
   const isEmpty = !erGraph || !erGraph.entities || erGraph.entities.length === 0;
@@ -605,6 +683,38 @@ export default function ERCanvas() {
           }}
         />
       </ReactFlow>
+
+      {/* 绘制模式提示条（§3.1A.6） */}
+      {draftBanner && (
+        <div className="pointer-events-none absolute top-2 left-1/2 -translate-x-1/2 z-20">
+          <div className="pointer-events-auto flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs text-foreground shadow-sm backdrop-blur-sm">
+            <draftBanner.Icon className="h-3.5 w-3.5 text-primary" />
+            <span>
+              正在创建 <span className="font-medium">【{draftBanner.name}】</span> — {draftBanner.hint}
+            </span>
+            <button
+              type="button"
+              onClick={cancelDrawRelation}
+              className="ml-1 rounded border border-border bg-background px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent"
+            >
+              Esc 取消
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 绘制模式完成后的预填 Dialog（source/target 均锁定） */}
+      {drawRelationPreset && (
+        <RelationDialog
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) clearDrawRelationPreset();
+          }}
+          sourceEntityId={drawRelationPreset.sourceEntityId}
+          relation={null}
+          preset={drawRelationPreset}
+        />
+      )}
 
       {/* 空状态提示 */}
       {isEmpty && (

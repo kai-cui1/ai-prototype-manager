@@ -475,8 +475,9 @@ CREATE TABLE business_architectures (
   name            TEXT NOT NULL,
   display_name    TEXT NOT NULL,
   description     TEXT,
-  -- 业务架构层级（L1=顶层域 / L2=子域 / L3=模块组 / L4=具体分组）
-  level           TEXT NOT NULL CHECK (level IN ('L1', 'L2', 'L3', 'L4')),
+  -- 层级描述性标注（可选，PM 自由填写，如 "domain"/"module" 等）
+  -- 2026-06-12 变更：移除 L1-L4 枚举约束，改为可选自由文本，不限制层级深度
+  level           TEXT,
   sort_order      INTEGER NOT NULL DEFAULT 0,
   config          JSONB DEFAULT '{}',
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),

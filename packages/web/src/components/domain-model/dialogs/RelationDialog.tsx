@@ -19,13 +19,13 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
-import { useDomainModelContext } from '@/contexts/DomainModelContext';
+import { useDomainModelContext, type DrawRelationPreset } from '@/contexts/DomainModelContext';
 import type { Relation } from '@/hooks/useDomainModel';
 
 type RelationKind = 'association' | 'dependency' | 'aggregation' | 'composition' | 'generalization';
 
 const KIND_OPTIONS: Array<{ value: RelationKind; label: string; desc: string }> = [
-  { value: 'association', label: '关联（association）', desc: '源实体持久引用目标实体，无从属关系' },
+  { value: 'association', label: '关联（association）[双向]', desc: '两个实体之间存在持久的对称关联（如订单 ↔ 用户）' },
   { value: 'dependency', label: '依赖（dependency）', desc: '源实体临时使用目标实体，无持久引用' },
   { value: 'aggregation', label: '聚合（aggregation）', desc: '源实体聚合目标实体（弱拥有）' },
   { value: 'composition', label: '组合（composition）', desc: '源实体组合目标实体（强拥有）' },
@@ -52,11 +52,18 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   sourceEntityId: string;
   relation: Relation | null; // null = 新建
+  /**
+   * 绘制模式预填参数（§3.1A.6）：
+   * - 存在时目标实体锁定（以 Display 形式展示，不可改）
+   * - 关系类型预填为工具栏选中的 kind，仍允许修改
+   */
+  preset?: DrawRelationPreset;
 }
 
-export default function RelationDialog({ open, onOpenChange, sourceEntityId, relation }: Props) {
+export default function RelationDialog({ open, onOpenChange, sourceEntityId, relation, preset }: Props) {
   const { entities, createRelation, updateRelation } = useDomainModelContext();
   const isEdit = relation !== null;
+  const isTargetLocked = isEdit || preset?.targetLocked === true;
 
   const [targetEntityId, setTargetEntityId] = useState('');
   const [relationKind, setRelationKind] = useState<RelationKind>('dependency');
@@ -82,6 +89,15 @@ export default function RelationDialog({ open, onOpenChange, sourceEntityId, rel
       setDisplayName(relation.displayName ?? '');
       setDescription(relation.description ?? '');
       setDimension(relation.dimension ?? '');
+    } else if (preset) {
+      // 绘制模式预填：目标实体 + 关系类型（§3.1A.6）
+      setTargetEntityId(preset.targetEntityId);
+      setRelationKind(preset.kind);
+      setSourceCardinality(preset.kind === 'generalization' ? '1' : '1');
+      setTargetCardinality(preset.kind === 'generalization' ? '1' : '*');
+      setDisplayName('');
+      setDescription('');
+      setDimension('');
     } else {
       setTargetEntityId('');
       setRelationKind('dependency');
@@ -94,7 +110,7 @@ export default function RelationDialog({ open, onOpenChange, sourceEntityId, rel
     setSourceCardinalityError('');
     setTargetCardinalityError('');
     setDimensionError('');
-  }, [relation, open]);
+  }, [relation, preset, open]);
 
   // 目标实体列表（排除自身）
   const targetOptions = entities.filter((e) => e.id !== sourceEntityId);
@@ -103,13 +119,16 @@ export default function RelationDialog({ open, onOpenChange, sourceEntityId, rel
   const sourceEntity = entities.find((e) => e.id === sourceEntityId);
   const sourceEntityDisplayName = sourceEntity?.displayName ?? '';
 
-  // 目标端实体名称（编辑模式取 relation，新建模式取当前选中）
+  // 目标端实体名称（编辑模式取 relation；预填锁定模式从 entities 取；新建模式取当前选中）
+  const lockedTargetEntity = preset ? entities.find((e) => e.id === preset.targetEntityId) : undefined;
   const targetEntityDisplayName = isEdit
     ? (relation?.targetEntityDisplayName ?? '')
-    : (targetOptions.find((e) => e.id === targetEntityId)?.displayName ?? '');
+    : (isTargetLocked && lockedTargetEntity)
+      ? (lockedTargetEntity.displayName ?? '')
+      : (targetOptions.find((e) => e.id === targetEntityId)?.displayName ?? '');
 
   const handleSubmit = async () => {
-    if (!isEdit && !targetEntityId) {
+    if (!isEdit && !isTargetLocked && !targetEntityId) {
       toast.error('请选择目标实体');
       return;
     }
@@ -174,14 +193,18 @@ export default function RelationDialog({ open, onOpenChange, sourceEntityId, rel
         </DialogHeader>
 
         <div className="p-6 overflow-y-auto [&>div]:mb-[18px] [&>div:last-child]:mb-0">
-          {/* 目标实体（新建时选择，编辑时只读） */}
+          {/* 目标实体（编辑或绘制模式预填时只读，新建时选择） */}
           <div className="space-y-1">
             <Label className="text-sm">
-              目标实体 {!isEdit && <span className="text-red-500">*</span>}
+              目标实体 {!isTargetLocked && <span className="text-red-500">*</span>}
             </Label>
             {isEdit ? (
               <div className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground">
                 {relation?.targetEntityDisplayName}（{relation?.targetEntityName}）
+              </div>
+            ) : isTargetLocked && lockedTargetEntity ? (
+              <div className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-foreground">
+                {lockedTargetEntity.displayName}（{lockedTargetEntity.name}）
               </div>
             ) : (
               <Select value={targetEntityId} onValueChange={(v) => setTargetEntityId(v ?? "")}>
@@ -258,6 +281,15 @@ export default function RelationDialog({ open, onOpenChange, sourceEntityId, rel
           {/* 基数（仅非 generalization 显示） */}
           {!isGeneralization && (
             <>
+              {/* association 双向提示：基数按 UML 惯例读取 */}
+              {relationKind === 'association' && (
+                <div className="rounded-md border border-border bg-muted/50 px-3 py-2">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    <span className="font-medium text-foreground">关联为双向对称关系</span>，Canvas 上以无箭头实线展示。基数按 UML 惯例读作"对面可见数量"：源端基数表示"一个目标对应多少个源"，目标端基数表示"一个源对应多少个目标"。
+                  </p>
+                </div>
+              )}
+
               {/* 源端基数 */}
               <div className="space-y-1">
                 <Label className="text-sm">源端基数 — {sourceEntityDisplayName}</Label>

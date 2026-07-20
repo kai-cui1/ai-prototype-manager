@@ -273,7 +273,7 @@ DROP TABLE IF EXISTS process_node_map;
       "status": "draft",
       "version": 1,
       "parentProcessId": null,
-      "entryNodeId": "node_001",
+      "entryNodeIds": ["node_001"],
       "exitNodeIds": ["node_010"],
       "sortOrder": 0,
       "createdAt": "2026-06-04T10:00:00Z",
@@ -294,7 +294,7 @@ DROP TABLE IF EXISTS process_node_map;
   "name": "order_flow",
   "displayName": "订单处理流程",
   "description": "用户下单到完成的完整流程",
-  "entryNodeId": null,
+  "entryNodeIds": [],
   "exitNodeIds": []
 }
 ```
@@ -319,7 +319,7 @@ DROP TABLE IF EXISTS process_node_map;
     "description": "用户下单到完成的完整流程",
     "status": "draft",
     "version": 1,
-    "entryNodeId": null,
+    "entryNodeIds": [],
     "exitNodeIds": [],
     "sortOrder": 0,
     "createdAt": "2026-06-04T10:00:00Z",
@@ -351,7 +351,7 @@ DROP TABLE IF EXISTS process_node_map;
     "status": "draft",
     "version": 1,
     "parentProcessId": null,
-    "entryNodeId": "node_001",
+    "entryNodeIds": ["node_001"],
     "exitNodeIds": ["node_010"],
     // 节点列表（includeNodes=true 时）
     "nodes": [
@@ -411,7 +411,7 @@ DROP TABLE IF EXISTS process_node_map;
 {
   "displayName": "订单处理流程（修订版）",
   "description": "更新后的描述",
-  "entryNodeId": "node_001",
+  "entryNodeIds": ["node_001"],
   "exitNodeIds": ["node_010"]
 }
 ```
@@ -645,8 +645,8 @@ DROP TABLE IF EXISTS process_node_map;
 
 | # | 校验项 | 规则 | 错误码 |
 |---|--------|------|--------|
-| 1 | 单入口 | 有且仅有 1 个 entryNodeId | MISSING_ENTRY_NODE |
-| 2 | 入口有效性 | entryNodeId 必须属于该流程 | INVALID_ENTRY_NODE |
+| 1 | 多入口 | 1 个或多个 entryNodeIds | MISSING_ENTRY_NODE |
+| 2 | 入口有效性 | entryNodeIds 中的每个 ID 必须属于该流程 | INVALID_ENTRY_NODE |
 | 3 | DAG 检测 | 流程图不能有环（DFS 检测） | CYCLE_DETECTED |
 | 4 | 孤立节点 | 所有节点必须至少有一条入边或出边（entryNode 除外） | ORPHAN_NODE |
 | 5 | 边有效性 | 所有边的 source/target 必须属于该流程 | INVALID_EDGE |
@@ -1046,7 +1046,7 @@ export interface BusinessProcess {
   status: ProcessStatus;
   version: number;
   parentProcessId: string | null;
-  entryNodeId: string | null;
+  entryNodeIds: string[];
   exitNodeIds: string[];
   config: Record<string, unknown>;
   sortOrder: number;

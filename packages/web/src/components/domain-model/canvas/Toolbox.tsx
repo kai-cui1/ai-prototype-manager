@@ -13,16 +13,90 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Database, BoxSelect, ChevronDown, ChevronRight } from 'lucide-react';
+import type { FC, SVGProps } from 'react';
+import {
+  Database,
+  BoxSelect,
+  ChevronDown,
+  ChevronRight,
+  ArrowRight,
+  MoveRight,
+  X,
+} from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useDomainModelContext } from '@/contexts/DomainModelContext';
+import { toast } from 'sonner';
+import { useDomainModelContext, type RelationKind } from '@/contexts/DomainModelContext';
 import { cn } from '@/lib/utils';
 import CreateEntityDialog from '../dialogs/CreateEntityDialog';
 import CreateBoundaryDialog from '../dialogs/CreateBoundaryDialog';
+
+/**
+ * 关系图标风格统一：短直线（左→右）+ 末端标记，与 Canvas 上实际边的
+ * 视觉对齐（RelationEdge 中 aggregation 空心菱形、composition 实心菱形、
+ * generalization 空心三角形）。视口 24×24，线宽 2，与 lucide-react 对齐。
+ *
+ * 布局：直线 x=3→13，y=12；末端标记中心 x≈17，y=12。
+ */
+const DIAMOND_D = 'M13 12 L17 7 L21 12 L17 17 Z';
+const TRIANGLE_D = 'M13 7 L21 12 L13 17 Z';
+
+const AggregationIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <line x1="3" y1="12" x2="13" y2="12" />
+    <path d={DIAMOND_D} fill="none" />
+  </svg>
+);
+
+const CompositionIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <line x1="3" y1="12" x2="13" y2="12" />
+    <path d={DIAMOND_D} fill="currentColor" />
+  </svg>
+);
+
+const GeneralizationIcon: FC<SVGProps<SVGSVGElement>> = (props) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth={2}
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    {...props}
+  >
+    <line x1="3" y1="12" x2="13" y2="12" />
+    <path d={TRIANGLE_D} fill="none" />
+  </svg>
+);
 
 type ItemType = 'entity' | 'domain';
 
@@ -55,6 +129,27 @@ const TOOLBOX_ITEMS: {
   },
 ];
 
+/** 5 种关系图标（§3.1A.6）
+ *
+ * 图标风格与 Canvas 边视觉对齐：
+ * - association: 无箭头短线（ArrowRight 占位；后续可换为 Minus，与 markerEnd=none 呼应）
+ * - dependency: 短线 + 箭头末端（MoveRight）
+ * - aggregation: 短线 + 空心菱形末端（自定义 SVG）
+ * - composition: 短线 + 实心菱形末端（自定义 SVG）
+ * - generalization: 短线 + 空心三角形末端，尖端朝右（自定义 SVG）
+ */
+const RELATION_ITEMS: {
+  kind: RelationKind;
+  icon: FC<SVGProps<SVGSVGElement>>;
+  label: string;
+}[] = [
+  { kind: 'association', icon: ArrowRight, label: '新建关联' },
+  { kind: 'dependency', icon: MoveRight, label: '新建依赖' },
+  { kind: 'aggregation', icon: AggregationIcon, label: '新建聚合' },
+  { kind: 'composition', icon: CompositionIcon, label: '新建组合' },
+  { kind: 'generalization', icon: GeneralizationIcon, label: '新建泛化' },
+];
+
 const STORAGE_KEY = 'toolbox-collapsed';
 
 function loadCollapsed(): boolean {
@@ -74,7 +169,14 @@ function saveCollapsed(val: boolean) {
 }
 
 export default function Toolbox() {
-  const { rfInstanceRef, lastCanvasClickRef } = useDomainModelContext();
+  const {
+    rfInstanceRef,
+    lastCanvasClickRef,
+    entities,
+    drawRelation,
+    startDrawRelation,
+    cancelDrawRelation,
+  } = useDomainModelContext();
 
   const [collapsed, setCollapsed] = useState(loadCollapsed);
   const [dragType, setDragType] = useState<ItemType | null>(null);
@@ -107,6 +209,24 @@ export default function Toolbox() {
     if (type === 'entity') setCreateOpen(true);
     else setCreateBoundaryOpen(true);
   }, []);
+
+  // 单击关系图标（§3.1A.6）
+  const handleRelationIconClick = useCallback(
+    (kind: RelationKind) => {
+      // 再次点击同图标 → 退出绘制模式
+      if (drawRelation.phase !== 'idle' && drawRelation.kind === kind) {
+        cancelDrawRelation();
+        return;
+      }
+      // 实体 < 2 不允许进入绘制模式
+      if (entities.length < 2) {
+        toast.warning('需至少两个实体才能创建关系');
+        return;
+      }
+      startDrawRelation(kind);
+    },
+    [drawRelation, entities.length, startDrawRelation, cancelDrawRelation]
+  );
 
   // 拖拽开始
   const handleDragStart = useCallback(
@@ -262,6 +382,45 @@ export default function Toolbox() {
                 </TooltipContent>
               </Tooltip>
             ))}
+
+            {/* 分隔线：元素创建区 vs 关系创建区 */}
+            <div className="w-px h-4 bg-border mx-1" />
+
+            {/* 5 种关系图标（§3.1A.6） */}
+            {RELATION_ITEMS.map((item) => {
+              const active =
+                drawRelation.phase !== 'idle' && drawRelation.kind === item.kind;
+              return (
+                <Tooltip key={item.kind}>
+                  <TooltipTrigger
+                    render={(props) => (
+                      <button
+                        {...props}
+                        type="button"
+                        onClick={() => handleRelationIconClick(item.kind)}
+                        className={cn(
+                          'relative flex items-center justify-center h-7 w-7 rounded-md cursor-pointer transition-all select-none',
+                          active
+                            ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                            : 'hover:bg-accent hover:text-accent-foreground',
+                          'active:scale-95'
+                        )}
+                      >
+                        <item.icon className="h-3.5 w-3.5" />
+                        {active && (
+                          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center h-3 w-3 rounded-full bg-background text-primary border border-primary">
+                            <X className="h-2 w-2" strokeWidth={3} />
+                          </span>
+                        )}
+                      </button>
+                    )}
+                  />
+                  <TooltipContent side="bottom" className="text-xs">
+                    {active ? `退出绘制 • ${item.label}` : item.label}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
           </div>
         )}
       </div>

@@ -25,6 +25,22 @@ export interface BusinessProcess {
   updatedAt: string;
 }
 
+/** 列表端点返回的精简字段（含 nodeCount/edgeCount 统计，不含完整数组） */
+export interface ProcessListItem {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string | null;
+  status: ProcessStatus;
+  version: number;
+  parentProcessId: string | null;
+  nodeCount: number;
+  edgeCount: number;
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ProcessNode {
   id: string;
   projectId: string;

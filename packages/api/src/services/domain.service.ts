@@ -64,6 +64,50 @@ function parseBoundaryPosition(config: unknown): BoundaryCanvasPosition | null {
 }
 
 // ============================================================
+// Relation Uniqueness Helpers
+// ============================================================
+
+/**
+ * 对称（双向）关系类型集合。
+ *
+ * 语义：这些 kind 的唯一性按无序对 {A,B}+kind 判定，即 (A→B, kind) 与
+ * (B→A, kind) 视为同一条关系。其他 kind 按有序三元组 (A,B,kind) 判定。
+ *
+ * PRD Reference: docs/03-prd-ux/modules/domain-model/domain-model-prd.md B-M2-08
+ */
+const SYMMETRIC_RELATION_KINDS = new Set<string>(['association']);
+
+/**
+ * 构造用于查询重复关系的 WHERE 条件。
+ * - 对称关系（association）：匹配 (src→tgt, kind) 或 (tgt→src, kind)
+ * - 非对称关系（其他四种）：仅匹配 (src→tgt, kind)
+ *
+ * 注意：调用方需自行叠加 projectId 条件；此函数只处理三元组部分。
+ */
+function buildRelationDuplicateWhere(source: string, target: string, kind: string) {
+  if (SYMMETRIC_RELATION_KINDS.has(kind)) {
+    return and(
+      eq(entityRelations.relationKind, kind),
+      or(
+        and(
+          eq(entityRelations.sourceEntityId, source),
+          eq(entityRelations.targetEntityId, target),
+        ),
+        and(
+          eq(entityRelations.sourceEntityId, target),
+          eq(entityRelations.targetEntityId, source),
+        ),
+      ),
+    );
+  }
+  return and(
+    eq(entityRelations.sourceEntityId, source),
+    eq(entityRelations.targetEntityId, target),
+    eq(entityRelations.relationKind, kind),
+  );
+}
+
+// ============================================================
 // Entity Mappers
 // ============================================================
 
@@ -719,21 +763,25 @@ export async function createRelation(
   }
 
   // 重复关系检查
+  // B-M2-08a: 对称关系（association）按无序对 {A,B}+kind 去重；
+  // B-M2-08b: 非对称关系按有序三元组 (A,B,kind) 去重。
   const existing = await db
     .select({ id: entityRelations.id })
     .from(entityRelations)
     .where(
       and(
         eq(entityRelations.projectId, projectId),
-        eq(entityRelations.sourceEntityId, input.sourceEntityId),
-        eq(entityRelations.targetEntityId, input.targetEntityId),
-        eq(entityRelations.relationKind, input.relationKind)
+        buildRelationDuplicateWhere(
+          input.sourceEntityId,
+          input.targetEntityId,
+          input.relationKind,
+        ),
       )
     )
     .limit(1);
 
   if (existing.length > 0) {
-    throw conflict('CONFLICT', `相同方向和类型的关系已存在`);
+    throw conflict('CONFLICT', `该关系已存在`);
   }
 
   // B-M2-F03-03: generalization 基数强制 1:1，忽略前端传入值
@@ -822,7 +870,8 @@ export async function updateRelation(
     }
   }
 
-  // 如果 relationKind 变更，需校验新三元组唯一性
+  // 如果 relationKind 变更，需校验新组合的唯一性
+  // B-M2-08a/08b: association 按无序对 {A,B}+kind；其他 kind 按有序三元组
   if (input.relationKind !== undefined && input.relationKind !== existing.relationKind) {
     const [dup] = await db
       .select({ id: entityRelations.id })
@@ -830,9 +879,11 @@ export async function updateRelation(
       .where(
         and(
           eq(entityRelations.projectId, projectId),
-          eq(entityRelations.sourceEntityId, existing.sourceEntityId),
-          eq(entityRelations.targetEntityId, existing.targetEntityId),
-          eq(entityRelations.relationKind, input.relationKind),
+          buildRelationDuplicateWhere(
+            existing.sourceEntityId,
+            existing.targetEntityId,
+            input.relationKind,
+          ),
         )
       )
       .limit(1);

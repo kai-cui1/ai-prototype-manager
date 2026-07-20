@@ -48,7 +48,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { PaginationComponent } from '@/components/common/PaginationComponent';
 import { EmptyState } from '@/components/common/EmptyState';
 import { useProcessList, useProcessCrud } from '@/hooks/useProcess';
-import type { BusinessProcess, ProcessStatus } from '@apm/shared';
+import type { ProcessListItem, BusinessProcess, ProcessStatus } from '@apm/shared';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -85,9 +85,9 @@ function StatusBadge({ status }: { status: ProcessStatus }) {
 // ============================================================
 
 interface ProcessCardGridProps {
-  processes: BusinessProcess[];
-  onEdit: (process: BusinessProcess) => void;
-  onDelete: (process: BusinessProcess) => void;
+  processes: ProcessListItem[];
+  onEdit: (process: ProcessListItem) => void;
+  onDelete: (process: ProcessListItem) => void;
   onNavigate: (processId: string) => void;
 }
 
@@ -121,7 +121,7 @@ function ProcessCardGrid({ processes, onEdit, onDelete, onNavigate }: ProcessCar
             )}
             {/* 节点/边计数 */}
             <p className="mt-2 text-xs text-text-tertiary">
-              {(proc.nodeIds?.length ?? 0)} 节点 · {(proc.edgeIds?.length ?? 0)} 连线
+              {proc.nodeCount} 节点 · {proc.edgeCount} 连线
             </p>
             {/* 操作按钮（hover 显示） */}
             <div className="mt-4 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -268,7 +268,7 @@ function CreateProcessDialog({ open, onOpenChange, onSubmit }: CreateProcessDial
 // ============================================================
 
 interface DeleteProcessDialogProps {
-  proc: BusinessProcess | null;
+  proc: ProcessListItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onConfirm: (id: string) => Promise<void>;
@@ -322,7 +322,7 @@ function DeleteProcessDialog({ proc, open, onOpenChange, onConfirm }: DeleteProc
 // ============================================================
 
 interface EditProcessDialogProps {
-  proc: BusinessProcess | null;
+  proc: ProcessListItem | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSubmit: (id: string, data: { displayName: string; description?: string | null }) => Promise<void>;
@@ -416,8 +416,8 @@ export default function ProcessListPage() {
 
   const [searchInput, setSearchInput] = useState('');
   const [createOpen, setCreateOpen] = useState(false);
-  const [editTarget, setEditTarget] = useState<BusinessProcess | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<BusinessProcess | null>(null);
+  const [editTarget, setEditTarget] = useState<ProcessListItem | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProcessListItem | null>(null);
 
   const {
     processes,

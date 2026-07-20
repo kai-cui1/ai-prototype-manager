@@ -7,6 +7,9 @@
  * - 字段列表最多显示 6 行，超出显示 "+N 个字段"
  * - 点击节点调用 selectEntity
  * - Handle 位置：上下左右四侧（source+target 双向，id 标识方向）
+ * - Handle 可见性：默认隐藏，当节点被选中或鼠标 hover 到节点上时显示，
+ *   150ms 淡入淡出；始终保持 pointer-events 以支持连线交互（Reduces
+ *   visual noise on canvas — see user feedback 2024-Q）
  */
 
 import { memo } from 'react';
@@ -72,10 +75,16 @@ function EntityNode({ id, data, selected }: NodeProps) {
   const visibleFields = nodeData.fields.slice(0, MAX_VISIBLE_FIELDS);
   const hiddenCount = nodeData.fields.length - MAX_VISIBLE_FIELDS;
 
+  // Handle 可见性：选中时常驻显示；未选中时默认隐藏，仅当鼠标 hover 到节点
+  // 上（group-hover）时才显示。始终保留 pointer-events，避免连线交互失效。
+  const handleVisibilityClass = isSelected
+    ? 'opacity-100'
+    : 'opacity-0 group-hover:opacity-100';
+
   return (
     <div
       className={cn(
-        'relative rounded-lg border bg-card shadow-sm',
+        'group relative rounded-lg border bg-card shadow-sm',
         'transition-shadow duration-200',
         isSelected ? 'border-primary shadow-md ring-2 ring-primary/30' : 'border-border hover:shadow-md'
       )}
@@ -137,13 +146,17 @@ function EntityNode({ id, data, selected }: NodeProps) {
       </div>{/* 内容区结束 */}
 
       {/* ReactFlow Handles — 四方向，source+target 双向，位于外层避免被 overflow-hidden 裁剪 */}
+      {/* 可见性：默认隐藏，选中或 hover 时淡入（transition-opacity 150ms） */}
       {HANDLES.map((h) => (
         <Handle
           key={`source-${h.id}`}
           type="source"
           position={h.position}
           id={h.id}
-          className="!bg-primary/60 !w-3 !h-3"
+          className={cn(
+            '!bg-primary/60 !w-3 !h-3 transition-opacity duration-150',
+            handleVisibilityClass,
+          )}
         />
       ))}
       {HANDLES.map((h) => (
@@ -152,7 +165,10 @@ function EntityNode({ id, data, selected }: NodeProps) {
           type="target"
           position={h.position}
           id={h.id}
-          className="!bg-primary/60 !w-3 !h-3"
+          className={cn(
+            '!bg-primary/60 !w-3 !h-3 transition-opacity duration-150',
+            handleVisibilityClass,
+          )}
         />
       ))}
     </div>

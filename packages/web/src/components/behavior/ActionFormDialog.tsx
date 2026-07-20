@@ -1,6 +1,6 @@
 /**
  * @module ActionFormDialog
- * @description 行为（Action）新建/编辑 Dialog — F-M1-12 / F-M1-13 共享组件。
+ * @description 行为（Action）新建/编辑/查看 Dialog — F-M1-12 / F-M1-13 共享组件。
  *              由 RoleDetailPage 和 ExternalEntityDetailPage 共同引用。
  */
 
@@ -37,11 +37,11 @@ import {
 export interface ActionFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  mode: 'create' | 'edit';
+  mode: 'create' | 'edit' | 'view';
   holderLabel: string;              // "角色" 或 "外部实体"，用于 Dialog 标题
   initialValues?: RoleAction;
-  version: number;
-  onSubmit: (data: Record<string, unknown>) => Promise<unknown>;
+  version?: number;
+  onSubmit?: (data: Record<string, unknown>) => Promise<unknown>;
   /** 当前流程图的连线，用于影响判断（编辑模式下必填） */
   processEdges?: Array<{ mappings?: Array<{ sourceField: string; targetField: string }>; label?: string | null; sourceNodeId: string; targetNodeId: string }>;
   /** 当前节点 id，用于影响判断 */
@@ -51,6 +51,7 @@ export interface ActionFormDialogProps {
 export function ActionFormDialog({
   open, onOpenChange, mode, holderLabel, initialValues, version, onSubmit, processEdges, nodeId,
 }: ActionFormDialogProps) {
+  const isView = mode === 'view';
   const blank = { name: '', displayName: '', description: '', logicUserDesc: '', logicData: '' };
   const [form, setForm] = useState(blank);
   const [inputItems, setInputItems] = useState<NodeIOItem[]>([]);
@@ -67,7 +68,7 @@ export function ActionFormDialog({
 
   useEffect(() => {
     if (open) {
-      if (mode === 'edit' && initialValues) {
+      if ((mode === 'edit' || mode === 'view') && initialValues) {
         setForm({
           name: initialValues.name,
           displayName: initialValues.displayName,
@@ -95,6 +96,7 @@ export function ActionFormDialog({
   };
 
   const handleSubmit = async () => {
+    if (isView || !onSubmit) return;
     const newErrors: Record<string, string | undefined> = {};
     const nameErr = validateName(form.name);
     if (nameErr) newErrors.name = nameErr;
@@ -150,6 +152,7 @@ export function ActionFormDialog({
   };
 
   const doSubmit = async (payload: Record<string, unknown>) => {
+    if (!onSubmit) return;
     setSubmitting(true);
     try {
       await onSubmit(payload);
@@ -178,15 +181,16 @@ export function ActionFormDialog({
   return (<>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" onKeyDown={(e) => {
+        if (isView) return;
         if (e.key === 'Enter' && !e.shiftKey && e.nativeEvent.target instanceof HTMLInputElement) {
           e.preventDefault();
           handleSubmit();
         }
       }}>
         <DialogHeader>
-          <DialogTitle>{mode === 'create' ? '新建行为' : '编辑行为'}</DialogTitle>
+          <DialogTitle>{isView ? '查看行为' : mode === 'create' ? '新建行为' : '编辑行为'}</DialogTitle>
           <DialogDescription>
-            {mode === 'create' ? `定义${holderLabel}的一个行为（Action）` : '修改行为信息'}
+            {isView ? `${holderLabel}的行为（Action）详情` : mode === 'create' ? `定义${holderLabel}的一个行为（Action）` : '修改行为信息'}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-[18px] px-6 py-5 overflow-y-auto flex-1">
@@ -201,7 +205,7 @@ export function ActionFormDialog({
                 if (val) setErrors((prev) => ({ ...prev, name: validateName(val) }));
                 else setErrors((prev) => ({ ...prev, name: undefined }));
               }}
-              disabled={submitting}
+              disabled={isView || submitting}
             />
             {errors.name && <p className="text-sm text-danger">{errors.name}</p>}
           </div>
@@ -214,7 +218,7 @@ export function ActionFormDialog({
                 setForm((prev) => ({ ...prev, displayName: (e.target as HTMLInputElement).value }));
                 if (errors.displayName) setErrors((prev) => ({ ...prev, displayName: undefined }));
               }}
-              disabled={submitting}
+              disabled={isView || submitting}
             />
             {errors.displayName && <p className="text-sm text-danger">{errors.displayName}</p>}
           </div>
@@ -225,7 +229,7 @@ export function ActionFormDialog({
               value={form.description}
               onChange={(e) => setForm((prev) => ({ ...prev, description: (e.target as HTMLTextAreaElement).value }))}
               rows={2}
-              disabled={submitting}
+              disabled={isView || submitting}
             />
           </div>
 
@@ -239,7 +243,7 @@ export function ActionFormDialog({
             errors={Object.fromEntries(
               Object.entries(ioErrors).filter(([k]) => !k.startsWith('out-'))
             )}
-            disabled={submitting}
+            disabled={isView || submitting}
           />
 
           {/* 输出参数 */}
@@ -253,7 +257,7 @@ export function ActionFormDialog({
                 .filter(([k]) => k.startsWith('out-'))
                 .map(([k, v]) => [k.replace('out-', ''), v])
             )}
-            disabled={submitting}
+            disabled={isView || submitting}
           />
 
           <div className="space-y-1.5">
@@ -266,7 +270,7 @@ export function ActionFormDialog({
                 if (errors.logicUserDesc) setErrors((prev) => ({ ...prev, logicUserDesc: undefined }));
               }}
               rows={3}
-              disabled={submitting}
+              disabled={isView || submitting}
             />
             {errors.logicUserDesc && <p className="text-sm text-danger">{errors.logicUserDesc}</p>}
           </div>
@@ -278,7 +282,7 @@ export function ActionFormDialog({
               onChange={(e) => setForm((prev) => ({ ...prev, logicData: (e.target as HTMLTextAreaElement).value }))}
               rows={3}
               className="font-mono text-sm"
-              disabled={submitting}
+              disabled={isView || submitting}
             />
           </div>
           {submitError && (
@@ -286,10 +290,16 @@ export function ActionFormDialog({
           )}
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting || confirming}>取消</Button>
-          <Button onClick={handleSubmit} disabled={submitting || confirming}>
-            {submitting ? '提交中...' : mode === 'create' ? '确认创建' : '保存修改'}
-          </Button>
+          {isView ? (
+            <Button variant="outline" onClick={() => onOpenChange(false)}>关闭</Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting || confirming}>取消</Button>
+              <Button onClick={handleSubmit} disabled={submitting || confirming}>
+                {submitting ? '提交中...' : mode === 'create' ? '确认创建' : '保存修改'}
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

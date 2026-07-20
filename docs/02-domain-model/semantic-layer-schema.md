@@ -176,15 +176,18 @@ App (根节点)
 #### Relation 关系类型
 
 > **v1.1 变更（2026-06-01）**：从 ORM 风格（hasOne/hasMany/belongsTo/belongsToMany）改为 UML 风格，与领域模型 domain-model.md §5.2 对齐。关系类型（kind）与基数（targetCardinality）正交分离。
+>
+> **v1.2 变更（2026-06-XX）**：`association` 语义由单向调整为**双向对称**（UML 标准），其余四类保持单向语义。唯一性约束按方向性分档：`association` 按无序对 `{A,B}+kind` 唯一，其余按有序三元组 `(A,B,kind)` 唯一。
 
-| kind | 语义 | 典型场景 |
-|------|------|---------|
-| `association` | 普通关联：A 持久引用 B，无从属关系 | 订单→用户、商品→分类 |
-| `dependency` | 依赖：A 临时使用 B，无持久引用 | 服务A调用服务B |
-| `aggregation` | 聚合：整体-部分，B 可独立存在 | 部门→员工 |
-| `composition` | 组合：整体-部分，B 随 A 生命周期结束 | 订单→订单明细 |
+| kind | 语义 | 方向性 | 典型场景 |
+|------|------|:-----:|---------|
+| `association` | 普通关联：A 与 B 之间存在**持久的对称结构关联**，双方均可导航 | **双向** | 订单↔用户、商品↔分类 |
+| `dependency` | 依赖：A 临时使用 B，无持久引用 | 单向 A→B | 服务A调用服务B |
+| `aggregation` | 聚合：整体-部分，B 可独立存在 | 单向 整体→部分 | 部门→员工 |
+| `composition` | 组合：整体-部分，B 随 A 生命周期结束 | 单向 整体→部分 | 订单→订单明细 |
+| `generalization` | 泛化：A 是 B 的子类型（is-a） | 单向 子类→父类 | 企业客户→客户 |
 
-> `targetCardinality: "one" | "many"` 与 kind 正交分离，单独表达基数。
+> `sourceCardinality` / `targetCardinality` 与 kind 正交分离。association 双向语义下按 UML 惯例读作"对面端可见数量"（详见 domain-model-prd.md §4.3.3）。
 
 ---
 

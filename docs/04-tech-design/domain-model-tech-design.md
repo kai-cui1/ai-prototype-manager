@@ -3,8 +3,9 @@
 > **模块**：M2-领域模型管理
 > **步骤**：S4 技术方案设计
 > **状态**：draft
-> **版本**：v1.0
-> **日期**：2026-05-28
+> **版本**：v1.1
+> **日期**：2026-06-XX
+> **v1.1 变更**：关系方向性分类（association 双向，其余四类单向）、唯一性校验分档、平行边视觉分离算法
 > **关联文档**：
 >   - PRD → `docs/03-prd-ux/modules/domain-model/domain-model-prd.md`
 >   - 交互设计 → `docs/03-prd-ux/modules/domain-model/domain-model-interaction.md`
@@ -37,7 +38,7 @@ M2 领域模型管理包含 4 个功能点：
 |------|------|
 | `domain_entities` | 实体主表（含 `category`, `sort_order`）|
 | `entity_fields` | 字段表（含 `field_type`, `constraints JSONB`, `sort_order`）|
-| `entity_relations` | 关系表（单向，`relation_kind` + `target_cardinality`）|
+| `entity_relations` | 关系表。`association` 为双向对称（一条记录代表两端等价）；其余四类为单向（source → target）。唯一索引 `entity_relations_project_source_target_kind_unique` 保持有序三元组，**双向去重由 service 层完成**。|
 | `data_flow_metadata` | 数据流向元数据（Phase 1 预留，M2 不实现写入）|
 
 ### 2.2 新增变更：节点位置持久化
@@ -447,15 +448,19 @@ interface Relation {
 ```
 
 **校验规则**：
-- `sourceEntityId` ≠ `targetEntityId`（不允许自关联，Phase 1）
-- `(project_id, source_entity_id, target_entity_id, relation_kind)` 唯一约束
+- `sourceEntityId` 可以等于 `targetEntityId`（允许自引用）
+- **唯一性分档校验**（service 层 SELECT 校验，不依赖 DB 唯一约束抛错）：
+  - **对称关系**（`association`）：按无序对 `{source, target} + kind` 判重，查询条件：`(source=A AND target=B) OR (source=B AND target=A)`
+  - **非对称关系**（`dependency` / `aggregation` / `composition` / `generalization`）：按有序三元组 `(project_id, source_entity_id, target_entity_id, relation_kind)` 判重
+- 建议在 service 层维护常量 `SYMMETRIC_RELATION_KINDS = new Set(['association'])` 统一分档处理
 - `sourceEntityId` 和 `targetEntityId` 必须属于当前 `projectId`
+- **DB 唯一索引保持不变**（有序三元组），双向去重由 service 层实现；依赖 DB 唯一约束仅作为兜底报错保护
 
 **Response 201**：`{ data: Relation }`
 
 **错误**：
-- `CONFLICT` (409)：相同方向+类型的关系已存在
-- `UNPROCESSABLE_ENTITY` (422)：自关联 / 实体不属于当前项目
+- `CONFLICT` (409)：已存在相同关系（根据 kind 方向性判重：association 无序对，其余有序三元组）
+- `UNPROCESSABLE_ENTITY` (422)：实体不属于当前项目 / generalization 缺少 dimension
 
 ---
 
@@ -551,6 +556,12 @@ interface DomainModelContextValue {
   selectedEntityId: string | null;
   selectEntity: (id: string | null) => void;
 
+  // 关系绘制模式（§3.1A.6）
+  drawRelation: DrawRelationState;
+  startDrawRelation: (kind: RelationKind) => void;
+  pickDrawRelationEntity: (entityId: string) => void;
+  cancelDrawRelation: () => void;
+
   // 数据操作
   refetchEntities: () => void;
   refetchGraph: () => void;
@@ -558,6 +569,19 @@ interface DomainModelContextValue {
   // Canvas viewport（ReactFlow 状态上浮，用于 fit 操作）
   fitView: () => void;
 }
+
+/**
+ * 绘制关系状态机
+ * - idle: 未激活绘制模式
+ * - awaiting-source: 已选关系 kind，等待选择源实体
+ * - awaiting-target: 已锁定源实体，等待选择目标实体
+ */
+type DrawRelationState =
+  | { phase: 'idle' }
+  | { phase: 'awaiting-source'; kind: RelationKind }
+  | { phase: 'awaiting-target'; kind: RelationKind; sourceEntityId: string };
+
+type RelationKind = 'association' | 'dependency' | 'aggregation' | 'composition' | 'generalization';
 ```
 
 ### 4.4 ReactFlow 集成
@@ -594,19 +618,53 @@ interface EntityNodeData {
 
 ```typescript
 interface RelationEdgeData {
-  relationKind: 'dependency' | 'aggregation' | 'composition';
+  relationKind: 'association' | 'dependency' | 'aggregation' | 'composition' | 'generalization';
+  sourceCardinality: string;
   targetCardinality: string;
   displayName?: string;
   description?: string;
+  dimension?: string | null;
+  /** 同一对实体之间的平行边分离用 */
+  parallelIndex: number;   // 当前边在分组内的索引 [0, N-1]
+  parallelCount: number;   // 分组内总边数 N
 }
 
 // 边渲染逻辑：
-// - dependency: 普通箭头（→）
-// - aggregation: 空心菱形（◇）
-// - composition: 实心菱形（◆）
-// - Hover: 显示 Tooltip（displayName + targetCardinality）
-// - Click: selectRelation(edge.id) → Inspector 编辑
+// - association: 无 marker（无箭头，体现双向对称）
+// - dependency: 普通箭头 markerEnd（→）
+// - aggregation: 空心菱形 markerEnd（◇）
+// - composition: 实心菱形 markerEnd（◆）
+// - generalization: 空心三角 markerEnd（△）
+// - Hover: 显示 Tooltip（displayName + sourceCardinality:targetCardinality）
+// - Click: selectRelation(edge.id) → Inspector 关系详情模式
 ```
+
+**平行边分离算法**（在 useMemo 中计算 `edges`，向 RelationEdge 传入 `parallelIndex` 与 `parallelCount`）：
+
+```typescript
+// 对同一对实体之间的全部关系分组（方向无关）
+function groupRelationsByEntityPair(relations: Relation[]): Map<string, Relation[]> {
+  const groups = new Map<string, Relation[]>();
+  for (const rel of relations) {
+    // 方向标准化：无论 source/target 的方向，同一对实体之间的边归为同一组
+    const [a, b] = [rel.sourceEntityId, rel.targetEntityId].sort();
+    const key = `${a}::${b}`;
+    (groups.get(key) ?? groups.set(key, []).get(key)!).push(rel);
+  }
+  return groups;
+}
+
+// 在 RelationEdge 内部：基于贝塞尔中点法向量施加偏移
+const PARALLEL_SPACING = 24; // px
+const offset = (parallelIndex - (parallelCount - 1) / 2) * PARALLEL_SPACING;
+// 若 offset === 0 且 parallelCount === 1，使用默认 getBezierPath；
+// 否则基于贝塞尔默认中点 (mx, my) 与切线法向量 (nx, ny)：
+//   newMidX = mx + nx * offset;
+//   newMidY = my + ny * offset;
+// 以起点、新中点、终点三点构造二阶 Bezier。
+```
+
+**自环（self-loop）**：source == target 时 `parallelCount` 仍可能 > 1（同一实体自环多种 kind），但自环自己就具备区分弧；本版本自环不应用偏移算法，保持现有默认渲染（Phase 2 再优化）。
 
 #### 节点拖拽位置保存
 
@@ -650,6 +708,101 @@ import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-ki
 // Tab-2 "字段(N)"：DraggableFieldList + 新建字段按钮
 // Tab-3 "关系(M)"：关系列表 + 新建关系按钮
 ```
+
+### 4.6A 关系绘制模式技术实现（Draft Relation）
+
+#### 状态存放位置
+
+`DrawRelationState` 存于 `DomainModelContext`（而非 ERCanvas 内部 state），因为需要同时被 **Toolbox**（发起绘制、高亮当前图标）、**ERCanvas**（拦截节点点击、展示提示条）、**EntityNode**（根据 phase 调整 hover 样式）三处读取。
+
+#### 交互流水
+
+```typescript
+// 1. Toolbox 关系图标 onClick
+const handleRelationIconClick = (kind: RelationKind) => {
+  if (drawRelation.phase !== 'idle' && drawRelation.kind === kind) {
+    // 再次点击同图标 → 退出
+    cancelDrawRelation();
+    return;
+  }
+  if (entities.length < 2) {
+    toast.warning('需至少两个实体才能创建关系');
+    return;
+  }
+  startDrawRelation(kind);  // → phase: 'awaiting-source'
+};
+
+// 2. ERCanvas onNodeClick 拦截
+const handleNodeClick = (event, node) => {
+  if (drawRelation.phase !== 'idle') {
+    if (node.type !== 'entity') return;  // 领域框忽略
+    event.stopPropagation();               // 阻止选中行为
+    pickDrawRelationEntity(node.data.entityId);
+    return;
+  }
+  selectEntity(node.data.entityId);  // 正常模式
+};
+
+// 3. pickDrawRelationEntity 内部逻辑
+const pickDrawRelationEntity = (entityId: string) => {
+  if (drawRelation.phase === 'awaiting-source') {
+    setDrawRelation({ phase: 'awaiting-target', kind, sourceEntityId: entityId });
+  } else if (drawRelation.phase === 'awaiting-target') {
+    // 触发预填弹窗，同时保持状态（供 Dialog 读取 preset）
+    setRelationDialogPreset({
+      sourceEntityId: drawRelation.sourceEntityId,
+      targetEntityId: entityId,
+      kind: drawRelation.kind,
+      targetLocked: true,
+    });
+    setRelationDialogOpen(true);
+    // Dialog onOpenChange(false) 时回调 cancelDrawRelation()
+  }
+};
+
+// 4. Esc 监听（ERCanvas 层级）
+useEffect(() => {
+  if (drawRelation.phase === 'idle') return;
+  const onKeyDown = (e: KeyboardEvent) => {
+    if (e.key === 'Escape') cancelDrawRelation();
+  };
+  window.addEventListener('keydown', onKeyDown);
+  return () => window.removeEventListener('keydown', onKeyDown);
+}, [drawRelation.phase]);
+
+// 5. viewMode 切换自动退出
+useEffect(() => {
+  if (viewMode === 'list' && drawRelation.phase !== 'idle') {
+    cancelDrawRelation();
+  }
+}, [viewMode]);
+```
+
+#### RelationDialog preset 参数
+
+```typescript
+interface RelationDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  sourceEntityId: string;
+  relation: Relation | null;                  // null = 新建
+  /** 工具箱绘制模式传入的预填项，仅新建时生效 */
+  preset?: {
+    targetEntityId: string;
+    kind: RelationKind;
+    /** true = 目标实体不允许修改（表现为 Display，而非 Select） */
+    targetLocked: boolean;
+  };
+}
+
+// 内部：
+// - relation 优先级高于 preset（relation 非空时 preset 忽略）
+// - preset.targetLocked 控制目标实体渲染：Select vs Display
+```
+
+#### PropertyPanel/Toolbox 重渲染优化
+
+因 `drawRelation` 变化会触发 Context 全量重渲染，将 `drawRelation` 拆分为独立的 Context 或使用 `useSyncExternalStore` 隔离；否则实体/领域数据每次切换 phase 都会派经过重渲染（Phase 1 实体数量不大，可先不优化）。
 
 ### 4.7 搜索防抖
 

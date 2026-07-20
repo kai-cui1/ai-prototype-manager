@@ -2,11 +2,11 @@
  * @module RelationEdge
  * @description ReactFlow 自定义边：渲染实体关系线。
  *
- * 五种关系类型：
- * - association:    实线蓝色 + 普通箭头 ▶
- * - dependency:     实线灰色 + 普通箭头 ▶
- * - aggregation:    虚线蓝色 + 空心菱形 ◇（自定义 SVG marker）
- * - composition:    实线青色 + 实心菱形 ◆（自定义 SVG marker）
+ * 五种关系类型（方向性分类）：
+ * - association:    实线蓝色 + **无箭头**（双向对称）
+ * - dependency:     实线灰色 + 普通箭头 ▶（单向）
+ * - aggregation:    虚线蓝色 + 空心菱形 ◇（自定义 SVG marker，单向）
+ * - composition:    实线青色 + 实心菱形 ◆（自定义 SVG marker，单向）
  * - generalization: 实线紫色 + 空心三角 △（自定义 SVG marker，source=子类，target=父类）
  *
  * generalization 特殊规则：
@@ -14,8 +14,12 @@
  * - 常驻标签格式：「泛化(维度：xxx)」，紫色主题
  * - Hover Tooltip 显示维度而非基数
  *
- * 箭头对齐：association/dependency 使用 SVG marker + orient="auto"，
+ * 箭头对齐：dependency 使用 SVG marker + orient="auto"，
  * 确保箭头沿贝塞尔路径末端切线方向对齐，不出现半边箭头与线条重合的问题。
+ *
+ * 平行边视觉分离：
+ * 同一对实体之间允许多种不同 kind 的关系。上层传入 parallelIndex/parallelCount，
+ * 本组件基于贝塞尔中点法向量将各条边偏移开，避免完全重合。
  */
 
 import { memo, useState } from 'react';
@@ -37,8 +41,15 @@ interface RelationEdgeData {
   dimension?: string;
   showLabel?: boolean;
   isSelected?: boolean;
+  /** 同一对实体之间的平行边索引（方向无关），默认 0 */
+  parallelIndex?: number;
+  /** 同一对实体之间的平行边总数（方向无关），默认 1 */
+  parallelCount?: number;
   [key: string]: unknown;
 }
+
+/** 平行边偏移基准间距（px） */
+const PARALLEL_SPACING = 28;
 
 const KIND_LABEL: Record<RelationKind, string> = {
   association: '关联',
@@ -80,13 +91,15 @@ function RelationEdge({
   const showLabel = edgeData.showLabel ?? false;
   const selected = edgeData.isSelected ?? false;
   const isGeneralization = kind === 'generalization';
+  const parallelIndex = edgeData.parallelIndex ?? 0;
+  const parallelCount = Math.max(edgeData.parallelCount ?? 1, 1);
 
   // 选中态：线宽 2.5px + 主色；Hover 态：线宽 2.5px + 主色；默认态：1.5px + 类型色
   const activeColor = isGeneralization ? '#722ed1' : '#08979c';
   const currentStroke = (selected || hovered) ? activeColor : strokeStyle.stroke;
   const currentWidth = (selected || hovered) ? 2.5 : 1.5;
 
-  const [edgePath, labelX, labelY] = getBezierPath({
+  const [defaultPath, defaultLabelX, defaultLabelY] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,
@@ -94,6 +107,35 @@ function RelationEdge({
     targetY,
     targetPosition,
   });
+
+  // 平行边分离：当同一对实体之间存在多条关系时，基于贝塞尔中点法向量施加偏移，
+  // 避免多条完全重合。自环（sourceX==targetX && sourceY==targetY）不适用本算法。
+  const isSelfLoop = Math.abs(targetX - sourceX) < 0.5 && Math.abs(targetY - sourceY) < 0.5;
+  const shouldOffset = parallelCount > 1 && !isSelfLoop;
+  const rawOffset = shouldOffset
+    ? (parallelIndex - (parallelCount - 1) / 2) * PARALLEL_SPACING
+    : 0;
+
+  // 端点方向向量与法向量
+  const dxSE = targetX - sourceX;
+  const dySE = targetY - sourceY;
+  const lenSE = Math.sqrt(dxSE * dxSE + dySE * dySE) || 1;
+  const nx = -dySE / lenSE;
+  const ny = dxSE / lenSE;
+
+  // 新中点（将默认中点沿法向偏移 rawOffset）
+  const midX = shouldOffset ? defaultLabelX + nx * rawOffset : defaultLabelX;
+  const midY = shouldOffset ? defaultLabelY + ny * rawOffset : defaultLabelY;
+
+  // 二次 Bezier 控制点：使曲线中点经过 (midX, midY)，则控制点 = 2*mid - (start+end)/2
+  const controlX = shouldOffset ? 2 * midX - (sourceX + targetX) / 2 : defaultLabelX;
+  const controlY = shouldOffset ? 2 * midY - (sourceY + targetY) / 2 : defaultLabelY;
+
+  const edgePath = shouldOffset
+    ? `M ${sourceX},${sourceY} Q ${controlX},${controlY} ${targetX},${targetY}`
+    : defaultPath;
+  const labelX = midX;
+  const labelY = midY;
 
   // 菱形 marker：aggregation / composition
   const useDiamondMarker = kind === 'aggregation' || kind === 'composition';
@@ -105,15 +147,17 @@ function RelationEdge({
   const useTriangleMarker = kind === 'generalization';
   const triangleStroke = (selected || hovered) ? activeColor : strokeStyle.stroke;
 
-  // 普通箭头：association / dependency
+  // 普通箭头：仅 dependency（association 双向，无箭头）
   const arrowMarkerId = `arrow-${id}`;
-  const useArrowMarker = !useDiamondMarker && !useTriangleMarker;
+  const useArrowMarker = kind === 'dependency';
 
   const markerEndRef = useDiamondMarker
     ? `url(#${markerId})`
     : useTriangleMarker
       ? `url(#${markerId})`
-      : `url(#${arrowMarkerId})`;
+      : useArrowMarker
+        ? `url(#${arrowMarkerId})`
+        : undefined;
 
   const displayText = edgeData.displayName || KIND_LABEL[kind];
 

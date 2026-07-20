@@ -48,7 +48,7 @@
 │  与底层关系：引用全局池中的节点和边                   │
 │                                                   │
 │  约束：                                            │
-│  ✓ 单入口（1 个起始点）                              │
+│  ✓ 多入口（1个或多个起始点）                          │
 │  ✓ 零出口或多出口                                   │
 │  ✗ 不跨图合并（必须来自同一连通数据）                │
 │                                                   │
@@ -78,9 +78,9 @@
 | 4 | **Action 一等公民** | Action 可被 Role / Service / ExternalEntity 持有，统一接口(inputs/outputs/logic/tool) |
 | 5 | **Decision 与 Action 对称** | 三类参与者都有 decisions[] 集合，与 actions[] 完全对称 |
 | 6 | **边携带数据** | 边通过 mappings 传递数据（Action output→input 或 Branch output→Action input） |
-| 7 | **边由 (source,target) 唯一确定** | 两节点同方向只能有一条边；已有边在两节点被拉入流程时自动加载 |
+| 7 | **边由 (source,branch,target) 唯一确定** | 同一源的不同分支可连向同一目标；已有边在两节点被拉入流程时自动加载 |
 | 8 | **流程是切片** | 流程 = 从全局池中选取连续节点段+边的命名视图（仅存引用 ID） |
-| 9 | **单入口多出口** | 流程有且只有一个起点，零或多个终点 |
+| 9 | **多入口多出口** | 流程有1个或多个起点，零或多个终点 |
 | 10 | **衔接自动发现** | 流程间关系从全局池的边自动推导 |
 | 11 | **架构独立于拓扑** | 流程架构是纯树形分类导航，与底层池拓扑无关 |
 | 12 | **重叠是特性非缺陷** | 同一 Process 可出现在架构树多处；不同架构分支可引用相同节点 |
@@ -260,9 +260,21 @@ interface ProcessEdge {
 ```
 
 **边唯一性规则**：
-- 由 `(source.nodeId, target.nodeId)` 唯一确定
+- 由 `(source.nodeId, source.branch, target.nodeId)` 唯一确定
+  - 源为 action 时 `source.branch = 'default'`（统一非 null）
+  - 源为 decision 时 `source.branch` 为具体分支名
+- 允许同一 Decision 的不同分支连向同一目标节点（不同 branch 值区分）
 - 两节点被同时拉入同一个流程图时，若它们之间已有边，该边**自动加载**
 - 边可在流程图编辑过程中新建
+
+**边唯一性约束演进**：
+
+| 版本 | 唯一约束 | 问题 |
+|------|----------|------|
+| 旧 | `(sourceNodeId, targetNodeId)` | Decision 多分支无法连向同一目标 |
+| 新 | `(sourceNodeId, sourceHandle, targetNodeId)` | 不同分支（sourceHandle）可连同一目标 |
+
+> `sourceHandle` 在 ReactFlow 中对应 Decision 节点的分支输出点，Action 节点统一为 `"default"`。
 
 ---
 
@@ -500,7 +512,7 @@ interface Process {
   edgeIds: string[];              // 这些边构成了流程内部的流转（引用 processEdges[]）
 
   // ★ 入口和出口
-  entryNodeId: string;            // 单一入口（起始节点）
+  entryNodeIds: string[];         // 多个入口节点（起始动作）
   exitNodeIds: string[];          // 零个或多个出口节点
 
   // 触发器（可选，也可由上游流程自然触发）
@@ -524,7 +536,7 @@ interface Process {
 
 | 约束 | 规则 | 原因 |
 |------|------|------|
-| **单入口** | 有且仅有 1 个 entryNodeId | 一个流程必须有明确的触发点 |
+| **多入口** | 1 个或多个 entryNodeIds | 流程可以有多个起始动作（如用户搜索、系统推送均可触发） |
 | **多/零出口** | 0 个或多个 exitNodeIds | 内部闭环不需要出口；正常流程可有多个结束点 |
 | **连通性** | 所有节点必须来自同一连通数据集 | 保证业务语义连贯性 |
 | **连续性** | 选取的节点必须是池中一条连续路径 | 不能跳跃选取不相连的节点 |
@@ -564,6 +576,21 @@ interface ProcessTrigger {
 系统自动发现：**流程 A 的出口节点（n_deduct）有边指向流程 B 的入口节点（也是 n_deduct）** ⇒ A→B 存在衔接关系。
 
 这种关系从底层图的边**自动推导**，无需人工声明。
+
+### 来向边与去向边
+
+流程视图中，入口节点和出口节点存在「边界连线」：
+
+| 概念 | 定义 | 数据来源 |
+|------|------|----------|
+| 来向边 | `targetNodeId ∈ entryNodeIds AND sourceNodeId ∉ nodeIds` | 全局 `processEdges` 查询推导，无需新表 |
+| 去向边 | `sourceNodeId ∈ exitNodeIds AND targetNodeId ∉ nodeIds` | 同上 |
+
+**关注过滤**：
+- `config.visibleInboundEdgeIds: string[]` — 用户关注的来向边 ID
+- `config.visibleOutboundEdgeIds: string[]` — 用户关注的去向边 ID
+- 来向/去向边的参数映射（mappings）只读展示，不可编辑
+- 画布上仅在节点右上角显示角标（`←N` / `→N`），详细信息在属性面板中呈现
 
 ---
 
@@ -1051,7 +1078,7 @@ Process A: "订单履约" (父流程)
   [节点 n1] ──edge_e1──→ [节点 n2] ──edge_e2──→ ┌──────────────┐
                                                   │  子流程 B 卡片 │
                                                   │ (entry=n3)    │
-  edge_e2 的 target = B.entryNodeId(n3)           │  ...内部细节...│
+  edge_e2 的 target = B.entryNodeIds[0](n3)           │  ...内部细节...│
   mappings 已在全局池中定义好                       └──────┬───────┘
                                                          │
                                                   edge_e3 (B.exit → n4)
@@ -1061,7 +1088,7 @@ Process A: "订单履约" (父流程)
 ```
 
 **关键点**：
-- 进入子流程的边：`source` 是父流程直接节点，`target` 是子流程的 `entryNodeId`
+- 进入子流程的边：`source` 是父流程直接节点，`target` 是子流程的 `entryNodeIds` 中的节点
 - 离开子流程的边：`source` 是子流程的某个 `exitNodeId`，`target` 是父流程直接节点
 - 这些边**已经在全局池中存在**，mappings 已经定义完毕
 
@@ -1110,14 +1137,14 @@ Process A: "订单履约" (父流程)
 2. 右键 → 「提取为子流程」
 3. 弹出配置面板：
    ├── 输入子流程名称
-   ├── 系统自动识别 entryNodeId（选中节点的第一个）和 exitNodeIds
+   ├── 系统自动识别 entryNodeIds（选中节点的第一个）和 exitNodeIds
    ├── PM 可调整 entry/exit
    └── 确认
 4. 系统执行：
    ├── 创建新的 Process 对象 B
    ├── B.nodeIds = 选中的节点 ID 列表（有序）
    ├── B.edgeIds = 这些节点之间的边 ID 列表
-   ├── B.entryNodeId / B.exitNodeIds 自动设置
+   ├── B.entryNodeIds / B.exitNodeIds 自动设置
    ├── A.childProcessIds.push(B.processId)
    └── B.parentProcessId = A.processId
 5. 父流程图中：选中的节点被替换为折叠卡片
@@ -1413,7 +1440,7 @@ Project
 
 | # | 决策 | 理由 |
 |---|------|------|
-| 16 | **流程单入口多出口** | 1 个 entryNodeId，0 或多个 exitNodeIds |
+| 16 | **流程多入口多出口** | 1 个或多个 entryNodeIds，0 或多个 exitNodeIds |
 | 17 | **流程不跨池合并** | 所有节点来自同一全局池 |
 | 18 | **衔接自动发现** | 从全局池的边自动推导流程间关系 |
 | 19 | **ExternalEntity 极简** | 仅 id + name + actions[] + decisions[] |

@@ -33,6 +33,35 @@ import type {
 
 export type ViewMode = 'graph' | 'list';
 
+export type RelationKind =
+  | 'association'
+  | 'dependency'
+  | 'aggregation'
+  | 'composition'
+  | 'generalization';
+
+/**
+ * 关系绘制模式状态机（§3.1A.6）
+ * - idle: 未激活
+ * - awaiting-source: 已选关系 kind，等待选择源实体
+ * - awaiting-target: 已锁定源实体，等待选择目标实体
+ */
+export type DrawRelationState =
+  | { phase: 'idle' }
+  | { phase: 'awaiting-source'; kind: RelationKind }
+  | { phase: 'awaiting-target'; kind: RelationKind; sourceEntityId: string };
+
+/**
+ * 绘制模式完成后弹出 RelationDialog 时使用的预填参数
+ */
+export interface DrawRelationPreset {
+  sourceEntityId: string;
+  targetEntityId: string;
+  kind: RelationKind;
+  /** 工具箱绘制模式下目标实体不允许修改 */
+  targetLocked: true;
+}
+
 export interface CanvasSettings {
   showRelationLabel: boolean;
 }
@@ -92,6 +121,14 @@ interface DomainModelContextValue {
   // ---- 领域框选中状态（与实体/关系选中互斥）----
   selectedDomainId: string | null;
   selectDomain: (id: string | null) => void;
+
+  // ---- 关系绘制模式（§3.1A.6）----
+  drawRelation: DrawRelationState;
+  drawRelationPreset: DrawRelationPreset | null;
+  startDrawRelation: (kind: RelationKind) => void;
+  pickDrawRelationEntity: (entityId: string) => void;
+  cancelDrawRelation: () => void;
+  clearDrawRelationPreset: () => void;
 
   // ---- 数据刷新 ----
   refetchEntities: () => void;
@@ -215,6 +252,10 @@ export function DomainModelProvider({ projectId, children }: DomainModelProvider
   const rfInstanceRef = useRef<ReactFlowInstance | null>(null);
   const lastCanvasClickRef = useRef<{ x: number; y: number } | null>(null);
 
+  // 关系绘制模式状态（§3.1A.6）
+  const [drawRelation, setDrawRelation] = useState<DrawRelationState>({ phase: 'idle' });
+  const [drawRelationPreset, setDrawRelationPreset] = useState<DrawRelationPreset | null>(null);
+
   // 画布配置（从 localStorage 初始化，按项目隔离）
   const [canvasSettings, setCanvasSettings] = useState<CanvasSettings>(() =>
     loadCanvasSettings(projectId)
@@ -286,6 +327,46 @@ export function DomainModelProvider({ projectId, children }: DomainModelProvider
       setSelectedRelationId(null);
     }
   }, []);
+
+  // ---- 关系绘制模式回调（§3.1A.6）----
+
+  const startDrawRelation = useCallback((kind: RelationKind) => {
+    setDrawRelation({ phase: 'awaiting-source', kind });
+  }, []);
+
+  const cancelDrawRelation = useCallback(() => {
+    setDrawRelation({ phase: 'idle' });
+  }, []);
+
+  const clearDrawRelationPreset = useCallback(() => {
+    setDrawRelationPreset(null);
+  }, []);
+
+  const pickDrawRelationEntity = useCallback((entityId: string) => {
+    setDrawRelation((prev) => {
+      if (prev.phase === 'awaiting-source') {
+        return { phase: 'awaiting-target', kind: prev.kind, sourceEntityId: entityId };
+      }
+      if (prev.phase === 'awaiting-target') {
+        // 触发预填弹窗（同时清零 phase）
+        setDrawRelationPreset({
+          sourceEntityId: prev.sourceEntityId,
+          targetEntityId: entityId,
+          kind: prev.kind,
+          targetLocked: true,
+        });
+        return { phase: 'idle' };
+      }
+      return prev;
+    });
+  }, []);
+
+  // viewMode 切换到 list 时自动退出绘制模式
+  useEffect(() => {
+    if (viewMode === 'list' && drawRelation.phase !== 'idle') {
+      setDrawRelation({ phase: 'idle' });
+    }
+  }, [viewMode, drawRelation.phase]);
 
   // 从 erGraph + entities 构造 selectedRelation（避免额外 API 请求）
   const selectedRelation = useMemo<Relation | null>(() => {
@@ -528,6 +609,12 @@ export function DomainModelProvider({ projectId, children }: DomainModelProvider
     selectRelation,
     selectedDomainId,
     selectDomain,
+    drawRelation,
+    drawRelationPreset,
+    startDrawRelation,
+    pickDrawRelationEntity,
+    cancelDrawRelation,
+    clearDrawRelationPreset,
     refetchEntities,
     refetchGraph,
     rfInstanceRef,
