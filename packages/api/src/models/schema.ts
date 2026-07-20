@@ -484,8 +484,9 @@ export const businessArchitectures = pgTable('business_architectures', {
   name: text('name').notNull(),
   displayName: text('display_name').notNull(),
   description: text('description'),
-  // R5 Why: level 限制为 L1-L4 四个层次，枚举值由 TypeBox Schema + Service 层校验。
-  level: text('level').notNull(), // L1 | L2 | L3 | L4
+  // R5 Why: level 字段改为可选（2026-06-12 决策）。M4 PRD 明确不限制层级深度，
+  //         PM 可使用任意描述性文本（如 'domain'/'module'），或不填写。
+  level: text('level'),  // 可选描述性标注，不限制格式
   sortOrder: integer('sort_order').notNull().default(0),
   config: jsonb('config').default('{}'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

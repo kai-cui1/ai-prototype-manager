@@ -11,7 +11,7 @@
  */
 
 import { db } from '../../src/db.js';
-import { companies, projects, departments, roles, externalEntities, domainEntities, domainBoundaries, entityFields, entityRelations, applications } from '../../src/models/schema.js';
+import { companies, projects, departments, roles, externalEntities, domainEntities, domainBoundaries, entityFields, entityRelations, applications, businessProcesses, businessArchitectures, bizArchProcessMap } from '../../src/models/schema.js';
 import { eq, ilike, and } from 'drizzle-orm';
 
 /** 测试数据名称前缀，用于隔离和清理 */
@@ -413,10 +413,98 @@ export async function createTestApplication(
   return row!;
 }
 
+// ============================================================
+// M4 Business Architecture factories
+// ============================================================
+
+/** 创建测试流程的默认参数 */
+export interface CreateProcessParams {
+  name?: string;
+  displayName?: string;
+  description?: string;
+  status?: 'draft' | 'active' | 'deprecated';
+  parentProcessId?: string | null;
+}
+
+/**
+ * 创建一个测试业务流程（name 自动加 TEST_PREFIX 前缀）。
+ */
+export async function createTestProcess(
+  projectId: string,
+  overrides: CreateProcessParams = {},
+): Promise<typeof businessProcesses.$inferSelect> {
+  const name = `${TEST_PREFIX}${overrides.name ?? `proc-${Date.now()}`}`;
+  const [row] = await db
+    .insert(businessProcesses)
+    .values({
+      projectId,
+      name,
+      displayName: overrides.displayName ?? `测试流程${name}`,
+      description: overrides.description ?? null,
+      status: overrides.status ?? 'active',
+      parentProcessId: overrides.parentProcessId ?? null,
+    })
+    .returning();
+  return row!;
+}
+
+/** 创建测试架构节点的默认参数 */
+export interface CreateArchNodeParams {
+  name?: string;
+  displayName?: string;
+  description?: string;
+  parentId?: string | null;
+  level?: string | null;
+  sortOrder?: number;
+}
+
+/**
+ * 创建一个测试业务架构节点（name 自动加 TEST_PREFIX 前缀）。
+ */
+export async function createTestArchNode(
+  projectId: string,
+  overrides: CreateArchNodeParams = {},
+): Promise<typeof businessArchitectures.$inferSelect> {
+  const name = `${TEST_PREFIX}${overrides.name ?? `arch-${Date.now()}`}`;
+  const [row] = await db
+    .insert(businessArchitectures)
+    .values({
+      projectId,
+      name,
+      displayName: overrides.displayName ?? `测试架构节点${name}`,
+      description: overrides.description ?? null,
+      parentId: overrides.parentId ?? null,
+      level: overrides.level ?? null,
+      sortOrder: overrides.sortOrder ?? 0,
+    })
+    .returning();
+  return row!;
+}
+
+/**
+ * 创建架构节点与流程的映射关系。
+ */
+export async function createTestArchProcessMapping(
+  architectureId: string,
+  processId: string,
+  sortOrder: number = 0,
+): Promise<typeof bizArchProcessMap.$inferSelect> {
+  const [row] = await db
+    .insert(bizArchProcessMap)
+    .values({
+      architectureId,
+      processId,
+      sortOrder,
+    })
+    .returning();
+  return row!;
+}
+
 /**
  * 清理所有以 TEST_PREFIX 开头的测试数据。
  * 删除 projects 时 CASCADE FK 自动清理 domain_entities / entity_fields / entity_relations /
- * domain_boundaries / companies / departments / roles / external_entities 等子表。
+ * domain_boundaries / companies / departments / roles / external_entities /
+ * business_processes / business_architectures / biz_arch_process_map 等子表。
  */
 export async function cleanupTestData(): Promise<void> {
   // 删除所有 name 以 TEST_PREFIX 开头的项目

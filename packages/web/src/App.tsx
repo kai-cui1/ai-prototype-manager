@@ -24,6 +24,7 @@ import ApplicationDetailPage from './pages/ApplicationDetailPage.js';
 import DomainModelPage from './pages/DomainModelPage.js';
 import ProcessListPage from './pages/ProcessListPage.js';
 import ProcessEditorPage from './pages/ProcessEditorPage.js';
+import BusinessArchitecturePage from './pages/BusinessArchitecturePage.js';
 
 export default function App() {
   return (
@@ -120,6 +121,14 @@ export default function App() {
             element={
               <ProjectRouteGuard>
                 <ProcessEditorPage />
+              </ProjectRouteGuard>
+            }
+          />
+          <Route
+            path="/p/:projectId/business-architecture"
+            element={
+              <ProjectRouteGuard>
+                <BusinessArchitecturePage />
               </ProjectRouteGuard>
             }
           />

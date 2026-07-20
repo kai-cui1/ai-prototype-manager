@@ -57,6 +57,13 @@
       "when": 1781090000000,
       "tag": "0007_add_edge_handles",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1749700000000,
+      "tag": "0008_m4_arch_level_optional",
+      "breakpoints": true
     }
   ]
 }
