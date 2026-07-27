@@ -11,8 +11,9 @@
  */
 
 import { db } from '../../src/db.js';
-import { companies, projects, departments, roles, externalEntities, domainEntities, domainBoundaries, entityFields, entityRelations, applications, businessProcesses, businessArchitectures, bizArchProcessMap } from '../../src/models/schema.js';
-import { eq, ilike, and } from 'drizzle-orm';
+import { companies, projects, departments, roles, externalEntities, domainEntities, domainBoundaries, entityFields, entityRelations, applications, businessProcesses, businessArchitectures, bizArchProcessMap, users, teams, teamMembers, accessTokens, projectShares, auditLogs } from '../../src/models/schema.js';
+import { eq, ilike, and, or } from 'drizzle-orm';
+import bcrypt from 'bcryptjs';
 
 /** 测试数据名称前缀，用于隔离和清理 */
 export const TEST_PREFIX = 'e2e-';
@@ -512,4 +513,124 @@ export async function cleanupTestData(): Promise<void> {
   await db
     .delete(projects)
     .where(ilike(projects.name, `${TEST_PREFIX}%`));
+}
+
+// ============================================================
+// M6 Team/User/Permission factories
+// ============================================================
+
+/** M6 测试用户默认密码 */
+export const M6_TEST_PASSWORD = 'E2ePass!2345678';
+
+/** 创建测试用户的参数 */
+interface CreateTestUserParams {
+  email?: string;
+  displayName?: string;
+  password?: string;
+  platformRole?: 'super_admin' | 'user';
+  status?: 'active' | 'disabled';
+  mustChangePassword?: boolean;
+}
+
+/**
+ * 创建一个测试用户（email 自动加 TEST_PREFIX 前缀）。
+ */
+export async function createTestUser(
+  overrides: CreateTestUserParams = {},
+): Promise<typeof users.$inferSelect> {
+  const email = overrides.email?.startsWith(TEST_PREFIX)
+    ? overrides.email
+    : `${TEST_PREFIX}${overrides.email ?? `user-${Date.now()}@test.com`}`;
+  const passwordHash = await bcrypt.hash(overrides.password ?? M6_TEST_PASSWORD, 10);
+  const [row] = await db
+    .insert(users)
+    .values({
+      email,
+      displayName: overrides.displayName ?? `测试用户${email}`,
+      passwordHash,
+      platformRole: overrides.platformRole ?? 'user',
+      status: overrides.status ?? 'active',
+      mustChangePassword: overrides.mustChangePassword ?? false,
+    })
+    .returning();
+  return row!;
+}
+
+/** 创建测试团队的参数 */
+interface CreateTestTeamParams {
+  name?: string;
+  displayName?: string;
+  description?: string;
+}
+
+/**
+ * 创建一个测试团队（name 自动加 TEST_PREFIX 前缀）。
+ */
+export async function createTestTeam(
+  overrides: CreateTestTeamParams = {},
+): Promise<typeof teams.$inferSelect> {
+  const name = `${TEST_PREFIX}${overrides.name ?? `team-${Date.now()}`}`;
+  const [row] = await db
+    .insert(teams)
+    .values({
+      name,
+      displayName: overrides.displayName ?? `测试团队${name}`,
+      description: overrides.description ?? null,
+      status: 'active',
+    })
+    .returning();
+  return row!;
+}
+
+/**
+ * 创建团队成员关系。
+ */
+export async function createTestTeamMember(
+  userId: string,
+  teamId: string,
+  teamRole: 'owner' | 'admin' | 'member' = 'member',
+): Promise<typeof teamMembers.$inferSelect> {
+  const [row] = await db
+    .insert(teamMembers)
+    .values({ userId, teamId, teamRole })
+    .returning();
+  return row!;
+}
+
+/**
+ * 清理 M6 测试数据：删除 e2e- 前缀的用户、团队及其关联数据。
+ * 注意删除顺序：先删子表（FK 引用），再删主表。
+ */
+export async function cleanupM6TestData(): Promise<void> {
+  // 1. 删除 e2e- 前缀用户的 access_tokens
+  const e2eUsers = await db.select({ id: users.id }).from(users)
+    .where(ilike(users.email, `${TEST_PREFIX}%`));
+  const e2eUserIds = e2eUsers.map((u) => u.id);
+
+  if (e2eUserIds.length > 0) {
+    // 删除审计日志（引用 user_id）
+    await db.delete(auditLogs).where(
+      or(
+        ...e2eUserIds.map((id) => eq(auditLogs.userId, id)),
+      ),
+    );
+    // 删除 access_tokens
+    await db.delete(accessTokens).where(
+      or(
+        ...e2eUserIds.map((id) => eq(accessTokens.userId, id)),
+      ),
+    );
+    // 删除 project_shares（shared_by 引用 user_id）
+    await db.delete(projectShares).where(
+      or(
+        ...e2eUserIds.map((id) => eq(projectShares.sharedBy, id)),
+      ),
+    );
+  }
+
+  // 2. 删除 e2e- 前缀团队（CASCADE 自动删 team_members）
+  await db.delete(teams).where(ilike(teams.name, `${TEST_PREFIX}%`));
+
+  // 3. 删除 e2e- 前缀用户
+  await db.delete(users).where(ilike(users.email, `${TEST_PREFIX}%`));
 }

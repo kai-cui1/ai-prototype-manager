@@ -6,7 +6,11 @@
  */
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { Type } from '@sinclair/typebox';
+import { eq } from 'drizzle-orm';
+import { PERMISSIONS } from '@apm/shared';
 import { db } from '../db.js';
+import { companies } from '../models/schema.js';
+import { applyDefaultEntityPermissions } from '../plugins/route-permissions.js';
 import * as orgService from '../services/organization.service.js';
 import {
   // 请求 Schema（输入）
@@ -44,6 +48,9 @@ const UuidParam = Type.Object({ id: IdSchema });
 const CompanyIdParam = Type.Object({ companyId: IdSchema });
 
 export default async function organizationRoutes(app: FastifyInstance) {
+  // M6-Hardening：GET → entity.read / 写 → entity.write，scope 从 :projectId 提取
+  applyDefaultEntityPermissions(app);
+
   // ================================================================
   // F-M1-06: Company Routes (前缀: /companies)
   // ================================================================
@@ -387,7 +394,16 @@ async function deleteExternalEntityHandler(request: FastifyRequest, _reply: Fast
 // do not require :projectId in the path — the company ID is sufficient.
 
 export async function companyResourceRoutes(app: FastifyInstance) {
+  // M6-Hardening：单资源路由无 :projectId 路径参数，异步查库解析公司所属项目作为权限作用域
+  const companyScope = async (req: FastifyRequest) => {
+    const { id } = req.params as { id: string };
+    const [row] = await db.select({ projectId: companies.projectId })
+      .from(companies).where(eq(companies.id, id)).limit(1);
+    return { projectId: row?.projectId };
+  };
+
   app.get('/companies/:id', {
+    config: { requires: [PERMISSIONS.ENTITY_READ], resourceScope: companyScope },
     schema: {
       params: UuidParam,
       response: { 200: CompanyDetailResponse, 400: ErrorResponse, 404: ErrorResponse, 500: ErrorResponse },
@@ -397,6 +413,7 @@ export async function companyResourceRoutes(app: FastifyInstance) {
   }, getCompanyHandler);
 
   app.put('/companies/:id', {
+    config: { requires: [PERMISSIONS.ENTITY_WRITE], resourceScope: companyScope },
     schema: {
       params: UuidParam,
       body: UpdateCompanyInput,
@@ -408,6 +425,7 @@ export async function companyResourceRoutes(app: FastifyInstance) {
   }, updateCompanyHandler);
 
   app.delete('/companies/:id', {
+    config: { requires: [PERMISSIONS.ENTITY_WRITE], resourceScope: companyScope },
     schema: {
       params: UuidParam,
       response: { 200: DeleteResponse, 400: ErrorResponse, 404: ErrorResponse, 409: ErrorResponse, 500: ErrorResponse },

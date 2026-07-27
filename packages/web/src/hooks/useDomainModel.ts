@@ -100,6 +100,9 @@ export interface ERNode {
       displayName: string;
       fieldType: FieldType;
       isRequired: boolean;
+      description?: string | null;
+      /** enum 字段从 constraints.options 提取的选项列表，仅在 fieldType==='enum' 时存在 */
+      enumOptions?: Array<{ value: string; label: string }> | null;
     }>;
   };
 }

@@ -19,6 +19,12 @@ await app.register(cors, {
   allowedHeaders: ['Content-Type', 'Authorization'],
 });
 
+// M6: 认证 + 权限插件（全局生效）
+import authPlugin from './plugins/auth.plugin.js';
+import permissionPlugin from './plugins/permission.plugin.js';
+await app.register(authPlugin);
+await app.register(permissionPlugin);
+
 // ============================================
 // OpenAPI 文档（Swagger Spec + Scalar UI）
 // ============================================
@@ -124,7 +130,10 @@ app.addHook('onResponse', async (request, reply) => {
 // 健康检查路由
 // ============================================
 
-app.get('/api/v1/health', async () => {
+app.get('/api/v1/health', {
+  // 健康检查为公开端点（运维探活，无需认证）
+  config: { requires: [], public: true },
+}, async () => {
   try {
     await db.execute('SELECT 1');
     return {
@@ -173,7 +182,21 @@ await app.register(snapshotRoutes, { prefix: '/api/v1/projects/:projectId' });
 // M1 补充: 应用行为管理（F-M1-14 Actions/Decisions CRUD）
 import appBehaviorRoutes from './routes/application-behavior.js';
 await app.register(appBehaviorRoutes, { prefix: '/api/v1/projects/:projectId/applications/:appId' });
-// TODO(M6): app.register(menuRoutes, { prefix: '/api/v1/menus' })
+// M6: 认证路由（登录/登出/改密/刷新/当前用户）
+import authRoutes from './routes/auth.js';
+await app.register(authRoutes, { prefix: '/api/v1/auth' });
+// M6: 团队管理路由
+import teamRoutes from './routes/teams.js';
+await app.register(teamRoutes, { prefix: '/api/v1/teams' });
+// M6: Token 管理路由
+import tokenRoutes from './routes/tokens.js';
+await app.register(tokenRoutes, { prefix: '/api/v1/tokens' });
+// M6: 平台管理路由（用户/权限/审计）
+import adminRoutes from './routes/admin.js';
+await app.register(adminRoutes, { prefix: '/api/v1/admin' });
+// M6: 项目共享路由
+import shareRoutes from './routes/shares.js';
+await app.register(shareRoutes, { prefix: '/api/v1/projects/:id/shares' });
 
 // ============================================
 // 启动服务器

@@ -130,6 +130,21 @@ export const ERNodeFieldSchema = Type.Object({
   displayName: Type.String(),
   fieldType: Type.String(),
   isRequired: Type.Boolean(),
+  // R5 Why: 字段描述在画布节点行与 Inspector 字段行以 Info Tooltip 呈现，摘要中携带避免额外请求。
+  description: Type.Optional(Type.Union([Type.String(), Type.Null()])),
+  // R5 Why: enum 字段的枚举选项从 constraints.options 提取到摘要，避免 Canvas 渲染 chip 时二次拉取详情。
+  // 仅在 fieldType === 'enum' 时返回；其他类型字段该字段应为 undefined 或 null。
+  enumOptions: Type.Optional(
+    Type.Union([
+      Type.Array(
+        Type.Object({
+          value: Type.String(),
+          label: Type.String(),
+        }),
+      ),
+      Type.Null(),
+    ]),
+  ),
 });
 
 /** ERNode shape */

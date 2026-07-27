@@ -73,16 +73,17 @@ Fields define the data structure of an entity (e.g. "orderId" of type "string",
 
 Supported field types: string, number, boolean, datetime, text, enum, email, url, phone`,
     {
+      projectId: z.string().describe('Project ID (UUID) that owns the entity'),
       entityId: z.string().describe('Entity ID (UUID) to add the field to'),
       name: z.string().describe('Field identifier (alphanumeric + underscore + hyphen, 2-50 chars)'),
       displayName: z.string().describe('Human-readable field name'),
       fieldType: z.string().describe('Field type: string, number, boolean, datetime, text, enum, email, url, phone'),
       isRequired: z.boolean().optional().describe('Whether this field is required (default: false)'),
     },
-    async ({ entityId, name, displayName, fieldType, isRequired }) => {
+    async ({ projectId, entityId, name, displayName, fieldType, isRequired }) => {
       const body: Record<string, unknown> = { name, displayName, fieldType, isRequired: isRequired ?? false };
 
-      const result = await callApi(`/api/v1/domain/entities/${entityId}/fields`, { method: 'POST', body });
+      const result = await callApi(`/api/v1/projects/${projectId}/domain/entities/${entityId}/fields`, { method: 'POST', body });
       return {
         content: [{
           type: 'text' as const,
@@ -243,6 +244,140 @@ Returns 204 No Content on success. Returns 404 if the relation does not exist.`,
     async ({ projectId, relationId }) => {
       const result = await callApi(`/api/v1/projects/${projectId}/domain/relations/${relationId}`, { method: 'DELETE' });
       // 204 No Content — callApi may return empty {} on success
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify(result ?? { success: true }, null, 2),
+        }],
+      };
+    },
+  );
+
+  // ============================================================
+  // Entity / Field update & delete — 实体与字段的修改删除
+  // ============================================================
+
+  server.tool(
+    'updateEntity',
+    `Update a domain entity's attributes.
+
+What can be changed:
+- displayName / description
+- category ("core" | "reference" | "event" | "value_object"; pass null to clear)
+
+What CANNOT be changed:
+- name (immutable identifier — delete and recreate if you truly need a new name,
+  but beware that relations and references will be lost)
+
+Use listEntities or getProjectSnapshot first to confirm the entityId and current state.`,
+    {
+      projectId: z.string().describe('Project ID (UUID)'),
+      entityId: z.string().describe('Entity UUID to update'),
+      displayName: z.string().optional().describe('New human-readable name'),
+      description: z.string().optional().describe('New description'),
+      category: z.string().nullable().optional().describe('New category: "core" | "reference" | "event" | "value_object"; pass null to clear'),
+    },
+    async ({ projectId, entityId, displayName, description, category }) => {
+      const body: Record<string, unknown> = {};
+      if (displayName !== undefined) body.displayName = displayName;
+      if (description !== undefined) body.description = description;
+      if (category !== undefined) body.category = category;
+
+      const result = await callApi(`/api/v1/projects/${projectId}/domain/entities/${entityId}`, { method: 'PUT', body });
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify(result, null, 2),
+        }],
+      };
+    },
+  );
+
+  server.tool(
+    'deleteEntity',
+    `Delete a domain entity from the project.
+
+⚠️ CASCADE WARNING (D-7 high-risk):
+- ALL fields of this entity are deleted
+- ALL relations touching this entity (as source OR target) are deleted
+- Process edge mappings referencing this entity's fields may become stale
+
+Before deleting, call listRelations(entityId=...) to see what relations will be lost,
+and confirm with the user if the entity has fields or relations.
+
+Returns 204 No Content on success. Returns 404 if the entity does not exist.`,
+    {
+      projectId: z.string().describe('Project ID (UUID)'),
+      entityId: z.string().describe('Entity UUID to delete'),
+    },
+    async ({ projectId, entityId }) => {
+      const result = await callApi(`/api/v1/projects/${projectId}/domain/entities/${entityId}`, { method: 'DELETE' });
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify(result ?? { success: true }, null, 2),
+        }],
+      };
+    },
+  );
+
+  server.tool(
+    'updateEntityField',
+    `Update a field on a domain entity.
+
+What can be changed:
+- displayName / description
+- fieldType (string, number, boolean, datetime, text, enum, email, url, phone)
+- isRequired
+- defaultValue (pass null to clear)
+
+What CANNOT be changed:
+- name (immutable identifier — delete and re-add the field if needed)
+
+Get fieldId from listEntities (fields are included in entity details).`,
+    {
+      projectId: z.string().describe('Project ID (UUID)'),
+      entityId: z.string().describe('Entity UUID that owns the field'),
+      fieldId: z.string().describe('Field UUID to update'),
+      displayName: z.string().optional().describe('New human-readable field name'),
+      description: z.string().optional().describe('New description'),
+      fieldType: z.string().optional().describe('New field type: string, number, boolean, datetime, text, enum, email, url, phone'),
+      isRequired: z.boolean().optional().describe('Whether this field is required'),
+      defaultValue: z.string().nullable().optional().describe('New default value; pass null to clear'),
+    },
+    async ({ projectId, entityId, fieldId, displayName, description, fieldType, isRequired, defaultValue }) => {
+      const body: Record<string, unknown> = {};
+      if (displayName !== undefined) body.displayName = displayName;
+      if (description !== undefined) body.description = description;
+      if (fieldType !== undefined) body.fieldType = fieldType;
+      if (isRequired !== undefined) body.isRequired = isRequired;
+      if (defaultValue !== undefined) body.defaultValue = defaultValue;
+
+      const result = await callApi(`/api/v1/projects/${projectId}/domain/entities/${entityId}/fields/${fieldId}`, { method: 'PUT', body });
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify(result, null, 2),
+        }],
+      };
+    },
+  );
+
+  server.tool(
+    'deleteEntityField',
+    `Delete a field from a domain entity.
+
+⚠️ WARNING: Process edge mappings or action inputs/outputs referencing this field
+by name may become stale — check usages before deleting.
+
+Returns 204 No Content on success. Returns 404 if the field does not exist.`,
+    {
+      projectId: z.string().describe('Project ID (UUID)'),
+      entityId: z.string().describe('Entity UUID that owns the field'),
+      fieldId: z.string().describe('Field UUID to delete'),
+    },
+    async ({ projectId, entityId, fieldId }) => {
+      const result = await callApi(`/api/v1/projects/${projectId}/domain/entities/${entityId}/fields/${fieldId}`, { method: 'DELETE' });
       return {
         content: [{
           type: 'text' as const,

@@ -13,7 +13,7 @@ const SearchIcon = () => <Search className="h-[14px] w-[14px]" strokeWidth={1.5}
  * Focus: border primary + shadow-focus-primary token
  * Error: border destructive + shadow-focus-error token
  */
-function Input({ className, type, ...props }: React.InputHTMLAttributes<HTMLElement>) {
+function Input({ className, type, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <InputPrimitive
       type={type}

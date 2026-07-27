@@ -19,6 +19,12 @@ export default defineConfig({
       interval: 300,
     },
     proxy: {
+      // Agent Server (M7 内置 Agent) — 优先匹配，路径以 /api/agent 开头转发到 13183
+      '/api/agent': {
+        target: `http://localhost:${Number(process.env.AGENT_PORT) || 13183}`,
+        changeOrigin: true,
+      },
+      // 主 API — 匹配其余 /api/* 请求转发到 13180
       '/api': {
         target: `http://localhost:${Number(process.env.API_PORT) || 13180}`,
         changeOrigin: true,

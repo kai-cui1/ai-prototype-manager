@@ -38,8 +38,12 @@ import {
   IdSchema,
 } from '@apm/validation-schemas';
 import { Type } from '@sinclair/typebox';
+import { applyDefaultEntityPermissions } from '../plugins/route-permissions.js';
 
 export default async function architectureRoutes(app: FastifyInstance) {
+  // M6-Hardening：GET → entity.read / 写 → entity.write，scope 从 :projectId 提取
+  applyDefaultEntityPermissions(app);
+
   // ================================================================
   // F-M4-01: 查询架构树（扁平列表，前端组装树形）
   // ================================================================

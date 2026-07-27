@@ -6,6 +6,7 @@
  */
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { Type } from '@sinclair/typebox';
+import { PERMISSIONS } from '@apm/shared';
 import { db } from '../db.js';
 import * as projectService from '../services/project.service.js';
 import {
@@ -28,8 +29,13 @@ import {
  * 注册项目管理路由（F-M1-01 ~ F-M1-05）。
  */
 export default async function projectRoutes(app: FastifyInstance) {
+  // 项目资源作用域：从路径参数 :id 提取 projectId
+  const projectScope = (req: FastifyRequest) => ({ projectId: (req.params as { id: string }).id });
+
   // F-M1-01: 项目列表 (GET /api/v1/projects)
   app.get('/', {
+    // 列表无单一资源作用域，仅要求登录（可见性过滤为后续迭代）
+    config: { requires: [] },
     schema: {
       querystring: ProjectListQuery,
       response: {
@@ -45,6 +51,8 @@ export default async function projectRoutes(app: FastifyInstance) {
 
   // F-M1-02: 创建项目 (POST /api/v1/projects)
   app.post('/', {
+    // 创建请求体无 teamId（个人项目），任何登录用户可创建；团队级 project.create 待项目归属团队功能接入后启用
+    config: { requires: [] },
     schema: {
       body: CreateProjectInput,
       response: {
@@ -61,6 +69,7 @@ export default async function projectRoutes(app: FastifyInstance) {
 
   // F-M1-03: 项目详情 (GET /api/v1/projects/:id)
   app.get('/:id', {
+    config: { requires: [PERMISSIONS.PROJECT_READ], resourceScope: projectScope },
     schema: {
       params: ProjectIdParam,
       response: {
@@ -77,6 +86,7 @@ export default async function projectRoutes(app: FastifyInstance) {
 
   // F-M1-03: 项目摘要统计 (GET /api/v1/projects/:id/summary)
   app.get('/:id/summary', {
+    config: { requires: [PERMISSIONS.PROJECT_READ], resourceScope: projectScope },
     schema: {
       params: ProjectIdParam,
       response: {
@@ -93,6 +103,7 @@ export default async function projectRoutes(app: FastifyInstance) {
 
   // F-M1-04: 编辑项目 (PUT /api/v1/projects/:id?version=N)
   app.put('/:id', {
+    config: { requires: [PERMISSIONS.PROJECT_WRITE], resourceScope: projectScope },
     schema: {
       params: ProjectIdParam,
       body: UpdateProjectInput,
@@ -114,6 +125,7 @@ export default async function projectRoutes(app: FastifyInstance) {
 
   // F-M1-05: 归档/恢复 (PATCH /api/v1/projects/:id/status)
   app.patch('/:id/status', {
+    config: { requires: [PERMISSIONS.PROJECT_DELETE], resourceScope: projectScope },
     schema: {
       params: ProjectIdParam,
       body: ArchiveProjectInput,

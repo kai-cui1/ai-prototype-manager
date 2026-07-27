@@ -17,6 +17,7 @@ import {
   SnapshotLevel1Response,
   ErrorResponse,
 } from '@apm/validation-schemas';
+import { applyDefaultEntityPermissions } from '../plugins/route-permissions.js';
 
 /**
  * GET /api/v1/projects/:projectId/snapshot
@@ -42,6 +43,9 @@ async function getSnapshotHandler(
  * 注册项目快照路由。
  */
 export default async function snapshotRoutes(app: FastifyInstance) {
+  // M6-Hardening：GET → entity.read，scope 从 :projectId 提取
+  applyDefaultEntityPermissions(app);
+
   app.get('/snapshot', {
     schema: {
       querystring: SnapshotQuery,

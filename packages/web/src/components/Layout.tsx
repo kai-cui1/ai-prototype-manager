@@ -12,6 +12,7 @@ import { useState, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import type { MenuItem } from '@apm/shared';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { useAuth } from '@/contexts/AuthContext';
 import Sidebar from './layout/Sidebar';
 import HeaderBar from './layout/HeaderBar';
 import { Toaster } from '@/components/ui/sonner';
@@ -21,8 +22,8 @@ import { Toaster } from '@/components/ui/sonner';
 // ============================================================
 
 /** 全局层菜单（未激活项目时） */
-function getGlobalMenus(): MenuItem[] {
-  return [
+function getGlobalMenus(isSuperAdmin: boolean): MenuItem[] {
+  const menus: MenuItem[] = [
     {
       id: 'global-dashboard',
       parentId: null,
@@ -39,14 +40,74 @@ function getGlobalMenus(): MenuItem[] {
       updatedAt: new Date().toISOString(),
     },
     {
-      id: 'global-settings',
+      id: 'global-separator-1',
       parentId: null,
-      name: 'system-settings',
-      displayName: '系统设置',
+      name: 'separator',
+      displayName: '',
+      icon: null,
+      path: null,
+      menuType: 'separator',
+      sortOrder: 2,
+      visible: true,
+      roles: [],
+      permissions: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'global-agent',
+      parentId: null,
+      name: 'agent',
+      displayName: 'AI 助手',
+      icon: 'Bot',
+      path: '/agent',
+      menuType: 'menu',
+      sortOrder: 2.5,
+      visible: true,
+      roles: [],
+      permissions: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'global-teams',
+      parentId: null,
+      name: 'my-teams',
+      displayName: '我的团队',
+      icon: 'Users',
+      path: '/teams',
+      menuType: 'menu',
+      sortOrder: 3,
+      visible: true,
+      roles: [],
+      permissions: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'global-separator-2',
+      parentId: null,
+      name: 'separator',
+      displayName: '',
+      icon: null,
+      path: null,
+      menuType: 'separator',
+      sortOrder: 4,
+      visible: true,
+      roles: [],
+      permissions: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: 'global-personal-settings',
+      parentId: null,
+      name: 'personal-settings',
+      displayName: '个人设置',
       icon: 'Settings',
       path: null,
       menuType: 'directory',
-      sortOrder: 10,
+      sortOrder: 5,
       visible: true,
       roles: [],
       permissions: [],
@@ -54,14 +115,44 @@ function getGlobalMenus(): MenuItem[] {
       updatedAt: new Date().toISOString(),
       children: [
         {
-          id: 'global-menu-management',
-          parentId: 'global-settings',
-          name: 'menu-management',
-          displayName: '菜单管理',
-          icon: 'ListTree',
-          path: '/settings/menus',
+          id: 'global-password',
+          parentId: 'global-personal-settings',
+          name: 'change-password',
+          displayName: '修改密码',
+          icon: null,
+          path: '/settings/password',
           menuType: 'menu',
           sortOrder: 1,
+          visible: true,
+          roles: [],
+          permissions: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 'global-tokens',
+          parentId: 'global-personal-settings',
+          name: 'access-tokens',
+          displayName: 'Access Token',
+          icon: null,
+          path: '/settings/tokens',
+          menuType: 'menu',
+          sortOrder: 2,
+          visible: true,
+          roles: [],
+          permissions: [],
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          id: 'global-memory',
+          parentId: 'global-personal-settings',
+          name: 'ai-memory',
+          displayName: 'AI 记忆管理',
+          icon: 'Brain',
+          path: '/settings/memory',
+          menuType: 'menu',
+          sortOrder: 3,
           visible: true,
           roles: [],
           permissions: [],
@@ -71,6 +162,91 @@ function getGlobalMenus(): MenuItem[] {
       ],
     },
   ];
+
+  // 平台管理（仅 SuperAdmin）
+  if (isSuperAdmin) {
+    menus.push(
+      {
+        id: 'global-separator-3',
+        parentId: null,
+        name: 'separator',
+        displayName: '',
+        icon: null,
+        path: null,
+        menuType: 'separator',
+        sortOrder: 6,
+        visible: true,
+        roles: [],
+        permissions: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      },
+      {
+        id: 'global-admin',
+        parentId: null,
+        name: 'platform-admin',
+        displayName: '平台管理',
+        icon: 'Settings',
+        path: null,
+        menuType: 'directory',
+        sortOrder: 7,
+        visible: true,
+        roles: [],
+        permissions: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        children: [
+          {
+            id: 'admin-users',
+            parentId: 'global-admin',
+            name: 'user-management',
+            displayName: '用户管理',
+            icon: null,
+            path: '/admin/users',
+            menuType: 'menu',
+            sortOrder: 1,
+            visible: true,
+            roles: [],
+            permissions: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          {
+            id: 'admin-permissions',
+            parentId: 'global-admin',
+            name: 'role-permissions',
+            displayName: '角色权限',
+            icon: null,
+            path: '/admin/permissions',
+            menuType: 'menu',
+            sortOrder: 2,
+            visible: true,
+            roles: [],
+            permissions: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+          {
+            id: 'admin-audit',
+            parentId: 'global-admin',
+            name: 'audit-logs',
+            displayName: '审计日志',
+            icon: null,
+            path: '/admin/audit-logs',
+            menuType: 'menu',
+            sortOrder: 3,
+            visible: true,
+            roles: [],
+            permissions: [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        ],
+      },
+    );
+  }
+
+  return menus;
 }
 
 /** 项目层菜单（激活项目后）— 动态生成 projectId */
@@ -197,6 +373,21 @@ function getProjectMenus(projectId: string): MenuItem[] {
       updatedAt: new Date().toISOString(),
     },
     {
+      id: 'proj-shares',
+      parentId: null,
+      name: 'project-shares',
+      displayName: '项目共享',
+      icon: 'Users',
+      path: `/p/${projectId}/shares`,
+      menuType: 'menu',
+      sortOrder: 8.5,
+      visible: true,
+      roles: [],
+      permissions: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
       id: 'proj-separator',
       parentId: null,
       name: 'separator',
@@ -299,6 +490,19 @@ function useBreadcrumbs(activeProjectId: string | null) {
       { label: '菜单管理', isCurrent: true },
     ];
   }
+  if (pathname === '/agent') {
+    return [
+      { label: 'Dashboard', isCurrent: false },
+      { label: 'AI 助手', isCurrent: true },
+    ];
+  }
+  if (pathname === '/settings/memory') {
+    return [
+      { label: 'Dashboard', isCurrent: false },
+      { label: '个人设置', isCurrent: false },
+      { label: 'AI 记忆管理', isCurrent: true },
+    ];
+  }
 
   // Dashboard
   if (pathname === '/') {
@@ -319,14 +523,16 @@ interface LayoutProps {
 export default function Layout({ children }: LayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { activeProjectId, activeProject, clearActiveProject } = useProjectContext();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.platformRole === 'super_admin';
 
   // 动态菜单
   const menus = useMemo(() => {
     if (activeProjectId) {
       return getProjectMenus(activeProjectId);
     }
-    return getGlobalMenus();
-  }, [activeProjectId]);
+    return getGlobalMenus(isSuperAdmin);
+  }, [activeProjectId, isSuperAdmin]);
 
   const breadcrumbs = useBreadcrumbs(activeProjectId);
 

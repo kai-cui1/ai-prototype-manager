@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: mcp_server
+title: APM MCP Server（Model Context Protocol 工具网关）
+scope:
+    - packages/mcp/
+source_files: []
+depends_on: []
+related_to: []

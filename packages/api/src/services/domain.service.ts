@@ -63,6 +63,29 @@ function parseBoundaryPosition(config: unknown): BoundaryCanvasPosition | null {
   return { x: pos.x, y: pos.y, width: pos.width, height: pos.height };
 }
 
+/**
+ * 从 enum 字段的 constraints JSONB 中提取 options 数组。
+ *
+ * R5 Why: constraints.options 结构为 [{value, label}]，在 ER Graph 摘要中抛出供前端
+ * Canvas / Inspector 字段行 chip 列表直接渲染，避免二次拉取完整字段详情。
+ * 非 enum 类型不应调用。任何异常结构都返回空数组，不抛出。
+ */
+function extractEnumOptions(constraints: unknown): Array<{ value: string; label: string }> {
+  if (!constraints || typeof constraints !== 'object') return [];
+  const options = (constraints as Record<string, unknown>).options;
+  if (!Array.isArray(options)) return [];
+  const result: Array<{ value: string; label: string }> = [];
+  for (const opt of options) {
+    if (!opt || typeof opt !== 'object') continue;
+    const o = opt as Record<string, unknown>;
+    const value = typeof o.value === 'string' ? o.value : '';
+    const label = typeof o.label === 'string' ? o.label : '';
+    if (!value && !label) continue;
+    result.push({ value, label });
+  }
+  return result;
+}
+
 // ============================================================
 // Relation Uniqueness Helpers
 // ============================================================
@@ -976,8 +999,10 @@ export async function getFullERGraph(db: Db, projectId: string) {
       entityId: entityFields.entityId,
       name: entityFields.name,
       displayName: entityFields.displayName,
+      description: entityFields.description,
       fieldType: entityFields.fieldType,
       isRequired: entityFields.isRequired,
+      constraints: entityFields.constraints,
     })
     .from(entityFields)
     .where(
@@ -1014,6 +1039,12 @@ export async function getFullERGraph(db: Db, projectId: string) {
         displayName: f.displayName,
         fieldType: f.fieldType,
         isRequired: f.isRequired,
+        description: f.description ?? null,
+        // R5 Why: enum 字段的选项从 constraints.options 提取到摘要，仅在枚举类型时包含。
+        enumOptions:
+          f.fieldType === 'enum'
+            ? extractEnumOptions(f.constraints)
+            : undefined,
       })),
       // R5 Why: v1.2 新增 domainId，实体归属领域。前端通过此字段判断实体属于哪个领域框。
       domainId: entity.domainId ?? undefined,
@@ -1106,8 +1137,10 @@ export async function getEntityERGraph(db: Db, projectId: string, entityId: stri
       entityId: entityFields.entityId,
       name: entityFields.name,
       displayName: entityFields.displayName,
+      description: entityFields.description,
       fieldType: entityFields.fieldType,
       isRequired: entityFields.isRequired,
+      constraints: entityFields.constraints,
     })
     .from(entityFields)
     .where(inArray(entityFields.entityId, allEntityIds))
@@ -1135,6 +1168,11 @@ export async function getEntityERGraph(db: Db, projectId: string, entityId: stri
         displayName: f.displayName,
         fieldType: f.fieldType,
         isRequired: f.isRequired,
+        description: f.description ?? null,
+        enumOptions:
+          f.fieldType === 'enum'
+            ? extractEnumOptions(f.constraints)
+            : undefined,
       })),
       domainId: entity.domainId ?? undefined,
     },

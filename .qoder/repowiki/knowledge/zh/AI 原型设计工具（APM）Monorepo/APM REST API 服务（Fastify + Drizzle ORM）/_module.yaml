@@ -1,0 +1,8 @@
+schema_version: 1
+module_path: api_service
+title: APM REST API 服务（Fastify + Drizzle ORM）
+scope:
+    - packages/api/
+source_files: []
+depends_on: []
+related_to: []

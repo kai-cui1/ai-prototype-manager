@@ -24,11 +24,15 @@ import {
   // 错误 Schema
   ErrorResponse,
 } from '@apm/validation-schemas';
+import { applyDefaultEntityPermissions } from '../plugins/route-permissions.js';
 
 /** 复用的 UUID path param schema */
 const UuidParam = Type.Object({ id: IdSchema });
 
 export default async function applicationRoutes(app: FastifyInstance) {
+  // M6-Hardening：GET → entity.read / 写 → entity.write，scope 从 :projectId 提取
+  applyDefaultEntityPermissions(app);
+
   // ================================================================
   // F-M1-11: Application Routes (前缀: /applications)
   // ================================================================

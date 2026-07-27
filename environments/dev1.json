@@ -28,5 +28,11 @@
     "url": "http://localhost:13182",
     "protocol": "http",
     "description": "MCP Server (Design AI sidecar)"
+  },
+  "agent": {
+    "port": 13183,
+    "url": "http://localhost:13183",
+    "protocol": "http",
+    "description": "Agent Server (M7 内置 Agent)"
   }
 }

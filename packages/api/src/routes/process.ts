@@ -13,6 +13,7 @@ import * as nodeService from '../services/process-node.service.js';
 import * as edgeService from '../services/process-edge.service.js';
 import * as layoutService from '../services/process-layout.service.js';
 import * as validateService from '../services/process-validate.service.js';
+import { applyDefaultEntityPermissions } from '../plugins/route-permissions.js';
 import {
   // Process schemas
   CreateProcessInput,
@@ -59,6 +60,9 @@ const ResourceParam = Type.Object({
 });
 
 export default async function processRoutes(app: FastifyInstance) {
+  // M6-Hardening：GET → entity.read / 写 → entity.write，scope 从 :projectId 提取
+  applyDefaultEntityPermissions(app);
+
   // ================================================================
   // Process CRUD (前缀: /processes)
   // ================================================================

@@ -23,6 +23,7 @@ import {
   DecisionCreateResponse,
   DecisionUpdateResponse,
 } from '@apm/validation-schemas';
+import { applyDefaultEntityPermissions } from '../plugins/route-permissions.js';
 
 /** 复用的 path param schema */
 const AppIdParam = Type.Object({ appId: IdSchema });
@@ -30,6 +31,9 @@ const ActionIdParam = Type.Object({ appId: IdSchema, actionId: IdSchema });
 const DecisionIdParam = Type.Object({ appId: IdSchema, decisionId: IdSchema });
 
 export default async function applicationBehaviorRoutes(app: FastifyInstance) {
+  // M6-Hardening：GET → entity.read / 写 → entity.write，scope 从 :projectId 提取
+  applyDefaultEntityPermissions(app);
+
   // ================================================================
   // Action CRUD (F-M1-14)
   // ================================================================

@@ -55,12 +55,15 @@ Project
     └── 创建 / 归档 / 发布 / 克隆 / 导入 / 导出
 ```
 
-### 2.2 Member（成员）
+### 2.2 Member（成员） — ❗已被 M6 领域模型替代
 
-参与项目的人员。
+> **重要更新（2026-07-15）**：本实体从未进入 DB 实现。已被 M6 模块的 **User + TeamMember + ProjectShare** 三元组正式替代。
+> 详见：`docs/02-domain-model/team-permission-model.md`
+
+~~参与项目的人员。~~
 
 ```
-Member
+Member  【已废弃 → 见 User + TeamMember + ProjectShare】
 ├── userId: string              // 用户 ID（来自用户系统）
 ├── name: string               // 显示名称
 ├── email: string              // 邮箱

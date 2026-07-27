@@ -17,3 +17,4 @@ export * from './application-behavior.schema.js';
 export * from './process.schema.js';
 export * from './architecture.schema.js';
 export * from './snapshot.schema.js';
+export * from './auth.schema.js';

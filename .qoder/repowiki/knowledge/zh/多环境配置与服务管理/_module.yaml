@@ -1,8 +1,0 @@
-schema_version: 1
-module_path: environments
-title: 多环境配置与服务管理
-scope:
-    - environments/
-source_files: []
-depends_on: []
-related_to: []

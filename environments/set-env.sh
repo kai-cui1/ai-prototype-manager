@@ -82,6 +82,7 @@ DB_HOST=$(python3 -c "import json; print(json.load(open('$ENV_FILE'))['db']['hos
 API_PORT=$(python3 -c "import json; print(json.load(open('$ENV_FILE'))['api']['port'])")
 WEB_PORT=$(python3 -c "import json; print(json.load(open('$ENV_FILE'))['web']['port'])")
 MCP_PORT=$(python3 -c "import json; d=json.load(open('$ENV_FILE')); print(d.get('mcp',{}).get('port',13182))")
+AGENT_PORT=$(python3 -c "import json; d=json.load(open('$ENV_FILE')); print(d.get('agent',{}).get('port',13183))")
 
 # 构造 DATABASE_URL
 DB_USER="apm_dev"
@@ -93,7 +94,17 @@ export DATABASE_URL
 export API_PORT
 export WEB_PORT
 export MCP_PORT
+export AGENT_PORT
 export DB_PORT
+
+# 加载密钥文件（可选，gitignore）：LLM API Key 等敏感配置放在 environments/secrets.env
+# 格式：KEY=value 每行一条（如 ANTHROPIC_API_KEY=sk-ant-xxx）
+SECRETS_FILE="$ENVIRONMENTS_DIR/secrets.env"
+if [ -f "$SECRETS_FILE" ]; then
+  set -a
+  source "$SECRETS_FILE"
+  set +a
+fi
 
 # 更新 .active
 echo "$ENV_NAME" > "$ENVIRONMENTS_DIR/.active"
@@ -103,4 +114,10 @@ echo "   DATABASE_URL = ${DATABASE_URL}"
 echo "   API_PORT     = ${API_PORT}"
 echo "   WEB_PORT     = ${WEB_PORT}"
 echo "   MCP_PORT     = ${MCP_PORT}"
+echo "   AGENT_PORT   = ${AGENT_PORT}"
 echo "   DB_PORT      = ${DB_PORT}"
+if [ -f "$SECRETS_FILE" ]; then
+  echo "   secrets.env  = 已加载"
+else
+  echo "   secrets.env  = 未配置（LLM API Key 等需放入 environments/secrets.env）"
+fi

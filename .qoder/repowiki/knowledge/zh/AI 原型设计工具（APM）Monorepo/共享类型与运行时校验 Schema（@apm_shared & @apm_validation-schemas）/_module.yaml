@@ -1,0 +1,9 @@
+schema_version: 1
+module_path: shared_libs
+title: 共享类型与运行时校验 Schema（@apm/shared & @apm/validation-schemas）
+scope:
+    - packages/shared/
+    - packages/validation-schemas/
+source_files: []
+depends_on: []
+related_to: []

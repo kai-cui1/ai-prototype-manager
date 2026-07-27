@@ -14,8 +14,10 @@
 
 import { memo } from 'react';
 import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDomainModelContext } from '@/contexts/DomainModelContext';
+import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import type { FieldType } from '@/hooks/useDomainModel';
 
 // category → 标题栏背景色（CSS 变量在 index.css 中定义）
@@ -54,6 +56,8 @@ interface EntityNodeData {
     displayName: string;
     fieldType: FieldType;
     isRequired: boolean;
+    description?: string | null;
+    enumOptions?: Array<{ value: string; label: string }> | null;
   }>;
   [key: string]: unknown;
 }
@@ -119,22 +123,93 @@ function EntityNode({ id, data, selected }: NodeProps) {
         {visibleFields.length === 0 ? (
           <div className="px-2 py-1.5 text-[11px] text-muted-foreground">（暂无字段）</div>
         ) : (
-          visibleFields.map((field) => (
-            <div key={field.id} className="flex items-center gap-1.5 px-2 py-1">
-              <span
-                className={cn('text-[9px] font-mono w-12 truncate shrink-0', FIELD_TYPE_COLOR[field.fieldType])}
-                title={field.fieldType}
-              >
-                {field.fieldType}
-              </span>
-              <span className="text-[11px] text-foreground truncate flex-1" title={field.displayName}>
-                {field.displayName}
-              </span>
-              {field.isRequired && (
-                <span className="text-[9px] text-danger shrink-0">*</span>
-              )}
-            </div>
-          ))
+          visibleFields.map((field) => {
+            // R5 Why: enum 字段展示前 4 个选项 chip，超过以 +N 汇总，hover 用 Tooltip 展示完整列表。
+            const enumOpts = field.fieldType === 'enum' ? (field.enumOptions ?? []) : [];
+            const visibleEnumOpts = enumOpts.slice(0, 4);
+            const hiddenEnumCount = enumOpts.length - visibleEnumOpts.length;
+            return (
+              <div key={field.id} className="px-2 py-1">
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={cn('text-[9px] font-mono w-12 truncate shrink-0', FIELD_TYPE_COLOR[field.fieldType])}
+                    title={field.fieldType}
+                  >
+                    {field.fieldType}
+                  </span>
+                  <span className="text-[11px] text-foreground truncate flex-1" title={field.displayName}>
+                    {field.displayName}
+                  </span>
+                  {/* 描述存在时显示 Info 图标，hover 弹出 Tooltip，最多 5 行截断 */}
+                  {field.description && field.description.trim() && (
+                    <Tooltip>
+                      <TooltipTrigger
+                        render={(props) => (
+                          <span
+                            {...props}
+                            className="shrink-0 text-muted-foreground hover:text-foreground cursor-help"
+                            onClick={(e) => e.stopPropagation()}
+                            onMouseDown={(e) => e.stopPropagation()}
+                          >
+                            <Info className="h-2.5 w-2.5" />
+                          </span>
+                        )}
+                      />
+                      <TooltipContent
+                        side="right"
+                        className="max-w-[240px] whitespace-pre-wrap break-words text-xs [display:-webkit-box] [-webkit-line-clamp:5] [-webkit-box-orient:vertical] overflow-hidden"
+                      >
+                        {field.description}
+                      </TooltipContent>
+                    </Tooltip>
+                  )}
+                  {field.isRequired && (
+                    <span className="text-[9px] text-danger shrink-0">*</span>
+                  )}
+                </div>
+
+                {/* enum 字段选项 chip 行：对齐 displayName（避开 12px 类型标签 + 6px gap） */}
+                {enumOpts.length > 0 && (
+                  <div className="mt-0.5 flex flex-wrap gap-0.5" style={{ marginLeft: 'calc(3rem + 0.375rem)' }}>
+                    {visibleEnumOpts.map((opt, idx) => (
+                      <span
+                        key={idx}
+                        className="rounded-sm border border-yellow-500/20 bg-yellow-500/10 px-1 py-0 text-[9px] text-yellow-700 leading-tight"
+                        title={opt.label || opt.value}
+                      >
+                        {opt.label || opt.value}
+                      </span>
+                    ))}
+                    {hiddenEnumCount > 0 && (
+                      <Tooltip>
+                        <TooltipTrigger
+                          render={(props) => (
+                            <span
+                              {...props}
+                              className="rounded-sm border border-yellow-500/20 bg-yellow-500/10 px-1 py-0 text-[9px] text-yellow-700 leading-tight cursor-help"
+                              onClick={(e) => e.stopPropagation()}
+                              onMouseDown={(e) => e.stopPropagation()}
+                            >
+                              +{hiddenEnumCount}
+                            </span>
+                          )}
+                        />
+                        <TooltipContent side="right" className="max-w-[240px] text-xs">
+                          <div className="flex flex-wrap gap-1">
+                            {enumOpts.map((opt, idx) => (
+                              <span key={idx} className="rounded-sm bg-white/10 px-1">
+                                {opt.label || opt.value}
+                              </span>
+                            ))}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })
         )}
 
         {hiddenCount > 0 && (

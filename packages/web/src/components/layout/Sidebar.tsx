@@ -3,9 +3,10 @@
  * @description 侧边栏组件：支持动态菜单、项目切换器。
  *
  * 当处于项目上下文时，顶部显示项目名称和退出按钮。
+ * 底部为用户信息区（头像+名称+邮箱+角色 Badge+退出登录），见交互设计 §14。
  */
 
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import {
   Folder,
@@ -21,10 +22,14 @@ import {
   ArrowLeft,
   Database,
   Layers,
+  Bot,
+  Brain,
+  LogOut,
   type LucideIcon,
 } from 'lucide-react';
 import type { MenuItem } from '@apm/shared';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 // 图标映射表
 const ICON_MAP: Record<string, LucideIcon> = {
@@ -40,6 +45,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   Network: Network,
   Database: Database,
   Layers: Layers,
+  Bot: Bot,
+  Brain: Brain,
 };
 
 function MenuIcon({ name }: { name: string | null }) {
@@ -47,6 +54,84 @@ function MenuIcon({ name }: { name: string | null }) {
   const Icon = ICON_MAP[name];
   if (Icon) return <Icon className="h-[18px] w-[18px] shrink-0" />;
   return <span className="mr-2 inline-block h-4 w-4 text-center text-xs">&#9679;</span>;
+}
+
+/** 侧边栏底部用户信息区：头像+名称、邮箱、角色 Badge、退出登录按钮 */
+function UserInfoArea({ collapsed }: { collapsed: boolean }) {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  if (!user) return null;
+
+  const handleLogout = async () => {
+    if (loggingOut) return;
+    setLoggingOut(true);
+    try {
+      await logout();
+    } finally {
+      navigate('/login', { replace: true });
+    }
+  };
+
+  // 折叠态：仅显示头像 + 退出图标按钮
+  if (collapsed) {
+    return (
+      <div className="flex flex-col items-center gap-2 border-t border-sidebar-border py-3">
+        <span
+          className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/20 text-xs font-semibold text-primary"
+          title={`${user.displayName} (${user.email})`}
+        >
+          {user.displayName.charAt(0).toUpperCase()}
+        </span>
+        <button
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="cursor-pointer rounded p-1.5 text-sidebar-text transition-colors hover:bg-sidebar-hover hover:text-sidebar-text-active disabled:opacity-50"
+          aria-label="退出登录"
+          title="退出登录"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="border-t border-sidebar-border px-4 py-3">
+      <div className="flex items-center gap-2">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/20 text-sm font-semibold text-primary">
+          {user.displayName.charAt(0).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-[13px] font-medium text-sidebar-text-active">
+            {user.displayName}
+          </div>
+          <div className="truncate text-[11px] text-sidebar-footer-text">{user.email}</div>
+        </div>
+      </div>
+      <div className="mt-2 flex items-center justify-between">
+        <span
+          className={cn(
+            'inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-medium',
+            user.platformRole === 'super_admin'
+              ? 'bg-primary/15 text-primary'
+              : 'bg-sidebar-hover text-sidebar-text'
+          )}
+        >
+          {user.platformRole === 'super_admin' ? 'SuperAdmin' : 'User'}
+        </span>
+        <button
+          onClick={handleLogout}
+          disabled={loggingOut}
+          className="flex cursor-pointer items-center gap-1 rounded px-1.5 py-1 text-xs text-sidebar-text transition-colors hover:bg-sidebar-hover hover:text-sidebar-text-active disabled:opacity-50"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          {loggingOut ? '退出中…' : '退出登录'}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 interface SidebarProps {
@@ -243,6 +328,9 @@ export default function Sidebar({
             </div>
           ))}
       </nav>
+
+      {/* 用户信息区 + 退出登录（交互设计 §14） */}
+      <UserInfoArea collapsed={collapsed} />
 
       {/* Footer */}
       <div className="border-t border-sidebar-border px-5 py-3 text-[11px] text-sidebar-footer-text">

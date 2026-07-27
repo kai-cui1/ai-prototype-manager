@@ -832,3 +832,261 @@ AI 理解 PM 意图后，先向 PM 确认操作规划，再执行。
 | `docs/01-design-idea/workflow.md` | 系统使用工作流（用户 A→F 六阶段） |
 | `docs/01-design-idea/01-design-idea.md` | 产品核心设计思路 |
 | `docs/04-tech-design/external-design-integration.md` | 外部设计工具集成方案 |
+
+---
+
+## 10. Tier 2 内置 Agent 设计（讨论中 - 2026-06-15）
+
+> **说明**：本章记录 Tier 1（外部 MCP Agent）冒烟验证通过后重启的 Tier 2 内置 Agent 讨论进展。
+> 当前阶段 = 已确认方向性决策，尚在逐个讨论技术细节，逐项完成后会迁入对应的 S1（领域模型）/ S4（技术方案）文档。
+
+### 10.1 双层架构回顾
+
+本项目采用 **Tier 1 + Tier 2 双层 AI 集成架构**，两层长期共存，面向不同用户群：
+
+| 层级 | 形态 | 面向用户 | 适用场景 |
+|------|------|---------|---------|
+| **Tier 1**（已冒烟）| 外部 AI Agent 通过 MCP 協议接入（Claude Code / Qoder / Codex）| 有技术基础的用户 | 带需求先来、需大上下文推理、想自由选择外部 AI Provider |
+| **Tier 2**（本章）| Web UI 内嵌 Chat，系统自己作为 AI 客户端 | 小白用户 | 页面内局部微操作、开箱即用不需自己配 Model |
+
+共享：Tier 2 后端 **复用 Tier 1 的 MCP Server 工具能力**，无需重写一套 CRUD 逻辑。
+
+### 10.2 已确认的核心决策
+
+#### 决策 1：产品形态
+- **载体**：全局侧栏 Chat（跨所有页面常驻，Agent 随页面切换关注点）
+- **能力模式**：可切换，默认"设计副驾"（推荐+引导，不直接改数据）；可切换为"直接执行者"
+- **MVP 起手场景**：领域建模辅助（先兑现上下文感知 + 渐进式确认两大价值）
+- **副驾呈现**：纯聊天 + 结构化推荐卡片（无 Canvas 联动预览）
+- **采纳粒度**：方案卡片 + 子项 checkbox 选择性采纳
+
+#### 决策 2：与 Tier 1 共存关系
+- **长期共存**，不互相替代
+- 外部 Agent（Tier 1）：适合**技术型用户**带需求先来、需大上下文推理
+- 内置 Agent（Tier 2）：适合**小白用户**在页面内做局部微操作，使用系统自带的 Model
+- 不同场景选不同入口
+
+#### 决策 3：Agent 记忆架构（重大）
+- **记忆归属维度**：以**登录用户身份**为唯一持久化维度（不是项目级，跨项目跨会话）
+- **记忆内容**：用户偏好 + 历史谈话记录
+- **压缩机制**：参考 Claude Code / Open Code 主流方案（长记忆摘要压缩）
+- **用户主权**：提供管理 UI，用户可手动浏览 / 压缩 / 删除记忆内容
+
+#### 决策 4：页面上下文注入机制（重大）
+- **显式注入**：用户在 Chat 输入 **`@`** 触发上下文选择（不默认全项目 snapshot自动注入）
+- **页面上下文注册中心**：
+  - 每个页面挂载时向“注册中心”注册**可注入内容清单**
+  - Agent 收到 `@` 输入 → 查询当前页面已注册项 → 向用户展示“名称 + 描述”供选择
+  - 选中后作为结构化上下文包含到用户消息中
+- **开发规范（新方案）**：
+  > **今后每个新开发的页面必须定义“暴露给 Agent 的内容板块 + 内容格式”**，作为前端开发强制规范之一
+
+#### 决策 5：LLM 与 API Key 策略
+- **默认模式**：**后端统一代理**（系统掌控 LLM 调用，用户无需配置）
+- **备选模式**：用户 BYOK（Bring Your Own Key），自带 Anthropic/OpenAI Key，后端代为发送
+- **两者共存**，用户在个人设置页面切换
+
+### 10.3 技术架构初稿
+
+```
+┌───────────────────────────────────────────────┐
+│  前端：全局 Chat 侧栏                            │
+│  ├── 消息渲染 + 推荐卡片交互（apply/discard/子项）  │
+│  ├── `@` 触发 → PageContextRegistry 查询      │
+│  └── 记忆管理页（用户主权 UI）                │
+└─────────────┬────────────────────────────────┘
+               │ HTTP / SSE
+               ▼
+┌───────────────────────────────────────────────┐
+│  后端 Agent Service（新增，Fastify 内新路由）         │
+│  ├── 用户记忆 Store（DB 新表 user_agent_memory）    │
+│  ├── 记忆压缩器（阈值触发或定时）                 │
+│  ├── Prompt 组装（System + 记忆 + @上下文 + 消息）│
+│  ├── LLM 代理（默认后端 Key / BYOK 切换）         │
+│  └── Tool Router → 调用 MCP Server                     │
+└─────────────┬────────────────────────────────┘
+               │
+      ┌────────┴─────────┐
+      ▼                  ▼
+  LLM API           MCP Server（既有）
+  (Claude 等)        │
+                     ▼
+                APM REST API（既有）
+```
+
+### 10.4 待讨论议题（按用户确认顺序）
+
+| 顺序 | 标号 | 议题 | 状态 |
+|------|------|------|------|
+| 1 | **E** | MVP 阶段的功能取舍 | ✅ 已确认（见 10.4.1） |
+| 2 | **F** | 推荐卡片的数据结构（通用 schema vs 每种建议独立结构） | ✅ 已确认（见 10.4.2） |
+| 3 | **A** | 记忆压缩触发策略（定时 / Token 阈值 / 用户主动 / 混合） | ✅ 已确认（见 10.4.3） |
+| 4 | **C** | 记忆的技术实现（纯 SQL / 加向量检索 / 全文关键词） | ✅ 已确认（见 10.4.4） |
+| 5 | **D** | @ 注册中心的技术形态（React Context / 前后端契约） | ✅ 已确认（见 10.4.5） |
+| 6 | **B** | Agent 后端服务的形态（Fastify 内新路由 / 独立进程 / MCP Server 内扩展） | ✅ 已确认（见 10.4.6） |
+
+#### 10.4.1 议题 E：MVP 功能边界（已确认）
+
+**MVP 需包含的 8 项功能**：
+
+| # | 功能 | 说明 |
+|---|------|------|
+| 1 | `@` 上下文注入机制 | 完整 UI + 页面注册中心 + 至少领域模型页完成注册 |
+| 2 | 历史对话持久化 | 后端 `chat_message` 表，刷新/新会话可继接 |
+| 3 | 用户长期偏好记忆提取 | 从历史中沉淀跨会话的用户偏好 |
+| 4 | 记忆管理 UI | 用户可浏览/编辑/删除自己的记忆 |
+| 5 | 自动记忆压缩 | 长记忆超阈自动摘要 |
+| 6 | 结构化推荐卡片 | 方案卡 + 子项 checkbox、apply/discard |
+| 7 | MCP 写入工具挂接 | Agent 能直接调 createEntity/addField/createRelation 等写数据（仍需采纳卡片才执行）|
+| 8 | 能力模式切换 | 副驾 ↔ 直接执行者可会话内切换 |
+
+**MVP 不包含（延后到 Phase 2+）**：
+
+| 功能 | 延后含义 |
+|------|---------|
+| BYOK 切换能力 | MVP 仅后端集中代理一种 LLM 接入方式即可 |
+
+**含义小结**：MVP 已是功能完备的版本——Agent 既能记忆、感知上下文，也能通过采纳推荐卡片直接调 MCP 改数据，用户可切换副驾/执行者两种模式；BYOK 灵活性留给后期。
+
+#### 10.4.2 议题 F：推荐卡片数据结构（已确认）
+
+**三大方向**：
+
+| 维度 | 选择 |
+|------|------|
+| 数据结构风格 | 完全通用 schema（一套抽象适配所有推荐类型）|
+| Payload 与 MCP 参数 | 卡片 `item.args` 直通 MCP 工具参数（无中间抽象层） |
+| LLM 输出方式 | 文本 + 内联 JSON 块（Markdown 内嵌 ```json card 代码块）|
+
+**Schema Draft**：
+
+```typescript
+interface RecommendationCard {
+  id: string;                    // 卡片唯一 ID
+  title: string;                 // 如 "建立订单领域"
+  description: string;           // Markdown，说明设计依据
+  items: RecommendationItem[];   // 子项列表
+}
+
+interface RecommendationItem {
+  id: string;                    // 子项 ID（checkbox key）
+  kind: string;                  // 语义类型：'entity_creation' | 'relation_creation' | …
+  label: string;                 // 一行摘要，如 "实体：订单 Order（10 字段）"
+  preview: string;               // Markdown 展开视图，含字段详情
+  tool: string;                  // MCP 工具名
+  args: Record<string, any>;     // MCP 参数（直通）
+  selected: boolean;             // 默认勾选状态
+  dependencies?: string[];       // 依赖其他 item id
+}
+```
+
+**补充行为决策**：
+
+| 维度 | 决策 | 说明 |
+|------|------|------|
+| 依赖处理 | **自动联动勾选** | 前端基于 `dependencies` 自动联动：取消实体时自动取消相关关系/字段；采纳关系时自动勾选依赖实体 |
+| 执行策略 | **拓扑并行执行** | 基于 `dependencies` 构建 DAG，同层无依赖项并行调 MCP，有依赖项按拓扑层级推进 |
+| 卡片生命周期 | **采纳后折叠为摘要** | 采纳后卡片在 Chat 中折叠为一行（如“已采纳 4 项，丢弃 1 项”），可展开看详情 |
+
+#### 10.4.3 议题 A：记忆压缩触发策略（已确认）
+
+| 层面 | 触发策略 | 执行者 | 说明 |
+|------|---------|--------|------|
+| **会话上下文** | Token 阈值自动 | 当前 LLM 调用顺带做 | 接近 context window 上限时（如 80%），自动摘要早期消息替换原文，用户无感知 |
+| **跨会话长记忆** | 记忆条数阈值 | 独立后台 LLM 调用 | 同类条目 > N 时触发精炼/合并；在每轮对话结束写记忆时即时检测，无需定时 job |
+
+**设计要点**：
+- 会话压缩纯自动、透明，前端无 `/compact` 命令（MVP 阶段）
+- 长记忆精炼在后台静默执行，不阻塞用户正在进行的对话
+- 阈值 N 的具体值在 S4 技术方案阶段确定（候选 20~50 条/分类）
+- 精炼结果写回同一记忆表，保留原始版本链（可选 audit trail）
+
+#### 10.4.4 议题 C：记忆的技术实现（已确认）
+
+| 维度 | 决策 | 说明 |
+|------|------|------|
+| **检索方案** | pgvector 向量语义检索 | 余弦相似度 top-K，语义联想能力最强 |
+| **分类体系** | 固定预设分类（枚举） | 如 user_preference / naming_convention / design_rule / domain_knowledge 等，每条必归一类 |
+| **Embedding 来源** | 本地 embedding 模型 | 如 bge-m3 / nomic-embed，零外部 API 调用，私有化部署友好 |
+| **检索时机** | 每轮对话前都检索 | 用户每发一条消息，后端用本轮输入 embedding 查 top-K 记忆拼入 system prompt |
+
+**架构含义**：
+- 后端需起一个本地 embedding 推理进程（如 Python FastAPI + sentence-transformers，或 ONNX Runtime HTTP Server）
+- 每条记忆写入时同步生成 embedding 存入 `vector` 列
+- 每轮对话增加一次 embedding → pgvector 查询链路，本地延迟可控（≈ 50~100ms）
+- 表结构预留 `embedding vector(1024)` 列（维度随模型确定）
+
+#### 10.4.5 议题 D：@ 注册中心的技术形态（已确认）
+
+| 维度 | 决策 | 说明 |
+|------|------|------|
+| **注册中心形态** | 混合：React Context 管注册 + 随消息上报 | 页面 mount 时注册可 @ 项（纯 UI）；用户选中后数据随消息体发后端 |
+| **@ 项粒度** | 分层：先区域再元素 | @ 菜单两级——先选页面/区域（如 @领域模型），再展开具体元素（如 @实体:Order） |
+
+**运作流程**：
+```
+① 用户在 Chat 输入 @
+② 前端从 PageContextRegistry（Context）读取当前页面已注册的区域列表
+③ 用户选区域 → 展开该区域可选元素
+④ 用户选中 "@实体:Order"
+⑤ 前端调用注册时绑定的 getDetail() 获取结构化数据
+⑥ 用户发送消息时，@ 引用作为 message.context[] 附带发后端
+⑦ Agent 后端拿到 context[] 拼入 system prompt
+```
+
+**前端注册 API 草稿**：
+```typescript
+interface PageContextItem {
+  id: string;              // 唯一标识
+  area: string;            // 区域名（第一层），如 '领域模型'、'业务流程'
+  label: string;           // 显示标签，如 '实体:Order'
+  getDetail: () => any;    // 获取结构化数据（懒加载）
+}
+
+interface PageContextRegistry {
+  register(items: PageContextItem[]): void;
+  unregister(ids: string[]): void;
+  getAll(): PageContextItem[];
+}
+```
+
+#### 10.4.6 议题 B：Agent 后端服务的形态（已确认）
+
+| 维度 | 决策 | 说明 |
+|------|------|------|
+| **运行进程** | 独立进程（`packages/agent-server`） | 单独端口运行，与 Fastify 主 API 完全隔离 |
+| **流式协议** | SSE（Server-Sent Events） | 前端 fetch/EventSource 监听，简单可靠 |
+
+**架构含义**：
+- 新增 `packages/agent-server` 包（monorepo 内）
+- 独立数据库连接池（访问同一 PG + pgvector）
+- 调用 MCP 工具走本地 HTTP（请求 `localhost:13180` REST API）或内联 MCP tool 逻辑
+- `environments/*.json` 需新增 agent-server 端口分配
+- 认证机制简化（私有化单人，JWT 或简单 session）
+
+**服务间依赖关系**：
+```
+Web 前端 ──SSE──▶ Agent Server ──HTTP──▶ Fastify API (REST)
+                      │                          │
+                      ├── pgvector 检索 ─▶ PostgreSQL
+                      ├── LLM API ─▶ Claude/OpenAI
+                      └── Embedding ─▶ 本地模型服务
+```
+
+### 10.5 与技术方案及后续步骤的衔接
+
+本章完成后的产出预计逐步迁到：
+
+| 后续阶段 | 产出位置 |
+|---------|---------|
+| S1 领域模型新增实体 | `docs/02-domain-model/builtin-agent.md` ✅ 已完成（ChatSession / ChatMessage / UserMemory / RecommendationCard / RecommendationItem）|
+| S2 PRD（业务层）| `docs/03-prd-ux/modules/builtin-agent/builtin-agent-prd.md` ✅ 已完成（10 个功能点 + 3 套业务流程 + 验收标准） |
+| S3 交互设计 | `docs/03-prd-ux/modules/builtin-agent/builtin-agent-interaction.md` ✅ 已完成（Chat 侧栏 + @ 菜单 + 推荐卡片 + 记忆管理 UI + SSE 协议） |
+| S4 技术方案 | `docs/04-tech-design/builtin-agent-design.md` ✅ 已完成（Vercel AI SDK + Mem0 + Fastify Agent Server + MCP Client） |
+| S5 测试用例 | `docs/06-test-design/modules/builtin-agent/` ✅ 已完成（74 条 API 用例，10 功能点全覆盖） |
+
+### 10.6 参考
+
+- Tier 1 完整设计：本文档第 1~9 节
+- 冒烟验证现状：MCP Server 侧进程已可运行，22 个 CRUD 工具已与前端 APM REST API 对接
+- 设计思路来源：2026-06-15 Tier 2 重启讨论会话（本会话）

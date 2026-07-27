@@ -1,0 +1,165 @@
+{
+  "summary": {
+    "projectName": "ai-prototype-manager",
+    "locale": "zh-CN",
+    "modelId": "agent-work-loop-v4",
+    "reportContractVersion": 25,
+    "overview": "项目拥有详尽的 AGENTS.md 指引和多环境启动体系，任务理解与受控执行基础较好；但前端变更缺少自动化验证覆盖、核心代码边界未配置、交付验收无机械化路径，且会话证据不足以评估学习捕获能力。",
+    "aiAgentPractice": {
+      "inspectedSurfaces": [
+        "Rules",
+        "Skills",
+        "MCP"
+      ],
+      "coverageRows": [
+        {
+          "surface": "Rules",
+          "scopes": [
+            "Project"
+          ],
+          "count": 1,
+          "paths": [
+            "AGENTS.md"
+          ]
+        },
+        {
+          "surface": "Skills",
+          "scopes": [
+            "Project"
+          ],
+          "count": 1,
+          "paths": [
+            ".agents/skills/apm-design-ai/SKILL.md"
+          ]
+        },
+        {
+          "surface": "MCP",
+          "scopes": [
+            "Project"
+          ],
+          "count": 1,
+          "paths": [
+            ".qoder/mcp.json"
+          ]
+        },
+        {
+          "surface": "Memories",
+          "scopes": [
+            "Project"
+          ],
+          "count": 135
+        },
+        {
+          "surface": "Custom Agents",
+          "scopes": [
+            "Project"
+          ],
+          "count": 0
+        }
+      ]
+    },
+    "assignmentSummaries": [],
+    "dimensions": [
+      {
+        "id": "task-understanding",
+        "label": "任务理解",
+        "score": 72,
+        "summary": "AGENTS.md 定义了完整的 S0~S7 工作流、文档目录规范和功能点交付单元，任务边界和上下文路由清晰；但无可观察的会话证据验证其实际执行效果。",
+        "findingRefs": []
+      },
+      {
+        "id": "controlled-execution",
+        "label": "可控执行",
+        "score": 70,
+        "summary": "多环境激活体系（set-env.sh / restart-env.sh）和端口约定提供了可复现的启动路径；MCP 连接存在非 TLS 安全缺陷。",
+        "findingRefs": [
+          "mcp-non-tls-connection"
+        ]
+      },
+      {
+        "id": "change-validation",
+        "label": "改动验证",
+        "score": 58,
+        "summary": "API 层有 38 个测试文件和 vitest 配置，但 107 个 TSX 前端源文件无任何测试覆盖；30 个已变更 UI 组件缺少测试伴随文件。",
+        "findingRefs": [
+          "frontend-change-no-validation",
+          "core-boundary-unconfigured"
+        ]
+      },
+      {
+        "id": "reliable-delivery",
+        "label": "可靠交付",
+        "score": 45,
+        "summary": "未观察到 CI、PR 或合并保护等交付验收机制；248 个文件的变更处于未提交状态，无风险分级或恢复路径证据。",
+        "findingRefs": [
+          "no-delivery-acceptance-mechanism"
+        ]
+      },
+      {
+        "id": "learning-capture",
+        "label": "经验沉淀",
+        "score": 38,
+        "summary": "135 条项目记忆已配置，但会话证据极度稀疏（0 个保留候选），无法评估重复工作检测、学习路由或改进效果。",
+        "findingRefs": []
+      }
+    ]
+  },
+  "findings": [
+    {
+      "id": "frontend-change-no-validation",
+      "title": "前端 UI 变更无自动化验证覆盖",
+      "severity": "High",
+      "reason": "项目 107 个 TSX 源文件（占代码主体）对应 0 个测试文件；当前 30 个已变更 UI 组件（含 App.tsx、Layout.tsx、EntityNode.tsx 等核心组件）无任何测试或快照伴随文件。API 层有 38 个测试文件形成对比，前端变更处于完全无验证状态，行为回归无法被自动检测。",
+      "expectedOutput": [
+        "前端变更有最小自动化验证覆盖，核心组件行为回归可被检测。"
+      ],
+      "expectedArtifact": "前端测试配置 + 核心组件冒烟测试",
+      "aiFixPrompt": "/better-harness fix this issue\n\n为前端核心组件建立最小验证覆盖。\n\n## 先做什么\n\n1. 在 packages/web 中配置 vitest + @testing-library/react\n2. 为 App.tsx、Layout.tsx、Sidebar.tsx 等高频变更组件编写冒烟测试\n3. 在 turbo.json 中确保 web 包的 test 脚本被编排\n\n## 验证\n\n- 运行 pnpm --filter web test 确认测试通过\n- 确认变更的 UI 组件至少有基础渲染和交互断言",
+      "dimensionRefs": [
+        "change-validation"
+      ]
+    },
+    {
+      "id": "no-delivery-acceptance-mechanism",
+      "title": "变更缺少机械化交付验收路径",
+      "severity": "Medium",
+      "reason": "项目未配置 CI 流水线、PR 合并保护或自动化代码审查触发器。AGENTS.md 提及 AI Code Review 但无机械化执行路径。当前 248 个文件（约 31K 行）处于未提交状态，涵盖全部核心包（api、web、shared、validation-schemas、mcp），无风险分级、审批或回滚证据。",
+      "expectedOutput": [
+        "变更通过机械化验收路径交付，高风险操作有明确审批。"
+      ],
+      "expectedArtifact": "CI 配置 + 合并保护规则",
+      "aiFixPrompt": "/better-harness fix this issue\n\n建立最小交付验收路径。\n\n## 先做什么\n\n1. 配置 GitHub Actions CI：lint + typecheck + test 作为 PR 合并前置条件\n2. 在 AGENTS.md 中补充提交前检查清单和 PR 规范\n3. 为高风险变更（数据库 schema、共享类型）定义审批规则\n\n## 验证\n\n- 创建测试 PR 确认 CI 检查运行\n- 确认合并保护规则生效",
+      "dimensionRefs": [
+        "reliable-delivery"
+      ]
+    },
+    {
+      "id": "core-boundary-unconfigured",
+      "title": "核心代码边界未配置导致变更风险不可控",
+      "severity": "Medium",
+      "reason": "项目无 .coreCodeRules 或等效核心边界配置（状态：missing）。证据包推断出 5 个核心候选（packages/web、api、validation-schemas、shared 为高置信度），当前 diff 命中 77 个核心文件、15 个热点文件。无配置边界意味着核心变更无法被自动识别和路由到增强审查。",
+      "expectedOutput": [
+        "核心代码变更可被自动识别，增强审查路由有据。"
+      ],
+      "expectedArtifact": ".coreCodeRules 配置文件",
+      "aiFixPrompt": "/better-harness fix this issue\n\n配置核心代码边界规则。\n\n## 先做什么\n\n1. 创建 .coreCodeRules 文件，将 packages/api/src、packages/shared/src、packages/validation-schemas/src 和 packages/web/src 中的关键入口文件纳入核心边界\n2. 至少包含：packages/api/src/app.ts、packages/api/src/models/schema.ts、packages/shared/src/types/、packages/web/src/App.tsx\n3. 配置排除规则避免 docs/ 和 test/ 误报\n\n## 验证\n\n- 运行 core-change-watch evidence-pack 确认 coreCodeRules.status 不再是 missing\n- 确认核心命中数合理反映高风险变更",
+      "dimensionRefs": [
+        "change-validation"
+      ]
+    },
+    {
+      "id": "mcp-non-tls-connection",
+      "title": "MCP 服务使用非加密远程连接",
+      "severity": "Low",
+      "reason": "项目 MCP 配置（.qoder/mcp.json）中 apm-prototype 使用非 TLS 远程 URL。资产 lint 将此标记为 warning 级别安全发现。在本地开发环境中风险有限，但若 MCP 通信跨越网络边界，工具调用和数据可能被中间人截获。",
+      "expectedOutput": [
+        "MCP 连接使用加密通道或明确记录为本地安全边界。"
+      ],
+      "expectedArtifact": "更新后的 .qoder/mcp.json",
+      "aiFixPrompt": "/better-harness fix this issue\n\n将 MCP 连接升级为 TLS。\n\n## 先做什么\n\n1. 检查 .qoder/mcp.json 中 apm-prototype 的 URL 配置\n2. 如果 MCP Server 支持 HTTPS，将 URL 从 http:// 改为 https://\n3. 如果仅用于本地 localhost 通信，在配置中添加注释说明安全边界\n\n## 验证\n\n- 确认 MCP 连接仍可正常工作\n- 确认 lint 不再报告 mcp-remote-without-tls 警告",
+      "dimensionRefs": [
+        "controlled-execution"
+      ]
+    }
+  ]
+}

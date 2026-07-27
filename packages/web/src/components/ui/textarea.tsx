@@ -2,9 +2,14 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
+/* React 18 下 ref 不能作为普通 prop 传递，需 forwardRef（调用方需要 textarea DOM 做自动增高/聚焦） */
+const Textarea = React.forwardRef<
+  HTMLTextAreaElement,
+  React.ComponentProps<"textarea">
+>(function Textarea({ className, ...props }, ref) {
   return (
     <textarea
+      ref={ref}
       data-slot="textarea"
       className={cn(
         /* §6.1 Textarea：对齐原型 .input（height:auto/min-height:80px 由调用方控制） */
@@ -14,6 +19,6 @@ function Textarea({ className, ...props }: React.ComponentProps<"textarea">) {
       {...props}
     />
   )
-}
+})
 
 export { Textarea }

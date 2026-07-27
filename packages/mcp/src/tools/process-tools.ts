@@ -285,4 +285,230 @@ D-7 HIGH-RISK AREA — common mistakes:
       };
     },
   );
+
+  // ============================================================
+  // Process / Node / Edge update & delete
+  // ============================================================
+
+  server.tool(
+    'updateProcess',
+    `Update a business process's attributes (partial update — only provided fields change).
+
+What can be changed:
+- name / displayName / description
+- status: "draft" | "active" | "deprecated"
+- entryNodeId (pass null to clear) / exitNodeIds — mark the process entry/exit points
+
+Do NOT pass nodeIds/edgeIds manually — they are maintained automatically by
+node/edge create/delete operations.`,
+    {
+      projectId: z.string().describe('Project ID (UUID)'),
+      processId: z.string().describe('Process UUID to update'),
+      name: z.string().optional().describe('New process identifier (alphanumeric + underscore + hyphen, 2-50 chars, unique in project)'),
+      displayName: z.string().optional().describe('New human-readable process name'),
+      description: z.string().optional().describe('New description (max 2000 chars)'),
+      status: z.enum(['draft', 'active', 'deprecated']).optional().describe('New process status'),
+      entryNodeId: z.string().nullable().optional().describe('Entry node UUID; pass null to clear'),
+      exitNodeIdsJson: z.string().optional().describe('JSON array of exit node UUIDs. Example: ["uuid1","uuid2"]'),
+    },
+    async ({ projectId, processId, name, displayName, description, status, entryNodeId, exitNodeIdsJson }) => {
+      const body: Record<string, unknown> = {};
+      if (name !== undefined) body.name = name;
+      if (displayName !== undefined) body.displayName = displayName;
+      if (description !== undefined) body.description = description;
+      if (status !== undefined) body.status = status;
+      if (entryNodeId !== undefined) body.entryNodeId = entryNodeId;
+      if (exitNodeIdsJson) {
+        try {
+          body.exitNodeIds = JSON.parse(exitNodeIdsJson);
+        } catch {
+          return {
+            content: [{
+              type: 'text' as const,
+              text: JSON.stringify({ _error: true, message: 'Invalid exitNodeIdsJson format. Expected JSON array like ["uuid1","uuid2"]' }),
+            }],
+          };
+        }
+      }
+
+      const result = await callApi(`/api/v1/projects/${projectId}/processes/${processId}`, { method: 'PUT', body });
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify(result, null, 2),
+        }],
+      };
+    },
+  );
+
+  server.tool(
+    'deleteProcess',
+    `Delete a business process (physical delete).
+
+⚠️ WARNING: This permanently deletes the process definition. Confirm with the user first.
+Nodes and edges belonging to the process are removed with it.
+
+Returns 204 No Content on success. Returns 404 if the process does not exist.`,
+    {
+      projectId: z.string().describe('Project ID (UUID)'),
+      processId: z.string().describe('Process UUID to delete'),
+    },
+    async ({ projectId, processId }) => {
+      const result = await callApi(`/api/v1/projects/${projectId}/processes/${processId}`, { method: 'DELETE' });
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify(result ?? { success: true }, null, 2),
+        }],
+      };
+    },
+  );
+
+  server.tool(
+    'updateNode',
+    `Update a process node (partial update — only provided fields change).
+
+What can be changed:
+- name / displayName / description
+- holderType / holderId — re-assign the node to a different holder
+- actionRef / decisionRef — re-point the node to a different action/decision (pass null to clear)
+- condition (pass null to clear)
+
+D-7 WARNING: If you change holderId or actionRef/decisionRef, the new ref MUST be a valid
+action/decision ID on the NEW holder — check getProjectSnapshot first. Stale refs break
+the process semantics silently.`,
+    {
+      projectId: z.string().describe('Project ID (UUID)'),
+      processId: z.string().describe('Process UUID that owns the node'),
+      nodeId: z.string().describe('Node UUID to update (get from listProcessNodes)'),
+      name: z.string().optional().describe('New node identifier'),
+      displayName: z.string().optional().describe('New display name'),
+      description: z.string().optional().describe('New description (max 2000 chars)'),
+      holderType: z.string().optional().describe('New holder type: "role", "external_entity", or "service" (for application)'),
+      holderId: z.string().optional().describe('New holder ID (must match holderType)'),
+      actionRef: z.string().nullable().optional().describe('New action ID on the holder (for action nodes); pass null to clear'),
+      decisionRef: z.string().nullable().optional().describe('New decision ID on the holder (for decision nodes); pass null to clear'),
+      condition: z.string().nullable().optional().describe('New condition expression (max 500 chars); pass null to clear'),
+    },
+    async ({ projectId, processId, nodeId, name, displayName, description, holderType, holderId, actionRef, decisionRef, condition }) => {
+      const body: Record<string, unknown> = {};
+      if (name !== undefined) body.name = name;
+      if (displayName !== undefined) body.displayName = displayName;
+      if (description !== undefined) body.description = description;
+      if (holderType !== undefined) body.holderType = holderType;
+      if (holderId !== undefined) body.holderId = holderId;
+      if (actionRef !== undefined) body.actionRef = actionRef;
+      if (decisionRef !== undefined) body.decisionRef = decisionRef;
+      if (condition !== undefined) body.condition = condition;
+
+      const result = await callApi(`/api/v1/projects/${projectId}/processes/${processId}/nodes/${nodeId}`, { method: 'PUT', body });
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify(result, null, 2),
+        }],
+      };
+    },
+  );
+
+  server.tool(
+    'deleteNode',
+    `Delete a node from a business process.
+
+REFERENCE INTEGRITY: The backend REJECTS the deletion with 409 if any edge still
+connects to this node (incoming or outgoing). Delete those edges FIRST with deleteEdge
+(use listProcessEdges to find edges touching this node).
+
+Returns 204 No Content on success. Returns 404 if the node does not exist.`,
+    {
+      projectId: z.string().describe('Project ID (UUID)'),
+      processId: z.string().describe('Process UUID that owns the node'),
+      nodeId: z.string().describe('Node UUID to delete'),
+    },
+    async ({ projectId, processId, nodeId }) => {
+      const result = await callApi(`/api/v1/projects/${projectId}/processes/${processId}/nodes/${nodeId}`, { method: 'DELETE' });
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify(result ?? { success: true }, null, 2),
+        }],
+      };
+    },
+  );
+
+  server.tool(
+    'updateEdge',
+    `Update an edge in a business process (partial update — only provided fields change).
+
+What can be changed:
+- label / condition (pass null to clear)
+- sourceBranch — which decision branch this edge represents (pass null to clear;
+  must match a branch name on the source decision node's decision)
+- mappingsJson — FULL replacement of field mappings when provided
+
+What CANNOT be changed:
+- sourceNodeId / targetNodeId (delete and recreate the edge to redirect it)
+
+Use listProcessEdges first to inspect the current edge state.`,
+    {
+      projectId: z.string().describe('Project ID (UUID)'),
+      processId: z.string().describe('Process UUID that owns the edge'),
+      edgeId: z.string().describe('Edge UUID to update (get from listProcessEdges)'),
+      label: z.string().nullable().optional().describe('New display label (max 100 chars); pass null to clear'),
+      condition: z.string().nullable().optional().describe('New condition expression (max 500 chars); pass null to clear'),
+      sourceBranch: z.string().nullable().optional().describe('New decision branch name; must match a branch on the source decision. Pass null to clear.'),
+      mappingsJson: z.string().optional().describe('FULL replacement of mappings. JSON array: [{"sourceField":"orderId","targetField":"orderId"}]'),
+    },
+    async ({ projectId, processId, edgeId, label, condition, sourceBranch, mappingsJson }) => {
+      const body: Record<string, unknown> = {};
+      if (label !== undefined) body.label = label;
+      if (condition !== undefined) body.condition = condition;
+      if (sourceBranch !== undefined) body.sourceBranch = sourceBranch;
+      if (mappingsJson) {
+        try {
+          body.mappings = JSON.parse(mappingsJson);
+        } catch {
+          return {
+            content: [{
+              type: 'text' as const,
+              text: JSON.stringify({ _error: true, message: 'Invalid mappingsJson format. Expected JSON array like [{"sourceField":"x","targetField":"y"}]' }),
+            }],
+          };
+        }
+      }
+
+      const result = await callApi(`/api/v1/projects/${projectId}/processes/${processId}/edges/${edgeId}`, { method: 'PUT', body });
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify(result, null, 2),
+        }],
+      };
+    },
+  );
+
+  server.tool(
+    'deleteEdge',
+    `Delete an edge from a business process.
+
+This removes ONLY the connection — the source and target nodes remain intact.
+The edge is also automatically removed from the process's edgeIds list.
+Use this before deleteNode (nodes cannot be deleted while edges reference them).
+
+Returns 204 No Content on success. Returns 404 if the edge does not exist.`,
+    {
+      projectId: z.string().describe('Project ID (UUID)'),
+      processId: z.string().describe('Process UUID that owns the edge'),
+      edgeId: z.string().describe('Edge UUID to delete'),
+    },
+    async ({ projectId, processId, edgeId }) => {
+      const result = await callApi(`/api/v1/projects/${projectId}/processes/${processId}/edges/${edgeId}`, { method: 'DELETE' });
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify(result ?? { success: true }, null, 2),
+        }],
+      };
+    },
+  );
 }

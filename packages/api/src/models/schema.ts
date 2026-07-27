@@ -11,9 +11,15 @@ export const projects = pgTable('projects', {
   status: text('status').notNull().default('active'), // active | archived
   version: integer('version').notNull().default(1),
   config: jsonb('config').default('{}'),
+  // M6: 团队归属 + 创建者 + 可见性
+  teamId: text('team_id').references(() => teams.id, { onDelete: 'cascade' }),
+  createdBy: text('created_by').references(() => users.id, { onDelete: 'set null' }),
+  visibility: text('visibility').notNull().default('private'), // private | shared
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  index('idx_projects_team').on(table.teamId),
+]);
 
 // ============================================
 // Table 2: domain_entities — 领域实体表
@@ -547,4 +553,181 @@ export const menus = pgTable('menus', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => [
   index('idx_menus_parent').on(table.parentId),
+]);
+
+// ============================================
+// M6: 团队/用户/权限管理表（Table 20~27）
+// ============================================
+
+// ============================================
+// Table 20: users — 平台用户表
+// ============================================
+/**
+ * @module users
+ * @description 平台用户账号，支持 JWT 登录 + PAT 认证。
+ * R5 Why: platform_role 区分 super_admin/user；status 支持禁用而不删除（审计追溯）。
+ *        must_change_password 用于 SuperAdmin 代建用户后首登强制改密。
+ */
+export const users = pgTable('users', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  email: text('email').notNull().unique(),
+  displayName: text('display_name').notNull(),
+  passwordHash: text('password_hash').notNull(),
+  avatar: text('avatar'),
+  platformRole: text('platform_role').notNull().default('user'), // super_admin | user
+  status: text('status').notNull().default('active'), // active | disabled | deleted
+  mustChangePassword: boolean('must_change_password').notNull().default(false),
+  lastLoginAt: timestamp('last_login_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ============================================
+// Table 21: teams — 团队表
+// ============================================
+/**
+ * @module teams
+ * @description 团队实体，支持树形结构（parent_id 预留）。
+ * R5 Why: name 全局唯一（kebab-case），display_name 为人类可读名称。
+ */
+// @ts-expect-error -- self-referencing FK requires circular reference (resolved at runtime)
+export const teams = pgTable('teams', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  name: text('name').notNull().unique(),
+  displayName: text('display_name').notNull(),
+  description: text('description'),
+  avatar: text('avatar'),
+  // @ts-expect-error -- self-referencing FK (resolved at runtime)
+  parentId: text('parent_id').references(() => teams.id, { onDelete: 'set null' }),
+  status: text('status').notNull().default('active'), // active | dissolved
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ============================================
+// Table 22: team_members — 团队成员表
+// ============================================
+/**
+ * @module team_members
+ * @description 用户-团队多对多关系，携带团队角色（owner/admin/member）。
+ * R5 Why: UNIQUE(user_id, team_id) 保证一人一团队只有一条记录。
+ */
+export const teamMembers = pgTable('team_members', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  teamId: text('team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
+  teamRole: text('team_role').notNull().default('member'), // owner | admin | member
+  joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+  invitedBy: text('invited_by').references(() => users.id, { onDelete: 'set null' }),
+}, (table) => [
+  uniqueIndex('team_members_user_team_unique').on(table.userId, table.teamId),
+  index('idx_team_members_team').on(table.teamId),
+  index('idx_team_members_user').on(table.userId),
+]);
+
+// ============================================
+// Table 23: project_shares — 项目共享表
+// ============================================
+/**
+ * @module project_shares
+ * @description 项目显式共享记录，支持共享给团队或用户。
+ * R5 Why: grantee_type+grantee_id 多态引用（非 FK），UNIQUE 约束防重复共享。
+ */
+export const projectShares = pgTable('project_shares', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  granteeType: text('grantee_type').notNull(), // team | user
+  granteeId: text('grantee_id').notNull(),
+  projectRole: text('project_role').notNull().default('viewer'), // editor | viewer
+  sharedBy: text('shared_by').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  sharedAt: timestamp('shared_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex('project_shares_unique').on(table.projectId, table.granteeType, table.granteeId),
+  index('idx_project_shares_project').on(table.projectId),
+  index('idx_project_shares_grantee').on(table.granteeType, table.granteeId),
+]);
+
+// ============================================
+// Table 24: access_tokens — 访问令牌表 (PAT)
+// ============================================
+/**
+ * @module access_tokens
+ * @description 个人访问令牌（PAT），明文仅创建时返回一次，DB 只存 sha256 哈希。
+ * R5 Why: token_prefix 保留前 16 字符用于 UI 展示识别；expires_at=null 表示永不过期。
+ */
+export const accessTokens = pgTable('access_tokens', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  tokenHash: text('token_hash').notNull().unique(),
+  tokenPrefix: text('token_prefix').notNull(),
+  scopes: jsonb('scopes'),
+  expiresAt: timestamp('expires_at', { withTimezone: true }),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  lastUsedIp: text('last_used_ip'),
+  status: text('status').notNull().default('active'), // active | revoked | expired
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('idx_access_tokens_user').on(table.userId),
+  index('idx_access_tokens_hash').on(table.tokenHash),
+]);
+
+// ============================================
+// Table 25: permissions — 权限点表
+// ============================================
+/**
+ * @module permissions
+ * @description 系统权限点定义，key 格式为 "resource.action"。
+ * R5 Why: 权限点由代码常量定义 + seed 同步到 DB，支持 Web 界面配置角色-权限映射。
+ */
+export const permissions = pgTable('permissions', {
+  key: text('key').primaryKey(), // e.g. "project.create"
+  resource: text('resource').notNull(),
+  action: text('action').notNull(),
+  displayName: text('display_name').notNull(),
+  description: text('description'),
+  category: text('category').notNull(), // platform | team | project | entity
+});
+
+// ============================================
+// Table 26: role_permissions — 角色-权限映射表
+// ============================================
+/**
+ * @module role_permissions
+ * @description 角色与权限点的多对多映射。
+ * R5 Why: role_type+role_value 组合定位角色（如 team/owner），支持动态配置。
+ */
+export const rolePermissions = pgTable('role_permissions', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  roleType: text('role_type').notNull(), // platform | team | project
+  roleValue: text('role_value').notNull(), // super_admin | user | owner | admin | member | editor | viewer
+  permissionKey: text('permission_key').notNull().references(() => permissions.key, { onDelete: 'cascade' }),
+}, (table) => [
+  uniqueIndex('role_permissions_unique').on(table.roleType, table.roleValue, table.permissionKey),
+  index('idx_role_permissions_lookup').on(table.roleType, table.roleValue),
+]);
+
+// ============================================
+// Table 27: audit_logs — 审计日志表
+// ============================================
+/**
+ * @module audit_logs
+ * @description 不可篡改的操作审计日志，仅追加不修改。
+ * R5 Why: details JSONB 存储事件上下文（如变更前后值），支持后续审计查询。
+ */
+export const auditLogs = pgTable('audit_logs', {
+  id: text('id').primaryKey().$defaultFn(() => crypto.randomUUID()),
+  userId: text('user_id').references(() => users.id, { onDelete: 'set null' }),
+  tokenId: text('token_id').references(() => accessTokens.id, { onDelete: 'set null' }),
+  eventType: text('event_type').notNull(),
+  resource: text('resource'),
+  resourceId: text('resource_id'),
+  details: jsonb('details').default('{}'),
+  ip: text('ip'),
+  userAgent: text('user_agent'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (table) => [
+  index('idx_audit_logs_created').on(table.createdAt),
+  index('idx_audit_logs_user').on(table.userId),
+  index('idx_audit_logs_event').on(table.eventType),
 ]);

@@ -98,6 +98,7 @@ echo ""
 cleanup_port "$WEB_PORT" "Web 前端(Vite)"
 cleanup_port "$API_PORT" "API 后端(Fastify)"
 cleanup_port "$MCP_PORT" "MCP Server(Sidecar)"
+cleanup_port "$AGENT_PORT" "Agent Server(M7)"
 
 # ---- Step 3: 启动服务 ----
 echo ""
@@ -119,8 +120,15 @@ cd "$PROJECT_ROOT/packages/mcp" && pnpm dev &
 MCP_PID=$!
 cd "$PROJECT_ROOT"
 
+# 启动 Agent Server（M7 内置 Agent）
+log "正在启动 Agent Server (:${AGENT_PORT})..."
+cd "$PROJECT_ROOT/packages/agent-server" && pnpm dev &
+AGENT_PID=$!
+cd "$PROJECT_ROOT"
+
 log "dev server 已启动 (PID: $DEV_PID)"
 log "MCP Server 已启动 (PID: $MCP_PID)"
+log "Agent Server 已启动 (PID: $AGENT_PID)"
 log "等待服务就绪..."
 echo ""
 
@@ -166,13 +174,26 @@ while [ $wait_count -lt 10 ]; do
 done
 [ $wait_count -ge 10 ] && log_warn "⚠️ MCP Server 10s 内未响应（可能正常，tsx watch 冷启动较慢）"
 
+# 等待 Agent Server 端口可达
+wait_count=0
+while [ $wait_count -lt 10 ]; do
+  if curl -s -o /dev/null --max-time 2 "http://localhost:${AGENT_PORT}/health" >/dev/null 2>&1; then
+    log "✅ Agent Server 已就绪 (http://localhost:${AGENT_PORT}/)"
+    break
+  fi
+  sleep 1
+  wait_count=$((wait_count + 1))
+done
+[ $wait_count -ge 10 ] && log_warn "⚠️ Agent Server 10s 内未响应（可能正常，tsx watch 冷启动较慢）"
+
 echo ""
 log "============================================="
 log "  环境 [$ENV_NAME] 已启动"
-log "  Web: http://localhost:${WEB_PORT}/"
-log "  API: http://localhost:${API_PORT}/api/v1"
-log "  MCP: http://localhost:${MCP_PORT}/sse"
-log "  DB:  localhost:${DB_PORT}"
+log "  Web:   http://localhost:${WEB_PORT}/"
+log "  API:   http://localhost:${API_PORT}/api/v1"
+log "  MCP:   http://localhost:${MCP_PORT}/sse"
+log "  Agent: http://localhost:${AGENT_PORT}/api/agent"
+log "  DB:    localhost:${DB_PORT}"
 log "============================================="
 log ""
-log "如需停止服务:  Ctrl+C 或 kill -- -$DEV_PID; kill $MCP_PID"
+log "如需停止服务:  Ctrl+C 或 kill -- -$DEV_PID; kill $MCP_PID $AGENT_PID"

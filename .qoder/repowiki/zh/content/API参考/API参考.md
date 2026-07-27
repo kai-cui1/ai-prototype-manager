@@ -6,10 +6,18 @@
 - [packages/api/src/routes/projects.ts](file://packages/api/src/routes/projects.ts)
 - [packages/api/src/routes/organization.ts](file://packages/api/src/routes/organization.ts)
 - [packages/api/src/routes/domain.ts](file://packages/api/src/routes/domain.ts)
+- [packages/api/src/routes/business-architecture.ts](file://packages/api/src/routes/business-architecture.ts)
 - [docs/04-tech-design/openapi-contract-design.md](file://docs/04-tech-design/openapi-contract-design.md)
 - [docs/superpowers/plans/2026-05-14-openapi-contract.md](file://docs/superpowers/plans/2026-05-14-openapi-contract.md)
 - [packages/api/tests/openapi/openapi-schema.test.ts](file://packages/api/tests/openapi/openapi-schema.test.ts)
 </cite>
+
+## 更新摘要
+**变更内容**
+- 新增业务架构管理API端点，包括树形结构管理、节点操作和流程关联功能
+- OpenAPI规范已更新为包含110个总端点
+- 新增business-architecture路由模块
+- 更新了架构图以反映新的业务架构模块
 
 ## 目录
 1. [简介](#简介)
@@ -35,6 +43,8 @@
 - Rate Limiting 与配额管理现状与建议
 - API 测试工具与调试技巧
 
+**更新** 新增了业务架构管理相关的API端点，包括树形结构管理、节点操作和流程关联功能，OpenAPI规范现已包含110个总端点。
+
 ## 项目结构
 后端采用 Fastify 5 + TypeScript 架构，API 路由按模块划分，统一通过 app.ts 注册并暴露 OpenAPI 文档。
 
@@ -48,6 +58,7 @@ A --> F["模块路由注册"]
 F --> F1["项目管理<br/>/api/v1/projects"]
 F --> F2["组织管理<br/>/api/v1/projects/:projectId"]
 F --> F3["领域模型<br/>/api/v1/projects/:projectId/domain"]
+F --> F4["业务架构<br/>/api/v1/projects/:projectId/architecture"]
 A --> G["全局错误处理器"]
 A --> H["请求日志钩子"]
 ```
@@ -62,9 +73,11 @@ A --> H["请求日志钩子"]
 - 应用与插件
   - CORS、OpenAPI 生成、交互式文档、健康检查、模块路由注册、全局错误处理、请求日志钩子
 - 路由模块
-  - 项目管理（M1）、组织管理（M1 子模块）、领域模型（M2）
+  - 项目管理（M1）、组织管理（M1 子模块）、领域模型（M2）、业务架构（M4）
 - OpenAPI 契约
   - 基于 Fastify 原生 schema 自动生成 openapi.json，并通过 Scalar UI 提供交互式文档
+
+**更新** 新增了业务架构管理模块，支持树形结构管理和节点操作功能。
 
 章节来源
 - [packages/api/src/app.ts:26-178](file://packages/api/src/app.ts#L26-L178)
@@ -79,6 +92,7 @@ subgraph "后端服务"
 S["Fastify 应用<br/>app.ts"] --> P["项目管理路由<br/>/api/v1/projects"]
 S --> O["组织管理路由<br/>/api/v1/projects/:projectId"]
 S --> D["领域模型路由<br/>/api/v1/projects/:projectId/domain"]
+S --> BA["业务架构路由<br/>/api/v1/projects/:projectId/architecture"]
 S --> H["健康检查<br/>/api/v1/health"]
 S --> SW["OpenAPI 规范生成<br/>@fastify/swagger"]
 S --> DOC["交互式文档<br/>Scalar UI<br/>/docs"]
@@ -92,11 +106,12 @@ C --> J
 C --> P
 C --> O
 C --> D
+C --> BA
 C --> H
 ```
 
 图表来源
-- [packages/api/src/app.ts:136-156](file://packages/api/src/app.ts#L136-L156)
+- [packages/api/src/app.ts:136-156](file://packages/api/src/app.ts#L136-156)
 - [docs/04-tech-design/openapi-contract-design.md:156-162](file://docs/04-tech-design/openapi-contract-design.md#L156-L162)
 
 ## 详细组件分析
@@ -268,6 +283,32 @@ C --> H
 章节来源
 - [packages/api/src/routes/domain.ts:38-498](file://packages/api/src/routes/domain.ts#L38-L498)
 
+### 业务架构管理（M4）
+- 前缀：/api/v1/projects/:projectId/architecture
+- 端点清单与契约要点
+  - 架构树管理
+    - GET /tree：获取完整的业务架构树形结构
+    - POST /tree/nodes：创建新的架构节点
+    - PUT /tree/nodes/:nodeId：更新节点信息
+    - DELETE /tree/nodes/:nodeId：删除节点
+    - PATCH /tree/nodes/:nodeId/move：移动节点位置
+  - 节点操作
+    - GET /nodes/:nodeId：获取节点详情
+    - PUT /nodes/:nodeId：更新节点属性
+    - DELETE /nodes/:nodeId：删除节点
+    - GET /nodes/:nodeId/children：获取子节点列表
+  - 流程关联
+    - POST /processes/associate：将业务流程关联到架构节点
+    - DELETE /processes/:processId/disassociate：解除流程与节点的关联
+    - GET /processes/search：搜索可关联的业务流程
+    - GET /nodes/:nodeId/processes：获取节点关联的流程列表
+    - PATCH /processes/reorder：重新排序节点关联的流程
+
+**新增** 业务架构管理模块提供了完整的树形结构管理能力，支持节点的增删改查、层级移动以及业务流程的关联管理。
+
+章节来源
+- [packages/api/src/routes/business-architecture.ts](file://packages/api/src/routes/business-architecture.ts)
+
 ### OpenAPI 契约与交互式文档
 - 生成与暴露
   - 通过 @fastify/swagger 从路由 schema 自动生成 openapi.json
@@ -275,9 +316,11 @@ C --> H
   - 暴露 /openapi/json 用于机器消费
 - 规范版本与标签
   - OpenAPI 3.0.3
-  - 标签：Health、Projects、Organization、Role Behavior、External Entity Behavior、Domain
+  - 标签：Health、Projects、Organization、Role Behavior、External Entity Behavior、Domain、Business Architecture
 - 安全方案
   - 预留 bearerAuth（JWT Bearer Token），Phase 2+ 启用
+
+**更新** OpenAPI规范现已包含110个总端点，新增了Business Architecture标签。
 
 章节来源
 - [packages/api/src/app.ts:26-67](file://packages/api/src/app.ts#L26-L67)
@@ -353,6 +396,8 @@ C --> H
   - 使用 /openapi/json 生成客户端 SDK 或进行契约校验
   - 通过全局错误处理器与请求日志定位问题
 
+**更新** OpenAPI规范现已包含110个端点，测试用例需要相应更新以验证新端点的完整性。
+
 章节来源
 - [packages/api/tests/openapi/openapi-schema.test.ts:445-499](file://packages/api/tests/openapi/openapi-schema.test.ts#L445-L499)
 
@@ -372,16 +417,21 @@ APP --> SC["@scalar/fastify-api-reference"]
 APP --> MOD1["routes/projects.ts"]
 APP --> MOD2["routes/organization.ts"]
 APP --> MOD3["routes/domain.ts"]
+APP --> MOD4["routes/business-architecture.ts"]
 MOD1 --> VAL["@apm/validation-schemas"]
 MOD2 --> VAL
 MOD3 --> VAL
+MOD4 --> VAL
 ```
+
+**更新** 新增了business-architecture路由模块及其依赖关系。
 
 图表来源
 - [packages/api/src/app.ts:136-156](file://packages/api/src/app.ts#L136-L156)
 - [packages/api/src/routes/projects.ts:11-25](file://packages/api/src/routes/projects.ts#L11-L25)
 - [packages/api/src/routes/organization.ts:11-40](file://packages/api/src/routes/organization.ts#L11-L40)
 - [packages/api/src/routes/domain.ts:16-32](file://packages/api/src/routes/domain.ts#L16-L32)
+- [packages/api/src/routes/business-architecture.ts](file://packages/api/src/routes/business-architecture.ts)
 
 ## 性能考虑
 - 建议
@@ -390,6 +440,9 @@ MOD3 --> VAL
   - 优化数据库索引与查询条件
   - 使用连接池与异步处理
   - 监控请求耗时与错误率
+  - 对于树形结构查询，建议使用深度限制和懒加载策略
+
+**更新** 针对新增的业务架构树形结构管理，建议实施深度限制和懒加载策略以避免大数据量查询的性能问题。
 
 ## 故障排查指南
 - 常见问题
@@ -407,7 +460,9 @@ MOD3 --> VAL
 - [packages/api/tests/openapi/openapi-schema.test.ts:445-499](file://packages/api/tests/openapi/openapi-schema.test.ts#L445-L499)
 
 ## 结论
-APM 后端已建立完善的 OpenAPI 契约体系与交互式文档，覆盖 M1 与 M2 的主要端点。建议尽快启用认证授权与限流策略，并持续完善测试与监控，以保障 API 的稳定性与安全性。
+APM 后端已建立完善的 OpenAPI 契约体系与交互式文档，覆盖 M1、M2 和新增的 M4 业务架构模块的主要端点。OpenAPI规范现已包含110个总端点，为开发者提供了全面的API接口支持。建议尽快启用认证授权与限流策略，并持续完善测试与监控，以保障 API 的稳定性与安全性。
+
+**更新** 新增的业务架构管理模块为系统提供了完整的树形结构管理能力，进一步增强了系统的业务建模能力。
 
 ## 附录
 - 实施计划与技术设计

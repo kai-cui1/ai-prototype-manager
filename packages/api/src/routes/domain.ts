@@ -30,12 +30,15 @@ import {
   BoundaryListQuery,
   ErrorResponse,
 } from '@apm/validation-schemas';
+import { applyDefaultEntityPermissions } from '../plugins/route-permissions.js';
 
 /**
  * 注册领域模型路由（F-M2-01 ~ F-M2-04）。
  * 注意：此插件注册在 /api/v1/projects/:projectId/domain 前缀下。
  */
 export default async function domainRoutes(app: FastifyInstance) {
+  // M6-Hardening：GET → entity.read / 写 → entity.write，scope 从 :projectId 提取
+  applyDefaultEntityPermissions(app);
   // ====================================================
   // F-M2-01: 实体管理
   // ====================================================

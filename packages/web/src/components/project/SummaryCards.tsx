@@ -53,7 +53,7 @@ const APP_TYPE_ORDER = ['web', 'wxapp', 'android', 'ios', 'pc', 'api', 'service'
 /** 普通统计卡片定义：图标 + 标签 + 值提取 + 视觉色 + 目标路由 */
 const SUMMARY_ITEMS = [
   { icon: Boxes,     label: '领域模型',  key: 'domainEntityCount'   as const, bg: '#e6f4ff', color: '#1677ff', route: 'domain-model',      comingSoon: false },
-  { icon: GitBranch, label: '业务流程',  key: 'processCount'        as const, bg: '#f6ffed', color: '#52c41a', route: 'business-processes', comingSoon: true  },
+  { icon: GitBranch, label: '业务流程',  key: 'processCount'        as const, bg: '#f6ffed', color: '#52c41a', route: 'processes',          comingSoon: false },
   { icon: Building2, label: '公司/组织', key: 'companyCount'        as const, bg: '#fff7e6', color: '#fa8c16', route: 'organization',        comingSoon: false },
   { icon: Users,     label: '部门',      key: 'departmentCount'     as const, bg: '#e6f4ff', color: '#1677ff', route: 'organization',        comingSoon: false },
   { icon: Shield,    label: '角色',      key: 'roleCount'           as const, bg: '#f6ffed', color: '#52c41a', route: 'roles',               comingSoon: false },
